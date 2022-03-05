@@ -97,4 +97,11 @@ return require('packer').startup(function(use)
 
   -- See startup time for plugins
   use('dstein64/vim-startuptime')
+
+  -- Markdown preview
+  use {
+    'iamcco/markdown-preview.nvim',
+    run = 'cd app && npm install',
+    cmd = 'MarkdownPreview'
+  }
 end)
