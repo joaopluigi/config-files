@@ -1,4 +1,4 @@
-vim.g['conjure#client#clojure#nrepl#test#current_form_names'] = { 'deftest', 'defflow', 'defspec' }
+vim.g['conjure#client#clojure#nrepl#test#current_form_names'] = { 'deftest', 'defflow', 'defspec', 'facts' }
 vim.g['conjure#extract#tree_sitter#enabled'] = true
 
 -- Colorize the buffer with baleia.nvim
