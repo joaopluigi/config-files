@@ -4,7 +4,8 @@ local lsp_installer = require('nvim-lsp-installer')
 local servers = {
   'clojure_lsp',
   'omnisharp',
-  'sumneko_lua'
+  'sumneko_lua',
+  'gopls'
 }
 
 for _, name in pairs(servers) do
