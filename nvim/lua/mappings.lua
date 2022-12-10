@@ -18,7 +18,7 @@ map('n', '<LocalLeader>fh', "<cmd>lua require('telescope.builtin').help_tags()<c
 map('n', '<Leader>ca', "<cmd>lua require('config.telescope').lsp_code_actions()<cr>", opts)
 
 -- NvimTree
-map('n', '<C-m>', "<cmd>lua require('nvim-tree').toggle()<cr>", opts)
+map('n', '<Leader>m', "<cmd>lua require('nvim-tree').toggle()<cr>", opts)
 
 -- LSP
 map('n', '<Leader>e', "<cmd>lua vim.diagnostic.show_line_diagnostics({float={border='rounded'}})<CR>", opts)
@@ -40,3 +40,4 @@ map('n', '<Leader>f', "<cmd>lua vim.lsp.buf.formatting()<CR>", opts)
 
 -- REPL
 map('c', '<C-r>', '<cmd>Lein! with-profiles +repl repl :headless<cr>', opts)
+map('c', '<C-e>', '<cmd>Lein! with-profiles +repl,+catalyst-start repl :headless<cr>', opts)
