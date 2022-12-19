@@ -14,11 +14,9 @@ sumneko_lua.setup = function(opts)
         path = runtime_path,
       },
       diagnostics = {
-        diagnostics = {
-          enable = true,
-          -- Get the language server to recognize the globals
-          globals = { 'vim', 'describe', 'it', 'before_each', 'after_each' },
-        },
+        enable = true,
+        -- Get the language server to recognize the globals
+        globals = { 'vim', 'describe', 'it', 'before_each', 'after_each' },
       },
       workspace = {
         -- Make the server aware of Neovim runtime files
