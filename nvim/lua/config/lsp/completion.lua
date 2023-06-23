@@ -25,7 +25,7 @@ cmp.setup({
     ['<C-d>'] = cmp.mapping.scroll_docs(-4),
     ['<C-f>'] = cmp.mapping.scroll_docs(4),
     ['<C-e>'] = cmp.mapping.close(),
-    ['<Tab>'] = cmp.mapping(function(fallback)
+    ['<C-Down>'] = cmp.mapping(function(fallback)
       if cmp.visible() then
         cmp.select_next_item()
       elseif vim.fn['vsnip#available'](1) == 1 then

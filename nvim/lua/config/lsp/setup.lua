@@ -1,7 +1,7 @@
 local servers = {
   'clojure_lsp',
-  'sumneko_lua',
-  'gopls'
+  'gopls',
+  'lua_ls'
 }
 
 require('mason').setup({
