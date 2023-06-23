@@ -161,6 +161,9 @@ return require('packer').startup({ function(use)
     ft = { 'markdown' },
   })
 
+  -- GitHub co-pilot
+  use('github/copilot.vim')
+
   -- Automatically set up your configuration after cloning packer.nvim
   -- Put this at the end after all plugins
   if packer_bootstrap then
