@@ -24,5 +24,5 @@ map('n', '<LocalLeader>fn', "<cmd>lua require('telescope').extensions.notify.not
 map('n', '<Leader>m', "<cmd>lua require('nvim-tree').toggle()<cr>", opts)
 
 -- REPL
-map('c', '<C-r>', '<cmd>Lein! with-profiles +repl repl :headless<cr>', opts)
+map('c', '<C-r>', '<cmd>Lein! with-profiles +dev repl :headless<cr>', opts)
 map('c', '<C-e>', '<cmd>Lein! with-profiles +repl,+catalyst-start repl :headless<cr>', opts)
