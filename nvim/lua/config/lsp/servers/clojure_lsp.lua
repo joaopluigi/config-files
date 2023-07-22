@@ -11,15 +11,12 @@ au({ "BufNewFile", "BufRead" }, {
   group = disable_conjure_log_clojure_lsp_group,
 })
 
-clojure_lsp.setup = function() end
+clojure_lsp.setup = function()
+  -- local clojure_lsp_bin = "/Users/joao.luigi/dev/clojure-lsp/clojure-lsp"
 
--- clojure_lsp.setup = function(opts)
---   local clojure_lsp_bin = "/Users/joao.luigi/dev/clojure-lsp/clojure-lsp"
-
---   opts.cmd = {
---     clojure_lsp_bin
---   }
--- end
---
+  -- opts.cmd = {
+  --   clojure_lsp_bin
+  -- }
+end
 
 return clojure_lsp

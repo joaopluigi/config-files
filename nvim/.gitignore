@@ -1,3 +1,4 @@
 plugin/
 .clk-kondo/
 .lsp/
+.luarc.json
