@@ -25,4 +25,4 @@ map('n', '<Leader>m', "<cmd>NvimTreeToggle<cr>", opts)
 
 -- REPL
 map('c', '<C-r>', '<cmd>Lein! with-profiles +dev repl :headless<cr>', opts)
-map('c', '<C-e>', '<cmd>Lein! with-profiles +repl,+catalyst-start repl :headless<cr>', opts)
+map('c', '<C-e>', '<cmd>Lein! with-profiles +flutter,+catalyst-start repl :headless<cr>', opts)
