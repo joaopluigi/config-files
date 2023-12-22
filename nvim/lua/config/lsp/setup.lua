@@ -2,9 +2,16 @@ local servers = {
   'clojure_lsp',
   'gopls',
   'lua_ls',
-  'omnisharp'
-  -- 'vimls'
+  'omnisharp',
+  'dartls'
 }
+
+local ensured_installed_servers = {}
+for i = 1, #servers do
+    if servers[i] ~= 'dartls' then
+      ensured_installed_servers[i] = servers[i]
+    end
+end
 
 require('mason').setup({
   ui = {
@@ -18,7 +25,7 @@ require('mason').setup({
 })
 
 require('mason-lspconfig').setup({
-  ensure_installed = servers,
+  ensure_installed = ensured_installed_servers,
   automatic_installation = true,
 })
 
