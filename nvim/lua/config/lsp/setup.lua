@@ -2,8 +2,8 @@ local servers = {
   'clojure_lsp',
   'gopls',
   'lua_ls',
-  'omnisharp',
-  'vimls'
+  'omnisharp'
+  -- 'vimls'
 }
 
 require('mason').setup({
