@@ -21,7 +21,7 @@ map('n', '<LocalLeader>fn', "<cmd>lua require('telescope').extensions.notify.not
 -- see lua/config/lsp/options.lua
 
 -- NvimTree
-map('n', '<Leader>m', "<cmd>lua require('nvim-tree').toggle()<cr>", opts)
+map('n', '<Leader>m', "<cmd>NvimTreeToggle<cr>", opts)
 
 -- REPL
 map('c', '<C-r>', '<cmd>Lein! with-profiles +dev repl :headless<cr>', opts)
