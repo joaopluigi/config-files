@@ -6,7 +6,7 @@ local disable_conjure_log_clojure_lsp_group = ag("DisableConjureLogClojureLsp", 
 au({ "BufNewFile", "BufRead" }, {
   pattern = 'conjure-log-*',
   callback = function()
-    vim.diagnostic.disable(0)
+    vim.diagnostic.enable(false)
   end,
   group = disable_conjure_log_clojure_lsp_group,
 })

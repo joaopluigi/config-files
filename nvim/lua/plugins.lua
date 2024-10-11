@@ -89,8 +89,15 @@ return require('packer').startup({
       'tpope/vim-sexp-mappings-for-regular-people', -- more acessible sexp mappings
       'tpope/vim-surround',                         -- surround parentheses
       'tpope/vim-repeat',                           -- remaps . in a way that plugins can tap into it
-      'tpope/vim-commentary',                       -- use gcc to comment out a line
       'mg979/vim-visual-multi',                     -- select multi lines
+    })
+
+    -- use gcc to comment out a line
+    use({
+      'tpope/vim-commentary',
+      config = function()
+        require('config.commentary')
+      end,
     })
 
     --  Neovim job control
@@ -166,6 +173,17 @@ return require('packer').startup({
 
     -- GitHub co-pilot
     use('github/copilot.vim')
+
+    use({
+      'akinsho/flutter-tools.nvim',
+      requires = {
+        'nvim-lua/plenary.nvim',
+        'stevearc/dressing.nvim', -- optional for vim.ui.select
+      },
+      config = function()
+        require('config.flutter_tools')
+      end,
+    })
 
     -- Automatically set up your configuration after cloning packer.nvim
     -- Put this at the end after all plugins
