@@ -24,5 +24,10 @@ map('n', '<LocalLeader>fn', "<cmd>lua require('telescope').extensions.notify.not
 map('n', '<Leader>m', "<cmd>NvimTreeToggle<cr>", opts)
 
 -- REPL
-map('c', '<C-r>', '<cmd>Lein! with-profiles +dev repl :headless<cr>', opts)
 map('c', '<C-e>', '<cmd>Lein! with-profiles +flutter,+catalyst-start repl :headless<cr>', opts)
+map('c', '<C-r>', '<cmd>Lein! with-profiles +dev repl :headless<cr>', opts)
+map('c', '<C-t>', '<cmd>Clj! -Sdeps \'{:deps {cljdev/cljdev {:mvn/version,"0.11.0"},nrepl/nrepl {:mvn/version,"1.1.1"},cider/cider-nrepl {:mvn/version,"0.30.0"}} :plugins [[cider/cider-nrepl "0.30.0"],[refactor-nrepl "2.5.0-SNAPSHOT"]]}\' -e "(require,\'nu)" -m nrepl.cmdline --middleware "[cider.nrepl/cider-middleware]"<cr>', opts)
+
+-- Theme
+map('n', '<Leader>tl', "<cmd>set background=light<cr>", opts)
+map('n', '<Leader>td', "<cmd>set background=dark<cr>", opts)
