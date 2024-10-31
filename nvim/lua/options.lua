@@ -1,6 +1,7 @@
 vim.g.syntax_on = true               -- enable syntax highlight
 vim.g.t_Co = 256                     -- for nvim-tree colors be applied properly
 
+vim.opt.background = 'light'         -- defaults to light theme 
 vim.opt.backup = false               -- dont keep backup files
 vim.opt.clipboard = 'unnamedplus'    -- copy and paste with OS clipboard
 vim.opt.cmdheight = 1                -- less space do display messages

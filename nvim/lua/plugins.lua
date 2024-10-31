@@ -25,8 +25,16 @@ return require('packer').startup({
     -- Packer can manage itself
     use('wbthomason/packer.nvim')
 
-    -- Atom's iconic One Dark theme for Neovim
+    -- OneDark Theme
     use('navarasu/onedark.nvim')
+
+    -- Gruvbox Theme
+    use({
+      'morhetz/gruvbox',
+      config = function()
+        require('config.gruvbox')
+      end
+    })
 
     -- Notifications component
     use({
