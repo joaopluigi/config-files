@@ -81,7 +81,8 @@ return require('packer').startup({
     -- Syntax highlighting
     use({
       'nvim-treesitter/nvim-treesitter',
-      requires = { { 'p00f/nvim-ts-rainbow', 'nvim-treesitter/playground' } },
+      branch = 'master',
+      requires = { { 'HiPhish/rainbow-delimiters.nvim', 'nvim-treesitter/playground' } },
       run = function()
         local ts_update = require('nvim-treesitter.install').update({ with_sync = true })
         ts_update()
@@ -161,6 +162,7 @@ return require('packer').startup({
     -- Clojure REPL
     use({
       'Olical/conjure',
+      branch = 'main',
       requires = { 'm00qek/baleia.nvim' },
       config = function()
         require('config.conjure')

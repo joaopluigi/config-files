@@ -27,6 +27,7 @@ require('mason').setup({
 require('mason-lspconfig').setup({
   ensure_installed = ensured_installed_servers,
   automatic_installation = true,
+  automatic_enable = false,
 })
 
 for _, server in ipairs(servers) do
