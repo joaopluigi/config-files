@@ -1,10 +1,18 @@
 {
-  "defaultModel": "work/gpt-5",
+  "defaultModel": "personal/gpt-4",
   "providers": {
-    "work": {
-      "api":"openai",
-      "urlEnv":"OPENAI_API_URL",
-      "urlKey":"OPENAI_API_KEY",
+    "personal": {
+      "api": "openai",
+      "urlEnv": "OPENAI_API_URL",
+      "keyEnv": "OPENAI_API_KEY",
+      "models": {
+        "gpt-4": {}
+      }
+    },
+    "professional": {
+      "api": "openai",
+      "urlEnv": "OPENAI_API_URL",
+      "keyEnv": "OPENAI_API_KEY",
       "models": {
         "gpt-5": {}
       }
