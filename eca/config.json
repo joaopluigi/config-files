@@ -1,0 +1,22 @@
+{
+  "defaultModel": "work/gpt-5",
+  "providers": {
+    "work": {
+      "api":"openai",
+      "urlEnv":"OPENAI_API_URL",
+      "urlKey":"OPENAI_API_KEY",
+      "models": {
+        "gpt-5": {}
+      }
+    }
+  },
+  "mcpServers": {
+    "clojure-mcp": {
+      "command": "/opt/homebrew/bin/bash",
+      "args": [
+       "-c",
+       "clojure -X:mcp :port 7888"
+      ]
+    }
+  }
+}
