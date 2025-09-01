@@ -33,3 +33,11 @@ map('c', '<C-y>', '<cmd>Clj! -Sdeps \'{:deps {nrepl/nrepl {:mvn/version,"1.1.1"}
 -- Theme
 map('n', '<Leader>tl', "<cmd>set background=light<cr>", opts)
 map('n', '<Leader>td', "<cmd>set background=dark<cr>", opts)
+
+-- ECA
+map('n', '<Leader>eca', '<cmd>EcaToggle<cr>', opts)
+map('n', '<Leader>esf', '<cmd>EcaFocus<cr>', opts)
+map('n', '<Leader>eaf', '<cmd>EcaAddFile<cr>', opts)
+map('n', '<Leader>erc', '<cmd>EcaRemoveContext %<cr>', opts)
+map('n', '<Leader>ear', '<cmd>EcaAddRepoMap<cr>', opts)
+map('n', '<Leader>ecc', '<cmd>EcaClearContexts<cr>', opts)
