@@ -25,6 +25,26 @@ return require('packer').startup({
     -- Packer can manage itself
     use('wbthomason/packer.nvim')
 
+    use {
+      -- "/Users/joao.luigi/dev/eca-nvim", -- Local development
+      "editor-code-assistant/eca-nvim",
+      requires = {
+        -- Required for enhanced UI components
+        "MunifTanjim/nui.nvim",
+        -- Autocompletion
+        -- "saghen/blink.cmp",
+        -- "rafamadriz/friendly-snippets",
+      },
+      config = function()
+        require("eca").setup({
+          debug = true,
+          behaviour = {
+            auto_focus_sidebar = true,
+          },
+        })
+      end
+    }
+
     -- OneDark Theme
     use('navarasu/onedark.nvim')
 
@@ -141,14 +161,20 @@ return require('packer').startup({
         { 'neovim/nvim-lspconfig' },
         { 'williamboman/mason-lspconfig.nvim' },
         -- Autocompletion
-        { 'hrsh7th/nvim-cmp' },
-        { 'hrsh7th/cmp-buffer' },
-        { 'hrsh7th/cmp-path' },
+        { 'hrsh7th/cmp-nvim-lsp'},
+        { 'hrsh7th/cmp-buffer'},
+        { 'hrsh7th/cmp-path'},
+        { 'hrsh7th/cmp-cmdline'},
+        { 'hrsh7th/nvim-cmp'},
+
+        -- Other Utils
         { 'f3fora/cmp-spell' },
+        { 'hrsh7th/cmp-nvim-lua' },
+
+        -- For vsnip users
         { 'hrsh7th/cmp-vsnip' },
         { 'hrsh7th/vim-vsnip' },
-        { 'hrsh7th/cmp-nvim-lsp' },
-        { 'hrsh7th/cmp-nvim-lua' },
+
         -- Snippets
         { 'rafamadriz/friendly-snippets' },
         -- vscode-like pictograms
@@ -176,9 +202,9 @@ return require('packer').startup({
         vim.fn["mkdp#util#install"]()
       end,
       setup = function()
-        vim.g.mkdp_filetypes = { 'markdown' }
+        vim.g.mkdp_filetypes = { 'markdown', 'conf' }
       end,
-      ft = { 'markdown' },
+      ft = { 'markdown', 'conf' },
     })
 
     -- GitHub co-pilot

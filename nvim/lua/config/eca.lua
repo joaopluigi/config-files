@@ -1,0 +1,1 @@
+require('eca-nvim').setup({})
