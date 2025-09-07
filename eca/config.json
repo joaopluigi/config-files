@@ -1,5 +1,5 @@
 {
-  "defaultModel": "personal/gpt-4",
+  "defaultModel": "professional/gpt-5",
   "providers": {
     "personal": {
       "api": "openai",
@@ -18,13 +18,12 @@
       }
     }
   },
-  "mcpServers": {
-    "clojure-mcp": {
-      "command": "/opt/homebrew/bin/bash",
-      "args": [
-       "-c",
-       "clojure -X:mcp :port 7888"
-      ]
-    }
+  "toolCall": {
+     "approval": {
+       "byDefault": "allow",
+       "allow": {
+         "eca_shell_command": {"argsMatchers": {"command": [".*rm.*", ".*mv.*"]}}
+       }
+     }
   }
 }
