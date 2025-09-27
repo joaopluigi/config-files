@@ -25,23 +25,23 @@ return require('packer').startup({
     -- Packer can manage itself
     use('wbthomason/packer.nvim')
 
+    -- Snacks
+    use({
+      'folke/snacks.nvim',
+      config = function()
+        require('snacks').setup({ picker = { enabled = true } })
+      end
+    })
+
     use {
       -- "/Users/joao.luigi/dev/eca-nvim", -- Local development
       "editor-code-assistant/eca-nvim",
       requires = {
         -- Required for enhanced UI components
         "MunifTanjim/nui.nvim",
-        -- Autocompletion
-        -- "saghen/blink.cmp",
-        -- "rafamadriz/friendly-snippets",
       },
       config = function()
-        require("eca").setup({
-          debug = true,
-          behaviour = {
-            auto_focus_sidebar = true,
-          },
-        })
+        require('config.eca')
       end
     }
 

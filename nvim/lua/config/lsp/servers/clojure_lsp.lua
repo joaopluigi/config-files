@@ -6,7 +6,7 @@ local disable_conjure_log_clojure_lsp_group = ag("DisableConjureLogClojureLsp", 
 clojure_lsp.setup = function(opts)
   local clojure_lsp_bin = "/opt/homebrew/bin/clojure-lsp"
 
-  local util = require('lspconfig.util')
+  local util = vim.lsp.util
   local capabilities = vim.lsp.protocol.make_client_capabilities()
   capabilities = vim.tbl_deep_extend('force', capabilities, require('cmp_nvim_lsp').default_capabilities())
 
@@ -15,8 +15,8 @@ clojure_lsp.setup = function(opts)
   }
 
  capabilities = capabilities
- root_dir = function(pattern)
-   local fallback = vim.loop.cwd()
+ opts.root_dir = function(pattern)
+   local fallback = vim.uv.cwd()
    local patterns = { 'project.clj', 'deps.edn', 'build.boot', 'shadow-cljs.edn', '.git', 'bb.edn' }
    local root = util.root_pattern(patterns)(pattern)
  end

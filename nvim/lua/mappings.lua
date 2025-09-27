@@ -26,18 +26,17 @@ map('n', '<Leader>m', "<cmd>NvimTreeToggle<cr>", opts)
 
 -- REPL
 map('c', '<C-e>', '<cmd>Lein! with-profiles +flutter,+catalyst-start repl :headless<cr>', opts)
-map('c', '<C-r>', '<cmd>Lein! with-profiles +dev repl :headless<cr>', opts)
-map('c', '<C-t>', '<cmd>Clj! -Sdeps \'{:deps {cljdev/cljdev {:mvn/version,"0.11.9"},nrepl/nrepl {:mvn/version,"1.1.1"},cider/cider-nrepl {:mvn/version,"0.30.0"}} :plugins [[cider/cider-nrepl "0.30.0"],[refactor-nrepl "2.5.0-SNAPSHOT"]]}\' -e "(require,\'nu)" -m nrepl.cmdline --middleware "[cider.nrepl/cider-middleware]"<cr>', opts)
-map('c', '<C-y>', '<cmd>Clj! -Sdeps \'{:deps {nrepl/nrepl {:mvn/version,"1.1.1"},cider/cider-nrepl {:mvn/version,"0.30.0"}} :plugins [[cider/cider-nrepl "0.30.0"],[refactor-nrepl "2.5.0-SNAPSHOT"]]}\' -m nrepl.cmdline --middleware "[cider.nrepl/cider-middleware]"<cr>', opts)
+map('c', '<C-r>', '<cmd>Lein! with-profiles +dev,+nvim,+sachem repl :headless<cr>', opts)
+map('c', '<C-t>', '<cmd>Clj! -Sdeps \'{:deps {cljdev/cljdev {:mvn/version,"0.16.0"},nrepl/nrepl {:mvn/version,"1.1.1"},cider/cider-nrepl {:mvn/version,"0.57.0"}} :plugins [[cider/cider-nrepl "0.57.0"],[refactor-nrepl "3.11.0"]]}\' -e "(require,\'nu)" -m nrepl.cmdline --middleware "[cider.nrepl/cider-middleware]"<cr>', opts)
+map('c', '<C-y>', '<cmd>Clj! -Sdeps \'{:deps {nrepl/nrepl {:mvn/version,"1.1.1"},cider/cider-nrepl {:mvn/version,"0.57.0"}} :plugins [[cider/cider-nrepl "0.57.0"],[refactor-nrepl "3.11.0"]]}\' -m nrepl.cmdline --middleware "[cider.nrepl/cider-middleware]"<cr>', opts)
 
 -- Theme
 map('n', '<Leader>tl', "<cmd>set background=light<cr>", opts)
 map('n', '<Leader>td', "<cmd>set background=dark<cr>", opts)
 
 -- ECA
-map('n', '<Leader>eca', '<cmd>EcaToggle<cr>', opts)
-map('n', '<Leader>esf', '<cmd>EcaFocus<cr>', opts)
 map('n', '<Leader>eaf', '<cmd>EcaAddFile<cr>', opts)
 map('n', '<Leader>erc', '<cmd>EcaRemoveContext %<cr>', opts)
 map('n', '<Leader>ear', '<cmd>EcaAddRepoMap<cr>', opts)
 map('n', '<Leader>ecc', '<cmd>EcaClearContexts<cr>', opts)
+map('n', '<Leader>esm', '<cmd>EcaServerMessages<cr>', opts)
