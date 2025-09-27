@@ -29,12 +29,13 @@ return require('packer').startup({
     use({
       'folke/snacks.nvim',
       config = function()
-        require('snacks').setup({ picker = { enabled = true } })
+        require('config.snacks')
       end
     })
 
     use {
       -- "/Users/joao.luigi/dev/eca-nvim", -- Local development
+      -- "/home/dedebian/development/eca-nvim", -- Local development
       "editor-code-assistant/eca-nvim",
       requires = {
         -- Required for enhanced UI components
@@ -98,11 +99,16 @@ return require('packer').startup({
       end,
     })
 
-    -- Syntax highlighting
+    -- -- Syntax highlighting
+    use({
+      'perrin4869/rainbow-delimiters.nvim',
+      branch = 'fix/standard-submodules',
+    })
+
     use({
       'nvim-treesitter/nvim-treesitter',
       branch = 'master',
-      requires = { { 'HiPhish/rainbow-delimiters.nvim', 'nvim-treesitter/playground' } },
+      requires = { { 'nvim-treesitter/playground' } },
       run = function()
         local ts_update = require('nvim-treesitter.install').update({ with_sync = true })
         ts_update()
