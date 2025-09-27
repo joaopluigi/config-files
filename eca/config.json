@@ -1,16 +1,8 @@
 {
-  "defaultModel": "professional/gpt-5",
+  "defaultModel": "litellm/gpt-5",
   "providers": {
-    "personal": {
-      "api": "openai",
-      "urlEnv": "OPENAI_API_URL",
-      "keyEnv": "OPENAI_API_KEY",
-      "models": {
-        "gpt-4": {}
-      }
-    },
-    "professional": {
-      "api": "openai",
+    "litellm": {
+      "api": "openai-responses",
       "urlEnv": "OPENAI_API_URL",
       "keyEnv": "OPENAI_API_KEY",
       "models": {
@@ -25,5 +17,14 @@
          "eca_shell_command": {"argsMatchers": {"command": [".*rm.*", ".*mv.*"]}}
        }
      }
+  },
+  "mcpServers": {
+    "clojure-mcp": {
+      "command": "/opt/homebrew/bin/bash",
+      "args": [
+        "-c",
+        "clojure -X:mcp :port 7888"
+      ]
+    }
   }
 }
