@@ -1,6 +1,6 @@
 vim.g['conjure#client#clojure#nrepl#test#current_form_names'] = { 'deftest', 'defflow', 'defflow-i18n', 'defspec', 'facts' }
 vim.g['conjure#extract#tree_sitter#enabled'] = true
-vim.g['conjure#client#clojure#nrepl#connection#auto_repl#enabled'] = true
+vim.g['conjure#client#clojure#nrepl#connection#auto_repl#enabled'] = false
 vim.g['conjure#client#clojure#nrepl#connection#auto_repl#cmd'] = "lein with-profiles +dev repl :headless"
 
 -- Colorize the buffer with baleia.nvim

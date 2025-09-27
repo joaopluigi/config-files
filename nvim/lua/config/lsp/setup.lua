@@ -27,7 +27,7 @@ require('mason').setup({
 require('mason-lspconfig').setup({
   ensure_installed = ensured_installed_servers,
   automatic_installation = true,
-  automatic_enable = false,
+  automatic_enable = true,
 })
 
 for _, server in ipairs(servers) do
@@ -49,7 +49,7 @@ for _, server in ipairs(servers) do
     new_opts[k] = v
   end
 
-  require('lspconfig')[server].setup(new_opts)
+  vim.lsp.config(server, new_opts)
 end
 
 require('config.lsp.diagnostic')
