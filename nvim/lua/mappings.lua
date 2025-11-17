@@ -25,8 +25,9 @@ map('n', '<LocalLeader>fn', "<cmd>lua require('telescope').extensions.notify.not
 map('n', '<Leader>m', "<cmd>NvimTreeToggle<cr>", opts)
 
 -- REPL
+map('c', '<C-q>', '<cmd>Start! lein with-profiles +dev,+flutter repl :headless :port 7888<cr>', opts)
 map('c', '<C-e>', '<cmd>Lein! with-profiles +flutter,+catalyst-start repl :headless<cr>', opts)
-map('c', '<C-r>', '<cmd>Lein! with-profiles +dev,+nvim,+sachem repl :headless<cr>', opts)
+map('c', '<C-r>', '<cmd>Lein! with-profiles +dev,+nvim repl :headless <cr>', opts)
 map('c', '<C-t>', '<cmd>Clj! -Sdeps \'{:deps {cljdev/cljdev {:mvn/version,"0.16.0"},nrepl/nrepl {:mvn/version,"1.1.1"},cider/cider-nrepl {:mvn/version,"0.57.0"}} :plugins [[cider/cider-nrepl "0.57.0"],[refactor-nrepl "3.11.0"]]}\' -e "(require,\'nu)" -m nrepl.cmdline --middleware "[cider.nrepl/cider-middleware]"<cr>', opts)
 map('c', '<C-y>', '<cmd>Clj! -Sdeps \'{:deps {nrepl/nrepl {:mvn/version,"1.1.1"},cider/cider-nrepl {:mvn/version,"0.57.0"}} :plugins [[cider/cider-nrepl "0.57.0"],[refactor-nrepl "3.11.0"]]}\' -m nrepl.cmdline --middleware "[cider.nrepl/cider-middleware]"<cr>', opts)
 
