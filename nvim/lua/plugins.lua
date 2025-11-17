@@ -34,9 +34,9 @@ return require('packer').startup({
     })
 
     use {
-      "/Users/joao.luigi/dev/eca-nvim", -- Local development
+      -- "/Users/joao.luigi/dev/eca-nvim", -- Local development
       -- "/home/dedebian/development/eca-nvim", -- Local development
-      -- "editor-code-assistant/eca-nvim",
+      "editor-code-assistant/eca-nvim",
       requires = {
         -- Required for enhanced UI components
         "MunifTanjim/nui.nvim",
