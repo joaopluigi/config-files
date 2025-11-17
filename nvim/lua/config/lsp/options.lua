@@ -38,7 +38,7 @@ return {
 
     vim.cmd('setlocal omnifunc=v:lua.vim.lsp.omnifunc')
 
-    vim.notify('LSP Attached.')
+    vim.notify('LSP Attached', vim.log.levels.DEBUG, { title = 'LSP' })
   end,
   capabilities = require('cmp_nvim_lsp').default_capabilities(),
 }

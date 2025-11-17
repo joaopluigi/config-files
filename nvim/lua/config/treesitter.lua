@@ -4,7 +4,7 @@ require('nvim-treesitter.configs').setup({
   auto_install = true,
 
   -- One of "all", "maintained" (parsers with maintainers), or a list of languages
-  ensure_installed = { 'clojure', 'dart', 'go', 'json', 'lua', 'markdown', 'vim', 'regex' },
+  ensure_installed = { 'c', 'clojure', 'dart', 'go', 'json', 'lua', 'markdown', 'markdown_inline', 'vim', 'vimdoc', 'query', 'regex' },
 
   -- Install languages synchronously (only applied to `ensure_installed`)
   sync_install = false,
