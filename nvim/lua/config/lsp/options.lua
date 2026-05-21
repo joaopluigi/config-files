@@ -1,4 +1,5 @@
 return {
+  capabilities = require('cmp_nvim_lsp').default_capabilities(),
   -- Use an on_attach function to only map the following keys
   -- after the language server attaches to the current buffer
   on_attach = function(_, bufnr)
@@ -34,11 +35,7 @@ return {
     buf_set_keymap('n', ']d', "<cmd>lua vim.diagnostic.goto_next({float={border='rounded'}})<CR>", opts)
     buf_set_keymap('n', '<leader>q', function() vim.diagnostic.set_loclist() end, opts)
     buf_set_keymap('n', '<leader>ff', function() vim.lsp.buf.format() end, opts)
-    -- stylua: ignore end
 
     vim.cmd('setlocal omnifunc=v:lua.vim.lsp.omnifunc')
-
-    vim.notify('LSP Attached', vim.log.levels.DEBUG, { title = 'LSP' })
   end,
-  capabilities = require('cmp_nvim_lsp').default_capabilities(),
 }
