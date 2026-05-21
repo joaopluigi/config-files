@@ -3,7 +3,8 @@ local servers = {
   'gopls',
   'lua_ls',
   'omnisharp',
-  'dartls'
+  'dartls',
+  'fennel_ls'
 }
 
 local ensured_installed_servers = {}
@@ -32,24 +33,14 @@ require('mason-lspconfig').setup({
 
 for _, server in ipairs(servers) do
   local default_opts = require('config.lsp.options')
-  local server_opts = {}
+  local opts = vim.deepcopy(default_opts)
 
   -- Enhance the default opts with the server-specific ones
   pcall(function()
-    require('config.lsp.servers.' .. server).setup(server_opts)
+    require('config.lsp.servers.' .. server).setup(opts)
   end)
 
-  local new_opts = {}
-
-  for k, v in pairs(default_opts) do
-    new_opts[k] = v
-  end
-
-  for k, v in pairs(server_opts) do
-    new_opts[k] = v
-  end
-
-  vim.lsp.config(server, new_opts)
+  vim.lsp.config(server, opts)
 end
 
 require('config.lsp.diagnostic')

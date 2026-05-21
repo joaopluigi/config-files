@@ -34,12 +34,9 @@ return require('packer').startup({
     })
 
     use {
-      -- "/Users/joao.luigi/dev/eca-nvim", -- Local development
-      -- "/home/dedebian/development/eca-nvim", -- Local development
-      "editor-code-assistant/eca-nvim",
+      "/Users/joao.luigi/dev/eca-nvim", -- Local development
       requires = {
-        -- Required for enhanced UI components
-        "MunifTanjim/nui.nvim",
+        "Olical/nfnl", -- Library to develope NeoVim plugins using Fennel
       },
       config = function()
         require('config.eca')
@@ -101,18 +98,13 @@ return require('packer').startup({
 
     -- -- Syntax highlighting
     use({
-      'perrin4869/rainbow-delimiters.nvim',
-      branch = 'fix/standard-submodules',
+      'hiphish/rainbow-delimiters.nvim'
     })
 
     use({
       'nvim-treesitter/nvim-treesitter',
-      branch = 'master',
-      requires = { { 'nvim-treesitter/playground' } },
-      run = function()
-        local ts_update = require('nvim-treesitter.install').update({ with_sync = true })
-        ts_update()
-      end,
+      lazy = false,
+      build = ':TSUpdate',
       config = function()
         require('config.treesitter')
       end,
@@ -124,7 +116,6 @@ return require('packer').startup({
       'tpope/vim-sexp-mappings-for-regular-people', -- more acessible sexp mappings
       'tpope/vim-surround',                         -- surround parentheses
       'tpope/vim-repeat',                           -- remaps . in a way that plugins can tap into it
-      'mg979/vim-visual-multi',                     -- select multi lines
     })
 
     -- use gcc to comment out a line
@@ -200,21 +191,6 @@ return require('packer').startup({
         require('config.conjure')
       end,
     })
-
-    -- Markdown previewer
-    use({
-      'iamcco/markdown-preview.nvim',
-      run = function()
-        vim.fn["mkdp#util#install"]()
-      end,
-      setup = function()
-        vim.g.mkdp_filetypes = { 'markdown', 'conf' }
-      end,
-      ft = { 'markdown', 'conf' },
-    })
-
-    -- GitHub co-pilot
-    use('github/copilot.vim')
 
     use({
       'akinsho/flutter-tools.nvim',
