@@ -1,4 +1,4 @@
 /.clj-kondo/*
-/eca/commands/*
+./eca/commands/*
+./eca/skills/*
 /.lsp/*
-/eca/config.json
