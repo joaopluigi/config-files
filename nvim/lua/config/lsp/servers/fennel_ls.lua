@@ -5,7 +5,8 @@ fennel_ls.setup = function(opts)
 
   opts.on_attach = function(client, bufnr)
     on_attach(client, bufnr)
-    vim.keymap.set('n', '<leader>ff', '<cmd>%!fnlfmt -<cr>', {buffer = bufnr, noremap = false, silent = true})
+    vim.keymap.set('n', '<leader>ff', '<cmd>update | silent !fnlfmt --fix % | edit<cr>',
+      {buffer = bufnr, silent = true, desc = 'Format Fennel buffer with fnlfmt'})
   end
 end
 
