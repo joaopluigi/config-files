@@ -1,4 +1,4 @@
 /.clj-kondo/*
-./eca/commands/*
-./eca/skills/*
+./eca/commands/
+./eca/skills/
 /.lsp/*
