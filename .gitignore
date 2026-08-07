@@ -1,4 +1,5 @@
 /.clj-kondo/*
-/eca/commands/
-/eca/skills/
+/llm/skills/*
+!/llm/skills/task-execution
+!/llm/skills/git-commit
 /.lsp/*
