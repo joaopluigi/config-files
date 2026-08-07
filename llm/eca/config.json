@@ -79,9 +79,5 @@
     "atlassian": {
       "url": "https://mcp.atlassian.com/v1/mcp/authv2"
     }
-  },
-  "otlp": {
-    "otel.exporter.otlp.metrics.protocol": "http/protobuf",
-    "otel.exporter.otlp.metrics.endpoint": "https://prod-global-workstation-proxy.ist.nubank.world/api/telemetry/metrics"
   }
 }
