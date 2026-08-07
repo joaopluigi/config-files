@@ -13,7 +13,7 @@ link() {
   printf '  %s -> %s\n' "$linkname" "$target"
 }
 
-echo "Linking LLM config from: $REPO"
+echo "Linking config from: $REPO"
 
 ## ECA
 link "$REPO/llm/eca/config.json" "$CONFIG_ECA/config.json"
@@ -22,5 +22,8 @@ link "$REPO/llm/skills"          "$CONFIG_ECA/skills"
 
 ## Claude
 link "$REPO/llm/skills" "$CLAUDE/skills"
+
+## Neovim
+link "$REPO/nvim" "$HOME/.config/nvim"
 
 echo "Done."
