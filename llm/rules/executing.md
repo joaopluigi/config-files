@@ -2,10 +2,10 @@
 
 How to carry out a multi-step task.
 
-## 1. Plan and track with a to-do list
+## 1. Plan and track with a `to_do.txt`
 
-Before starting the work, create a to-do list that lays out every step of the
-task, so nothing is missed and progress stays visible.
+Before starting the work, create a `to_do.txt` file that lays out every step of
+the task, so nothing is missed and progress stays visible.
 
 ## 2. Work through it sequentially
 
