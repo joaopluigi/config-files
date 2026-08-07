@@ -3,3 +3,4 @@
 !/llm/skills/task-execution
 !/llm/skills/git-commit
 /.lsp/*
+.DS_Store
