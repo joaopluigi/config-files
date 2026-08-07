@@ -36,7 +36,7 @@ return require('packer').startup({
     use {
       "/Users/joao.luigi/dev/eca-nvim", -- Local development
       requires = {
-        "Olical/nfnl", -- Library to develope NeoVim plugins using Fennel
+        "Olical/nfnl",                  -- Library to develope NeoVim plugins using Fennel
       },
       config = function()
         require('config.eca')
@@ -158,11 +158,11 @@ return require('packer').startup({
         { 'neovim/nvim-lspconfig' },
         { 'williamboman/mason-lspconfig.nvim' },
         -- Autocompletion
-        { 'hrsh7th/cmp-nvim-lsp'},
-        { 'hrsh7th/cmp-buffer'},
-        { 'hrsh7th/cmp-path'},
-        { 'hrsh7th/cmp-cmdline'},
-        { 'hrsh7th/nvim-cmp'},
+        { 'hrsh7th/cmp-nvim-lsp' },
+        { 'hrsh7th/cmp-buffer' },
+        { 'hrsh7th/cmp-path' },
+        { 'hrsh7th/cmp-cmdline' },
+        { 'hrsh7th/nvim-cmp' },
 
         -- Other Utils
         { 'f3fora/cmp-spell' },
@@ -201,6 +201,12 @@ return require('packer').startup({
       config = function()
         require('config.flutter_tools')
       end,
+    })
+
+    -- install without yarn or npm
+    use({
+      "iamcco/markdown-preview.nvim",
+      run = function() vim.fn["mkdp#util#install"]() end,
     })
 
     -- Automatically set up your configuration after cloning packer.nvim
