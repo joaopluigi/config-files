@@ -1,6 +1,6 @@
 /.clj-kondo/*
 /llm/skills/*
-!/llm/skills/task-execution
+!/llm/skills/todo-list
 !/llm/skills/git-commit
 /.lsp/*
 .DS_Store
