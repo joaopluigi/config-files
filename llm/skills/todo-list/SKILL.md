@@ -1,6 +1,6 @@
 ---
 name: todo-list
-description: "Create a detailed to_do.txt that plans and tracks a multi-step task: sequential sections broken into concrete, verifiable checkbox items, nested as deep as the task needs. Use whenever you need to lay out and track the steps of a multi-step task."
+description: "Use when creating a to_do.txt to plan and track a multi-step task. Gives the format: sequential sections broken into concrete, verifiable checkbox items, nested as deep as the task needs."
 ---
 
 # to-do list
