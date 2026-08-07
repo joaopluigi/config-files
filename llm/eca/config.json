@@ -55,6 +55,11 @@
       }
     }
   },
+  "agent": {
+    "code": {
+      "variant": "none"
+    }
+  },
   "toolCall": {
     "approval": {
       "byDefault": "allow",
