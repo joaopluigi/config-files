@@ -2,5 +2,6 @@
 /llm/skills/*
 !/llm/skills/todo-list
 !/llm/skills/git-commit
+!/llm/skills/rewrite-text
 /.lsp/*
 .DS_Store
