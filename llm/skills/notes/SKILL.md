@@ -61,6 +61,11 @@ copy items that do not apply):
 Add, remove, and nest items based on your analysis of the specific task. The
 list must cover every step needed to complete the task — nothing implicit.
 
+Keep it living. The plan is not fixed at the start: as execution turns up new
+work, new steps, or new findings, add them to the list as they surface, so the
+to-do always reflects the task as you now understand it — not just your first
+guess.
+
 ## Open questions
 
 Anything unresolved — a decision you cannot make yet, a gap in the sources, a
