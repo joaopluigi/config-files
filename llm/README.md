@@ -11,15 +11,6 @@ content — how the agent should think and work — organized around one idea:
 A rule is *who you are*; a skill is *what you do* for a specific kind of task.
 Anything procedural belongs in a skill, so the rules stay pure character.
 
-## Layout
-
-```
-llm/
-├── eca/        assistant config
-├── rules/      one character essay per file, always on
-└── skills/     one directory per skill (a SKILL.md plus its assets), on demand
-```
-
 ## Rules
 
 Each file in `rules/` is a short essay describing the agent's character in one
