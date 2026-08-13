@@ -1,6 +1,6 @@
 /.clj-kondo/*
 /llm/skills/*
-!/llm/skills/todo-list
+!/llm/skills/notes
 !/llm/skills/git-commit
 !/llm/skills/rewrite-text
 /.lsp/*
