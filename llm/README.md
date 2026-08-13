@@ -20,7 +20,9 @@ llm/
 │   ├── persona.md      your character (voice, criticism, caution, curiosity, ...)
 │   ├── reasoning.md    who you are when you think
 │   ├── sources.md      who you are when you source
-│   └── executing.md    who you are when you carry work out
+│   ├── executing.md    who you are when you carry work out
+│   ├── conforming.md   who you are when you change existing code
+│   └── practicality.md who you are when you fix and test
 └── skills/             on-demand workflows
     ├── notes/          the /tmp/notes.txt working file (plan + open questions + findings)
     ├── git-commit/     how you commit (atomic, working-state, lowercase messages)
