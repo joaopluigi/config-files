@@ -1,6 +1,6 @@
 ---
 name: notes
-description: "Write and maintain temporary notes for a multi-step task — a working file with a detailed to-do list plus sections for open questions and findings captured while understanding, sourcing, and executing. Use whenever temporary notes will be written to plan and track work."
+description: "Write and maintain temporary notes for a multi-step task — a working file with a detailed to-do list plus sections for open questions, decisions, and findings captured while understanding, sourcing, and executing. Use whenever temporary notes will be written to plan and track work."
 ---
 
 # notes
@@ -12,7 +12,8 @@ the user the path (`/tmp/notes.txt`)** so they can open it and see what you are
 doing.
 
 It has a few clear sections; fill them in and keep them current as you work. Keep
-it purposeful: use these sections, not a free-form dumping ground.
+it purposeful: use these sections, not a free-form dumping ground. For a worked
+example, see `assets/notes_example.txt` — a shape to follow, not content to copy.
 
 ## Goal
 
@@ -72,8 +73,17 @@ Anything unresolved — a decision you cannot make yet, a gap in the sources, a
 thing to confirm with the user. Log each question the moment it comes up, and
 record the answer (or remove it) once it is resolved.
 
+## Decisions
+
+Every significant choice you make, recorded so it can be traced — not just
+asserted. For each decision, write:
+
+- **what** you decided;
+- **why** — the reason, and the options you considered and rejected;
+- **source** — what the decision rests on: the file and lines you read, the doc
+  or URL, or "the user said X". A decision with no source is just an assertion.
+
 ## Notes / findings
 
 What you learn while understanding, sourcing, and executing: key facts (with
-their source where relevant), decisions made and why, assumptions you are
-relying on, and dead ends worth not repeating.
+their source), assumptions you are relying on, and dead ends worth not repeating.
