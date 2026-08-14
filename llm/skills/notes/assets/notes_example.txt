@@ -1,0 +1,36 @@
+# Goal
+Add a `--dry-run` flag to the `deploy` command that prints the actions it would
+take without executing them. It must cover every side-effecting step and change
+nothing on disk or the server.
+
+# To-do
+1. [x] Understand the current deploy flow
+  - [x] Read the `deploy` entry point and the steps it runs.
+  - [x] List every side-effecting step so none is missed under --dry-run.
+2. [ ] Add the flag
+  - [x] Parse `--dry-run` and thread it into the deploy context.
+  - [ ] Guard each side-effecting step: when dry-run, print instead of doing.
+3. [ ] Test
+  - [ ] Assert --dry-run performs no writes; assert normal runs are unaffected.
+
+# Open questions
+- Should --dry-run contact the server read-only to show an accurate plan, or stay
+  fully offline? Leaning offline — safer and simpler; confirm before adding a
+  network call.
+
+# Decisions
+- Thread the flag through the existing `deploy-context` map, not a global.
+  Why: every step already receives `deploy-context`, so this matches the pattern
+  and needs no new plumbing. Considered a dynamic var — rejected: nothing else
+  here uses one, and it would hide the dependency.
+  Source: deploy.clj:31-72 — context is built there and passed to each step.
+- Print via the existing `log/info` sink, not `println`.
+  Why: all other command output already goes through `log/info` — consistent and
+  testable.
+  Source: cli.clj — every existing command prints via `log/info`.
+
+# Notes / findings
+- Three side-effecting steps: `upload!`, `restart!`, `migrate!` (deploy.clj:40-72).
+  These are the only places that need a dry-run guard.
+- `deploy-context` is built at deploy.clj:31 and passed to each step — the natural
+  place to carry the flag.
