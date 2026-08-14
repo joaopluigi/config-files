@@ -9,8 +9,18 @@ How to commit changes to a git repository.
 
 ## 1. Split the work into atomic commits
 
-One logical change per commit. If the working tree mixes unrelated changes,
-group them into separate commits — do not lump everything into one.
+One logical change per commit. Before you stage anything, read the whole diff and
+decide the grouping — never stage the entire worktree and commit it as a single
+lump just because the changes were made together.
+
+- Put **independent concerns** in their own commits: an unrelated fix, a
+  refactor, a rename, reformatting, or docs that are not about the main change.
+- Keep **one logical change together with its own tests** — a feature and the
+  tests that cover it belong in the same commit, since a commit with the feature
+  but not its tests (or the reverse) is not a working, self-contained state.
+- Prefer focused commits: when a diff holds several concerns, make several
+  commits; when it is genuinely one change, one commit is correct — do not split
+  it artificially.
 
 ## 2. Every commit must leave the repo in a working state
 
@@ -50,7 +60,11 @@ add install.sh script that creates the necessary symlinks for llm config directo
 ## Process
 
 1. Read `references/REFERENCE.md` for worked commit-sequence examples.
-2. Run `git status` and review the diff.
-3. Decide the commit grouping and order; state the plan in one line per commit.
-4. For each commit, in dependency order: stage its exact paths, then commit with
-   a message following the format above.
+2. Run `git status` and review the whole diff before touching the index.
+3. **Write the commit plan first** — list each planned commit on its own line
+   with the files it will include and its message. Do not run `git add` until this
+   plan exists; if the plan is a single commit, say why the diff is one logical
+   change.
+4. For each commit, in dependency order: stage only that commit's files (never a
+   blanket `git add -A`, and never files that belong to another commit), then
+   commit with a message following the format above.
