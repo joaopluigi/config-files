@@ -1,11 +1,11 @@
 ---
 name: worklog
-description: "Write and maintain a worklog for a multi-step task — a working file with a detailed to-do list plus sections for open questions, decisions, and findings captured while understanding, sourcing, and executing. Use whenever a worklog will be written to plan and track work."
+description: "Write and maintain a worklog for any task — a working file with a detailed to-do list plus sections for open questions, decisions, and findings captured while understanding, sourcing, and executing. Use whenever a worklog will be written to plan and track work."
 ---
 
 # worklog
 
-How to write and keep your **worklog** for a multi-step task. Write it
+How to write and keep your **worklog** for any task. Write it
 at **`/tmp/worklog.txt`** — using `/tmp` keeps it ephemeral, so it is discarded
 on its own and never lands in the repo. When you first create the file, **tell
 the user the path (`/tmp/worklog.txt`)** so they can open it and see what you are
