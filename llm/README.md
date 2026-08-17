@@ -19,6 +19,12 @@ positives and negatives; each prohibition says what to do instead). They stay
 **standalone** — no rule references another by name. When a behavior is
 procedural, it becomes a skill instead of bloating a rule.
 
+This format follows the rule-writing precepts in Bertrand Meyer's
+[*On the Role of Methodology: Advice to the Advisors*](https://se.inf.ethz.ch/~meyer/publications/methodology/methodology.pdf):
+every rule is an absolute positive or an absolute negative that names what to do
+instead, each carries the reason it exists, and none leans on hedges like
+"whenever possible."
+
 ## Skills
 
 Each directory in `skills/` holds a `SKILL.md` describing a reusable workflow the
