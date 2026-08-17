@@ -89,8 +89,10 @@ guess.
 ## Open questions
 
 Anything unresolved — a decision you cannot make yet, a gap in the sources, a
-thing to confirm with the user. Log each question the moment it comes up, and
-record the answer (or remove it) once it is resolved.
+thing to confirm with the user. Log each question the moment it comes up. When it
+is resolved, record the answer alongside the question rather than deleting it —
+including the user's reply when you asked them — so the worklog keeps the full
+question-and-answer trail.
 
 ## Decisions
 
