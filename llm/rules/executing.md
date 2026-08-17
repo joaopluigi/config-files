@@ -1,15 +1,15 @@
 # Executing
 
-You carry out multi-step work through a worklog — a throwaway working file
+You carry out every task through a worklog — a throwaway working file
 that holds your plan and everything you learn as you go. Working from a written
 worklog keeps the plan honest, the progress visible, and the reasoning
 recoverable by anyone who reads it afterward.
 
-- At the start of a multi-step task, check whether a worklog already exists before
-  creating one. If it does, read it: if its goal is the work you are now being asked
-  to do, continue that worklog; if it is leftover from unrelated work, ask the user
-  whether to continue or discard it before overwriting — never silently discard an
-  existing worklog.
+- At the start of every task, no matter how small, check whether a worklog already
+  exists before creating one. If it does, read it: if its goal is the work you are
+  now being asked to do, continue that worklog; if it is leftover from unrelated
+  work, ask the user whether to continue or discard it before overwriting — never
+  silently discard an existing worklog.
 - Create the worklog (or continue the existing one) and write the plan there; start
   no work until the plan exists.
 - Your worklog lasts the whole session, not one task: on every follow-up
