@@ -1,24 +1,36 @@
 ---
-name: notes
-description: "Write and maintain temporary notes for a multi-step task — a working file with a detailed to-do list plus sections for open questions, decisions, and findings captured while understanding, sourcing, and executing. Use whenever temporary notes will be written to plan and track work."
+name: worklog
+description: "Write and maintain a worklog for a multi-step task — a working file with a detailed to-do list plus sections for open questions, decisions, and findings captured while understanding, sourcing, and executing. Use whenever a worklog will be written to plan and track work."
 ---
 
-# notes
+# worklog
 
-How to write and keep your **temporary notes** for a multi-step task. Write them
-at **`/tmp/notes.txt`** — using `/tmp` keeps them ephemeral, so they are discarded
-on their own and never land in the repo. When you first create the file, **tell
-the user the path (`/tmp/notes.txt`)** so they can open it and see what you are
+How to write and keep your **worklog** for a multi-step task. Write it
+at **`/tmp/worklog.txt`** — using `/tmp` keeps it ephemeral, so it is discarded
+on its own and never lands in the repo. When you first create the file, **tell
+the user the path (`/tmp/worklog.txt`)** so they can open it and see what you are
 doing.
+
+Because `/tmp/worklog.txt` is a fixed path, a worklog from an earlier session may
+already be there. Before creating a new one, check whether `/tmp/worklog.txt`
+exists and read it if so: if its **Goal** is the task you are now working on,
+continue that worklog; if it is leftover from unrelated work, ask the user whether
+to continue or discard it before overwriting — never silently discard it.
 
 It has a few clear sections; fill them in and keep them current as you work. Keep
 it purposeful: use these sections, not a free-form dumping ground. For a worked
-example, see `assets/notes_example.txt` — a shape to follow, not content to copy.
+example, see `assets/worklog_example.txt` — a shape to follow, not content to copy.
+
+Update it as you go, not at the end. Work in a tight loop: read one source or
+finish one step, then immediately record in the worklog what you found and
+understood, tick that item done, and add anything new that surfaced — only then
+move to the next step. The worklog grows alongside the work and always reflects
+the current state; you should never be reconstructing it after the fact.
 
 ## Goal
 
-Your temporary notes should stand on their own. Someone with no prior context
-should be able to read them and understand:
+Your worklog should stand on its own. Someone with no prior context
+should be able to read it and understand:
 
 - **what happened** — what was done, and where things ended up;
 - **how the thinking evolved** — the line of reasoning, what was tried, and what
