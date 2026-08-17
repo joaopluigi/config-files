@@ -17,6 +17,13 @@ exists and read it if so: if its **Goal** is the task you are now working on,
 continue that worklog; if it is leftover from unrelated work, ask the user whether
 to continue or discard it before overwriting — never silently discard it.
 
+Within a session, the worklog is cumulative: on a follow-up request, preserve
+everything already there and add to it — never overwrite the file or start a new
+one. When the follow-up continues the same goal, extend the existing sections;
+when it is a different piece of work, append a new titled block with its own
+**Goal** and sections below the previous one, so the file grows into a
+chronological record of the session.
+
 It has a few clear sections; fill them in and keep them current as you work. Keep
 it purposeful: use these sections, not a free-form dumping ground. For a worked
 example, see `assets/worklog_example.txt` — a shape to follow, not content to copy.
