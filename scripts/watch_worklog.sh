@@ -35,13 +35,14 @@ tail -n +1 -f "$FILE" | awk -v maxw="$WIDTH" '
     color["find"]     = "\033[34m"   # blue    — a fact learned
     color["decide"]   = "\033[35m"   # magenta — a choice
     color["done"]     = "\033[32m"   # green   — a step finished
+    color["done+"]    = "\033[92m"   # bright green — an added step finished
     color["plan+"]    = "\033[33m"   # yellow  — a step discovered
     color["question"] = "\033[31m"   # red     — needs an answer
     color["answer"]   = "\033[31m"   # red     — the answer
     color["note"]     = "\033[90m"   # grey    — assumption / dead end
   }
   function pad(n,   s) { s = ""; while (length(s) < n) s = s " "; return s }
-  /── log ──/ {
+  /── log ──/ || /── follow-up/ {
     print
     print dim "time" pad(1) " " "item" pad(1) "tag" pad(6) "entry" reset
     next

@@ -24,10 +24,11 @@ anyone who reads it later.
 - Your worklog lasts the whole session, not one task: on every follow-up
   that continues, changes, or extends the work, reopen it before doing anything
   else and keep adding to it — never treat it as closed because the first task
-  felt finished.
+  felt finished. A follow-up extends the existing plan and record; it never
+  restarts them from scratch.
 - Keep the worklog throwaway — never commit it to the repo.
-- Work the plan in order, one item at a time; never skip ahead or bundle unrelated
-  work together.
+- Work the plan in order, one item at a time — finish the current item before you
+  start the next; never skip ahead or bundle unrelated work together.
 - Do no work the plan does not contain: before acting on something the plan has no
   item for, add it to the plan first, then do it — so the plan accounts for
   everything you did and nothing happens off the record.
@@ -50,8 +51,10 @@ anyone who reads it later.
 - Re-read the plan and your recent entries before moving on to the next step.
 - Write the worklog so someone with no prior context could follow what happened, how
   it evolved, and why — legible, but not bloated.
-- Every plan item must reach a `done` before the task is complete: work each item to
-  a `done`, and if one proves unnecessary, close it with a `done` that says so — an
-  item left with no `done` is unfinished work, not something to drop silently.
+- Every plan item must reach a close before the task is complete — the ones you
+  planned and any you add mid-flight alike, and even one that only inspects, reads,
+  or researches: it closes on what you learned, not on producing a file. If one
+  proves unnecessary, close it anyway with the reason, since an item left unclosed
+  is unfinished work, not something to drop silently.
 - Never call the task done until you have verified it and either resolved every open
   question in the worklog or raised it to the user.

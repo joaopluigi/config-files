@@ -29,9 +29,12 @@ instead by appending to the log below. Then comes the
 the file as you work. Prefix each entry with the **elapsed time since the worklog
 started** — the first entry is `00:00`, and later ones count up (`03:12`,
 `14:05`) — so the stream reads as a timeline of the task, not the wall clock.
-Capture the start moment once when you write a header (for example
-`date +%s > /tmp/worklog.start`) and compute `now − start` on each append; a new
-header block starts its own clock at `00:00`.
+Capture the start moment (for example `date +%s > /tmp/worklog.start`) and compute
+`now − start` on each append. Each **segment** keeps its own clock and starts at
+`00:00`: re-stamp the start whenever a segment begins — when you write a fresh
+header, and when a same-goal follow-up opens a `── follow-up ──` divider (below) —
+so the times measure that stretch of work rather than the wall clock since the file
+was first created.
 
 Because `/tmp/worklog.txt` is a fixed path, a worklog from an earlier session may
 already be there. Before creating a new one, check whether the file exists and
@@ -51,10 +54,16 @@ nothing left to do.
 
 Within a session the worklog is cumulative. On a follow-up request, keep
 everything already there and add below it — never overwrite the file or start a
-new one. When the follow-up continues the same goal, keep appending to the same
-log; when it is a different piece of work, append a fresh header (its own **Goal**
-and **plan items**) and a new log beneath the previous block, so the file grows into a
-chronological record of the whole session.
+new one. When the follow-up **continues the same goal**, append a
+`── follow-up: <one line on what this request asks> ──` divider — the label keeps
+each segment self-describing, the way the header's `goal:` does — re-stamp the clock
+to `00:00`, and keep working under the existing plan items; its new steps join the
+plan as `plan+` items (closed with `done+`), so the numbering continues instead of
+restarting at `#1`. When the follow-up is a
+**different piece of work**, append a fresh header (its own **Goal** and **plan
+items**) and a new `── log ──` beneath the previous block. Either way the file grows
+into a chronological record of the whole session, each segment timing its own
+stretch.
 
 Append as you go, never in a batch at the end. Work in a tight loop: the moment
 you weigh an option, learn a fact, make a decision, or finish a step, append that
@@ -82,12 +91,19 @@ plan items
 ── log ──
 MM:SS #1 think <what you are weighing before you commit>
 MM:SS #1 find <a fact you learned — src: file:line / URL / "user said X">
-MM:SS #1 decide <what — why; options rejected — src: where it rests>
-MM:SS #1 done <what this plan item produced, and the result>
-MM:SS #3a plan+ <a step you discovered mid-flight; this line adds plan item 3a>
+MM:SS #1 done <what item 1 established or produced — closes item 1>
+MM:SS #2 decide <what — why; options rejected — src: where it rests>
 MM:SS #2 question <a question you need answered>
 MM:SS #2 answer <the user's reply, or the assumption you took>
-MM:SS #2 note <an assumption you rely on, or a dead end not to repeat>
+MM:SS #2 done <what plan item 2 produced — closes item 2>
+MM:SS #3a plan+ <a step you discovered mid-flight; this line adds plan item 3a>
+MM:SS #3a note <an assumption you rely on, or a dead end not to repeat>
+MM:SS #3a done+ <closes the added item 3a — done+ pairs with plan+>
+MM:SS #3 done <final item validated — closes item 3>
+
+── follow-up: <one line on what this request asks> ──   (clock restarts; steps via plan+)
+00:00 #4 plan+ <the follow-up's new step joins the plan as item 4>
+00:02 #4 done+ <closes the follow-up's added item 4>
 ```
 
 ## Log entries
@@ -102,7 +118,9 @@ columns to line up by hand. Two rules hold every entry together:
 - **Every entry names a plan item.** No work happens that the plan does not
   contain: if what you are about to do fits no existing item, append a `plan+`
   entry to add it first, then work under that item. `#<item>` is how the log proves
-  every action was planned.
+  every action was planned — and it is the item you are *currently* on, so stay on
+  it until you close it (`done` or `done+`) before advancing to the next, rather
+  than letting the number run ahead of the work.
 
 Use this fixed set of tags, so the stream stays scannable:
 
@@ -114,14 +132,21 @@ Use this fixed set of tags, so the stream stays scannable:
   click away. A finding with no source is just an assertion.
 - **`decide`** — a choice: **what** you decided, **why** (including the options you
   rejected), and the **source** it rests on (same URL rule as `find`).
-- **`done`** — closes the entry's plan item: say what it produced and the result.
-  `plan+` opens an item and `done` closes it, so every plan item earns a `done`
-  before the task is complete; if one turns out unnecessary, still close it with a
-  `done` that says why. This tracks progress in place of ticking a checkbox — the
-  `#<item>` says which step.
-- **`plan+`** — a step you discovered mid-flight. You cannot edit the plan, so
+- **`done`** — closes an **original** plan item, one from the header list: say what
+  it established or produced. It tracks progress in place of ticking a checkbox —
+  the `#<item>` says which step. Every item earns a close before the task is
+  complete — including a read-only one like *inspect the repo*, *read the source*,
+  or *research X*: its `done` records what you learned, since such a step is finished
+  when you have the understanding, not only when it yields a file. If one turns out
+  unnecessary, still close it with a `done` that says why.
+- **`plan+`** — a step you discovered mid-flight. You cannot edit the header, so
   append the new step here; the entry's `#<item>` is the number you are adding (for
-  example `#3a`), and later entries reference it.
+  example `#3a`, or the next whole number on a follow-up), and later entries
+  reference it. Close it later with `done+`.
+- **`done+`** — closes an **added** plan item, the kind `plan+` opened. It pairs
+  with `plan+` the way `done` pairs with the header's items, so a discovered step is
+  opened and closed by the matching `+` tags; its `#<item>` (for example `#3a`) says
+  which one. Like `done`, every added item earns its `done+`.
 - **`question`** — a question you need answered. When it is blocking, ask the user
   in the session; when it is non-blocking, proceed under a stated assumption.
 - **`answer`** — the answer to an earlier `question`: the user's reply, or the

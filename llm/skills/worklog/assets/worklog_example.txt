@@ -20,5 +20,10 @@ plan items
 00:14 #2 done flag parsed, put on deploy-context, all three steps guarded to log-and-return under :dry-run?
 00:15 #3a plan+ also assert migrate! issues no DB call on a dry run (adds plan item 3a)
 00:21 #3 done deploy_test.clj added: dry-run writes nothing and makes no network call; the normal path is unchanged; bb test green
-00:22 #3a done migrate! no-DB-call assertion added and passing
+00:22 #3a done+ migrate! no-DB-call assertion added and passing
 00:22 #3 note verified: bb test passes and bb lint is clean
+
+── follow-up: also guard the config-reload step under --dry-run ──
+00:00 #4 plan+ guard the config-reload step under --dry-run (adds plan item 4)
+00:02 #4 find reload! writes the merged config to disk and is not yet guarded — src: src/deploy.clj:80
+00:05 #4 done+ reload! guarded to log-and-return under :dry-run?; deploy_test.clj covers it; bb test green
