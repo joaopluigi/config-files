@@ -1,36 +1,24 @@
-# Goal
-Add a `--dry-run` flag to the `deploy` command that prints the actions it would
-take without executing them. It must cover every side-effecting step and change
-nothing on disk or the server.
+# worklog — add a --dry-run flag to the deploy command
 
-# To-do
-1. [x] Understand the current deploy flow
-  - [x] Read the `deploy` entry point and the steps it runs.
-  - [x] List every side-effecting step so none is missed under --dry-run.
-2. [ ] Add the flag
-  - [x] Parse `--dry-run` and thread it into the deploy context.
-  - [ ] Guard each side-effecting step: when dry-run, print instead of doing.
-3. [ ] Test
-  - [ ] Assert --dry-run performs no writes; assert normal runs are unaffected.
+goal: print every side-effecting step the deploy would take, while changing
+      nothing on disk or on the server
 
-# Open questions
-- Should --dry-run contact the server read-only to show an accurate plan, or stay
-  fully offline? Leaning offline — safer and simpler; confirm before adding a
-  network call.
+plan items
+  1. understand the deploy flow and list every side-effecting step
+  2. thread a --dry-run flag through the deploy and guard each step
+  3. test: dry-run writes nothing; a normal run is unchanged
 
-# Decisions
-- Thread the flag through the existing `deploy-context` map, not a global.
-  Why: every step already receives `deploy-context`, so this matches the pattern
-  and needs no new plumbing. Considered a dynamic var — rejected: nothing else
-  here uses one, and it would hide the dependency.
-  Source: deploy.clj:31-72 — context is built there and passed to each step.
-- Print via the existing `log/info` sink, not `println`.
-  Why: all other command output already goes through `log/info` — consistent and
-  testable.
-  Source: cli.clj — every existing command prints via `log/info`.
-
-# Notes / findings
-- Three side-effecting steps: `upload!`, `restart!`, `migrate!` (deploy.clj:40-72).
-  These are the only places that need a dry-run guard.
-- `deploy-context` is built at deploy.clj:31 and passed to each step — the natural
-  place to carry the flag.
+── log ──
+00:00 #1 think two ways to reach the flag from each step: a dynamic dry-run? var, or a field on the deploy-context map already threaded through every step
+00:01 #1 find deploy builds a deploy-context map and passes it to every step — src: src/deploy.clj:31-72
+00:02 #1 decide put :dry-run? on deploy-context; every step already receives it, so no hidden global; rejected a dynamic var — it hides the dependency and is awkward to test — src: src/deploy.clj:31-72
+00:03 #1 done three side-effecting steps found: upload!, restart!, migrate! — src: src/deploy.clj:40,55,68
+00:05 #2 find the deploy runbook requires a dry run to make no calls to production — src: https://confluence.example.com/display/OPS/Deploy+Runbook
+00:07 #2 think guard shape: under :dry-run?, log what the step would do and return instead of doing it — one check at the top of each step
+00:09 #2 question should --dry-run contact the server read-only for an accurate plan, or stay fully offline? blocking — it changes the flag's contract
+00:12 #2 answer user: stay fully offline; a dry run makes no network calls
+00:14 #2 done flag parsed, put on deploy-context, all three steps guarded to log-and-return under :dry-run?
+00:15 #3a plan+ also assert migrate! issues no DB call on a dry run (adds plan item 3a)
+00:21 #3 done deploy_test.clj added: dry-run writes nothing and makes no network call; the normal path is unchanged; bb test green
+00:22 #3a done migrate! no-DB-call assertion added and passing
+00:22 #3 note verified: bb test passes and bb lint is clean
