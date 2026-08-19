@@ -158,5 +158,16 @@ Use this fixed set of tags, so the stream stays scannable:
   silently.
 - **`note`** — an assumption you are relying on, or a dead end worth not repeating.
 
+## Before you finish
+
+Re-read the whole worklog top to bottom, then lint it with the bundled checker:
+
+    sh assets/check_worklog.sh "$wl"
+
+It flags any plan item with no `done`, any `find` without a `src:`, and any
+`question` with no `answer` — the drifts that are easy to miss reading by eye — and
+exits non-zero while anything is still open, so it can gate whether the task is
+really done. Fix what it lists, then finish.
+
 For a full worked example, see `assets/worklog_example.txt` — a shape to follow,
 not content to copy.
