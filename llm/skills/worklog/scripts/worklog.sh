@@ -22,10 +22,11 @@
 # `done` on an item already closed — before writing it (the log is append-only, so
 # a bad line is permanent). It then prints the running `Open items:` /
 # `Open questions:` status, nudging you to close what you have finished. Nothing is
-# written when it refuses; fix the entry and run it again. Closing an item while a
-# lower-numbered one is still open is also refused (a note the agent might ignore
-# is not enough) — but since plans aren't always linear, that one guard can be
-# overridden with a leading `--force`. The always-wrong checks have no such escape.
+# written when it refuses; fix the entry and run it again. Two further guards catch a
+# `done` that closes an item too cheaply: closing while a lower-numbered item is still
+# open, and closing an item that has no reasoning recorded (no `think` or `decide`).
+# Both are heuristics, not always-wrong, so each can be overridden with a leading
+# `--force`. The always-wrong checks above have no such escape.
 #
 # Check mode re-scans the whole file — the header and anything carried over from a
 # reopened worklog too, not just the entries that passed through append — and exits
@@ -251,6 +252,18 @@ if [ "$tag" = done ]; then
     ' "$FILE")
     if [ -n "$lower" ] && [ "$force" -eq 0 ]; then
         echo "worklog: item $item closes before lower item(s) still open: $lower. Close those first; or if this out-of-order close is deliberate, repeat with: worklog.sh --force $item done <text>" >&2
+        exit 2
+    fi
+fi
+
+# Closing an item with no reasoning in the log — no `think`, and no `decide` (which
+# carries its own why) — usually means the thinking never got written down: the log
+# shows what was done but not why. Refuse the `done` so the reasoning is captured
+# first; escapable with --force for a genuinely trivial item.
+if [ "$tag" = done ]; then
+    reasoned=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (think|decide) " "$FILE" | head -n1)
+    if [ -z "$reasoned" ] && [ "$force" -eq 0 ]; then
+        echo "worklog: item $item closes with no reasoning recorded — no \`think\` or \`decide\` entry for it. Record what you weighed first: worklog.sh $item think <what you weighed>. If the item is genuinely trivial, repeat with: worklog.sh --force $item done <text>" >&2
         exit 2
     fi
 fi
