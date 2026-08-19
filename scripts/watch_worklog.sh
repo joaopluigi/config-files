@@ -42,7 +42,7 @@ colorize() {
     awk -v maxw="$WIDTH" '
       BEGIN {
         if (maxw + 0 < 40) maxw = 100
-        reset = "\033[0m"; dim = "\033[90m"
+        reset = "\033[0m"; dim = "\033[90m"; bold = "\033[1m"
         color["think"]    = "\033[36m"   # cyan    — deliberation
         color["find"]     = "\033[34m"   # blue    — a fact learned
         color["decide"]   = "\033[35m"   # magenta — a choice
@@ -93,6 +93,16 @@ colorize() {
           print (firstline ? head : pad(indent)) line
           fflush(); next
         }
+      }
+      # Header: bold title, a bold "goal:" label, and plan-item numbers in the same
+      # yellow as the `plan` tag so the plan reads as one thing top to bottom.
+      /^# worklog — / { print bold $0 reset; fflush(); next }
+      /^goal:/        { print bold "goal:" reset substr($0, 6); fflush(); next }
+      /^[[:space:]]+[0-9]+\. / {
+        match($0, /^[[:space:]]+/); ind = substr($0, 1, RLENGTH); r = substr($0, RLENGTH + 1)
+        dot = index(r, "."); num = substr(r, 1, dot - 1); after = substr(r, dot)
+        print ind color["plan"] num reset after
+        fflush(); next
       }
       { print; fflush() }
     '
