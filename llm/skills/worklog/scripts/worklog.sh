@@ -23,11 +23,13 @@
 # `done` on an item already closed — before writing it (the log is append-only, so
 # a bad line is permanent). It then prints the running `Open items:` /
 # `Open questions:` status, nudging you to close what you have finished. Nothing is
-# written when it refuses; fix the entry and run it again. Two further guards catch a
-# `done` that closes an item too cheaply: closing while a lower-numbered item is still
-# open, and closing an item that has no reasoning recorded (no `think` or `decide`).
-# Both are heuristics, not always-wrong, so each can be overridden with a leading
-# `--force`. The always-wrong checks above have no such escape.
+# written when it refuses; fix the entry and run it again. Three further guards are
+# heuristics — likely-wrong, not always-wrong — so each can be overridden with a
+# leading `--force`: closing an item while a lower-numbered one is still open; closing
+# an item that has no reasoning recorded (no `think` or `decide`); and adding any
+# non-`done` entry to an item already closed (usually a mis-numbered line, e.g. a
+# stale item number reused after a follow-up). The always-wrong checks above have no
+# such escape.
 #
 # Check mode re-scans the whole file — the header and anything carried over from a
 # reopened worklog too, not just the entries that passed through append — and exits
@@ -210,8 +212,10 @@ if [ "$1" = check ]; then
 fi
 
 # --- append mode ------------------------------------------------------------
-# A leading --force only overrides the out-of-order-close guard (the one soft rule);
-# it never bypasses the always-wrong checks below.
+# A leading --force overrides the heuristic guards below (out-of-order close,
+# no-reasoning close, and a non-done entry on a closed item); it never bypasses the
+# always-wrong checks (unknown tag, non-numeric item, `find` without `src:`, a second
+# `done`).
 force=0
 if [ "$1" = --force ]; then force=1; shift; fi
 
@@ -256,6 +260,33 @@ if [ "$tag" = done ]; then
     if [ -n "$prev" ]; then
         when=${prev%% *}
         echo "worklog: item $item is already closed (done at $when) — an item is closed once, so nothing was written. Close only the items still shown as open." >&2
+        exit 2
+    fi
+fi
+
+# Once an item is closed, new reasoning belongs to an item still open — not to a
+# finished one. A non-`done` entry on an already-closed item is almost always a
+# mis-numbered line (e.g. after a follow-up, logging against a stale item number from
+# an earlier segment). Refuse it and point at the open items; --force allows the rare
+# legit case, like a late `note` on finished work.
+if [ "$tag" != done ]; then
+    closed=$(grep "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item done " "$FILE" | head -n1)
+    if [ -n "$closed" ] && [ "$force" -eq 0 ]; then
+        when=${closed%% *}
+        open=$(awk '
+          /^plan items[[:space:]]*$/ { inp = 1; next }
+          /^── log ──/               { inp = 0 }
+          inp && /^[[:space:]]+[0-9]+\./ { m = $0; sub(/^[[:space:]]+/, "", m); sub(/\..*$/, "", m); planned[m + 0] = 1; if (m + 0 > mx) mx = m + 0; next }
+          /^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #[0-9]+ / {
+            r = substr($0, 10); it = r; sub(/ .*$/, "", it); sub(/^#/, "", it); it += 0; if (it > mx) mx = it
+            a = r; sub(/^#[0-9]+ +/, "", a); tg = a; sub(/ .*$/, "", tg)
+            if (tg == "plan") planned[it] = 1
+            if (tg == "done") done[it]    = 1
+          }
+          END { out = ""; for (i = 1; i <= mx; i++) if (planned[i] && !done[i]) out = out (out == "" ? "" : ", ") i; print out }
+        ' "$FILE")
+        [ -n "$open" ] && hint=" The items still open are: $open." || hint=""
+        echo "worklog: item $item is already closed (done at $when) — a \`$tag\` belongs to an item still open, not a finished one, so nothing was written. This is usually a mis-numbered line.${hint} Put it on the right open item, or, if it truly belongs on the closed item, repeat with: worklog.sh --force $item $tag <text>" >&2
         exit 2
     fi
 fi
