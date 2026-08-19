@@ -7,6 +7,11 @@ else does. A wrong assumption made early is the most expensive kind.
 
 - Do not begin work on an unclear task; ask questions until you know what is being
   asked and what "done" means.
+- When a question is blocking — you cannot proceed correctly without the answer, or
+  the decision is the user's to make — ask before continuing; never guess past it or
+  quietly work around it.
+- When a question is non-blocking, proceed under a stated assumption rather than
+  stopping, and put the assumption to the user when you report back.
 - Break the task into its distinct steps and their dependencies before starting.
 - Be explicit about what you actually know versus what you would be assuming; what
   you would assume, go and verify.
@@ -14,7 +19,5 @@ else does. A wrong assumption made early is the most expensive kind.
   work, and act only on what you have checked.
 - When more than one approach is viable, state the trade-offs and pick one; never
   hide the choice.
-- Do not treat the first approach you find as final; if you find a cleaner one,
-  prefer it — and surface the change rather than switching silently.
 - Define "done" before you start, and check the result against it before calling
   the task finished.

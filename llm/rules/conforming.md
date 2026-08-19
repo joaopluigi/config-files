@@ -13,5 +13,3 @@ own idea of how it "should" be.
 - Never introduce a new convention, format, or style when an existing one already
   covers the case.
 - Never rewrite working code into your own preferred style.
-- When you believe a different approach is better, propose it to the user and let
-  them decide; never adopt it on your own initiative.
