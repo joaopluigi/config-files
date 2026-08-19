@@ -9,21 +9,21 @@ plan items
   3. test: dry-run writes nothing; a normal run is unchanged
 
 ── log ──
-00:00 #1 think two ways to reach the flag from each step: a dynamic dry-run? var, or a field on the deploy-context map already threaded through every step
-00:01 #1 find deploy builds a deploy-context map and passes it to every step — src: src/deploy.clj:31-72
-00:02 #1 decide put :dry-run? on deploy-context; every step already receives it, so no hidden global; rejected a dynamic var — it hides the dependency and is awkward to test — src: src/deploy.clj:31-72
-00:03 #1 done three side-effecting steps found: upload!, restart!, migrate! — src: src/deploy.clj:40,55,68
-00:05 #2 find the deploy runbook requires a dry run to make no calls to production — src: https://confluence.example.com/display/OPS/Deploy+Runbook
-00:07 #2 think guard shape: under :dry-run?, log what the step would do and return instead of doing it — one check at the top of each step
-00:09 #2 question should --dry-run contact the server read-only for an accurate plan, or stay fully offline? blocking — it changes the flag's contract
-00:12 #2 answer user: stay fully offline; a dry run makes no network calls
-00:14 #2 done flag parsed, put on deploy-context, all three steps guarded to log-and-return under :dry-run?
-00:15 #3a plan+ also assert migrate! issues no DB call on a dry run (adds plan item 3a)
-00:21 #3 done deploy_test.clj added: dry-run writes nothing and makes no network call; the normal path is unchanged; bb test green
-00:22 #3a done+ migrate! no-DB-call assertion added and passing
-00:22 #3 note verified: bb test passes and bb lint is clean
+14:03:00 #1 think two ways to reach the flag from each step: a dynamic dry-run? var, or a field on the deploy-context map already threaded through every step
+14:03:35 #1 find deploy builds a deploy-context map and passes it to every step — src: src/deploy.clj:31-72
+14:04:10 #1 decide put :dry-run? on deploy-context; every step already receives it, so no hidden global; rejected a dynamic var — it hides the dependency and is awkward to test — src: src/deploy.clj:31-72
+14:05:02 #1 done three side-effecting steps found: upload!, restart!, migrate! — src: src/deploy.clj:40,55,68
+14:06:20 #2 find the deploy runbook requires a dry run to make no calls to production — src: https://confluence.example.com/display/OPS/Deploy+Runbook
+14:08:45 #2 think guard shape: under :dry-run?, log what the step would do and return instead of doing it — one check at the top of each step
+14:10:12 #2 question should --dry-run contact the server read-only for an accurate plan, or stay fully offline? blocking — it changes the flag's contract
+14:13:50 #2 answer user: stay fully offline; a dry run makes no network calls
+14:15:30 #2 done flag parsed, put on deploy-context, all three steps guarded to log-and-return under :dry-run?
+14:16:05 #4 plan also assert migrate! issues no DB call on a dry run (adds plan item 4)
+14:16:40 #4 note assuming migrate! is the only step that touches the DB; upload! and restart! only hit the filesystem and network
+14:19:00 #4 done migrate! no-DB-call assertion added and passing
+14:19:40 #3 done deploy_test.clj added: dry-run writes nothing and makes no network call; the normal path is unchanged; bb test green
 
 ── follow-up: also guard the config-reload step under --dry-run ──
-00:00 #4 plan+ guard the config-reload step under --dry-run (adds plan item 4)
-00:02 #4 find reload! writes the merged config to disk and is not yet guarded — src: src/deploy.clj:80
-00:05 #4 done+ reload! guarded to log-and-return under :dry-run?; deploy_test.clj covers it; bb test green
+15:40:00 #5 plan guard the config-reload step under --dry-run (adds plan item 5)
+15:41:20 #5 find reload! writes the merged config to disk and is not yet guarded — src: src/deploy.clj:80
+15:43:05 #5 done reload! guarded to log-and-return under :dry-run?; deploy_test.clj covers it; bb test green
