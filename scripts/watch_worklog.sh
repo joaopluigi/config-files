@@ -2,9 +2,9 @@
 #
 # watch-worklog — follow a worklog and colorize it at view time.
 #
-# The worklog file stays plain text; color and the elapsed-time column are added
-# only here, so re-reading or grepping the worklog is never polluted by escape
-# codes. Ctrl-C to stop.
+# The worklog file stays plain text; color and column alignment are added only
+# here, so re-reading or grepping the worklog is never polluted by escape codes.
+# Ctrl-C to stop.
 #
 # Usage:
 #   watch-worklog [path]
