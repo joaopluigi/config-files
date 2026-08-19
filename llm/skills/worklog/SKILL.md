@@ -172,11 +172,11 @@ Use this fixed set of tags, so the stream stays scannable:
   add the step here; give it the **next number after the highest item so far**
   (header items are `1, 2, 3, …`, so the first added step is `4`), and later entries
   use that `#<item>`. Close it with `done`, exactly like a header item.
-- **`question`** — a question you need answered. When it is blocking, ask the user
-  in the session; when it is non-blocking, proceed under a stated assumption.
-- **`answer`** — the answer to an earlier `question`: the user's reply, or the
-  assumption you took. Append an `answer` for every `question`, so none is resolved
-  silently.
+- **`question`** — a question you need answered. Ask the user in the session and
+  wait for the reply; do not answer your own open question and act on it. Only skip
+  asking when nothing is in doubt.
+- **`answer`** — the answer to an earlier `question`: the user's reply. Append an
+  `answer` for every `question`, so none is resolved silently.
 - **`note`** — an assumption you are relying on, or a dead end worth not repeating.
 
 ## Before you finish
