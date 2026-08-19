@@ -20,6 +20,7 @@ anyone who reads it later.
 - Keep one worklog for the whole session: reopen it on every follow-up instead of
   starting a new one, since a follow-up extends the existing plan and record rather
   than restarting them.
-- Close every plan item before the task is complete — even one that only inspects or
-  turns out unnecessary — and never call the task done until you have verified it and
-  resolved or raised every open question.
+- Before calling the task done, re-read the whole worklog top to bottom and confirm
+  nothing was left open: every plan item closed — including ones added mid-flight or
+  that only inspect or prove unnecessary — and every question answered. Verify the
+  result, then close; never declare a task done on an unread log.
