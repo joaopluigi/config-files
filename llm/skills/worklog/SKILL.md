@@ -5,50 +5,65 @@ description: "Write and maintain an append-only worklog for any task — a fixed
 
 # worklog
 
-How to write and keep your **worklog** for any task. Give each worklog its own
-file at **`/tmp/worklog-<id>.txt`**, where `<id>` is any short unique token — so
-two agents working in parallel never collide on one path. Use a session id your
-host exposes if there is one, otherwise generate a few random characters; either
-way, **generate it once and reuse that exact path for the rest of the session** —
-do not re-roll it per append, or you will scatter the log across many files:
+How to write and keep your **worklog** for any task. The `scripts/worklog.sh` tool
+that ships with this skill owns the worklog — where it is kept, how it is named, the
+header, and how each line is written — so you drive everything through it and never
+build a worklog path by hand.
 
-    id=$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' \n')   # or a host session id
-    wl="/tmp/worklog-$id.txt"                                  # e.g. /tmp/worklog-3f9a1c02.txt
+The tool lives in this skill's own directory, so it is self-contained — nothing is
+installed on your `PATH`. Invoke it by its **full path**: this skill's directory is
+shown to you when the skill loads (its base directory), and the tool is
+`scripts/worklog.sh` under it. In the commands below `worklog.sh` is shorthand for
+that absolute path — `<this skill's directory>/scripts/worklog.sh` — so always run
+`sh worklog.sh …` with the real path filled in, from any working directory, rather
+than as a bare relative path like `scripts/worklog.sh` (which resolves only from the
+skill directory, not from wherever you happen to be).
 
-Using `/tmp` keeps it ephemeral, so it is discarded on its own and never lands in
-the repo. When you first create the file, **tell the user its path** so they can
-follow along as you work.
+Create one with a **goal**, a sentence on what **done** looks like, and the
+numbered **plan steps**:
+
+    sh worklog.sh new "<one-line goal>" "<what done looks like>" "<step 1>" "<step 2>" ...
+
+It writes the header, keeps the file in an ephemeral, out-of-repo location, and
+prints the file's path. **Tell the user that path** so they can follow along as you
+work. You create a worklog once per piece of work; every later command finds it on
+its own, so you never pass or remember the path. (When several agents run at once,
+put `WORKLOG=<path>` in front of a command to aim it at one specific file.)
 
 The worklog is **append-only**: only ever add lines at the end, and never edit or
-rewrite a line you have already written. Append with a shell append — `>> "$wl"`,
-or a `cat >> "$wl" <<'EOF' … EOF` heredoc — rather than any tool that rewrites the
-whole file. Appending is what lets the user watch your progress stream in live; it
-also keeps the file a truthful history, since a record you can only add to cannot be
-quietly rewritten after the fact. This governs a worklog once
-it exists; the first write that creates it — or a fresh start after the user
-discards an unrelated one — is the one time you write into an empty file.
+rewrite a line already written. Add each log entry with the tool:
 
-The file has two parts. Write the **header once**, when you create the worklog: a
-**Goal** and the **plan items** — the numbered roadmap of sequential steps, each an
-item the log's `#<item>` column refers back to. The plan items carry no checkboxes,
-because ticking one would mean editing a line you already wrote; you record progress
-instead by appending to the log below. Then comes the
-**log**: an append-only stream of short, tagged entries that grows at the end of
-the file as you work. Prefix each entry with the **wall-clock time it happened**,
-`HH:MM:SS` — just `date +%H:%M:%S` at the moment you append, with nothing to
-capture up front and nothing to compute. A viewer only colorizes and aligns these
-for display, showing the time as-is; the file keeps the real times, which read fine
-raw too. That is why there is no start file to manage: the
-start of a segment is simply its first entry.
+    sh worklog.sh <item> <tag> <text...>
 
-Within a session you reuse the same worklog file across tasks, so it may already
-hold a worklog when a new task begins. Before creating one, check whether your file
-exists and read it if so: if its **Goal** is the task you are now working on, append
-to that same log and continue; if it is leftover from unrelated work, ask the user
-whether to continue or discard it before touching it — never silently discard it.
-When the user says discard, **overwrite the file from empty** and let the new
-worklog be its only content: a discarded worklog is gone, not pushed below the new
-one.
+It stamps the time, then rejects an entry that can never be right — an unknown tag,
+a non-numeric item, or a `find` with no `src:` — before writing it, and after each
+write prints what is still open (see **Before you finish**). Because the log is
+append-only a bad line is permanent, so the tool refuses it rather than let it
+land; when it refuses, nothing is written — fix the entry and run it again.
+Appending is what lets the user watch your progress stream in live; it also keeps
+the file a truthful history, since a record you can only add to cannot be quietly
+rewritten after the fact.
+
+The file has two parts. The **header** — a **Goal** and the numbered **plan
+items**, written for you by `new`; each item is what the log's `#<item>` column
+refers back to. The plan items carry no checkboxes, because ticking one would mean
+editing a line already written; you record progress instead by appending to the log
+below. Then the **log**: an append-only stream of short, tagged entries that grows
+at the end of the file as you work. Each entry opens with the **wall-clock time it
+happened**, `HH:MM:SS`, which the tool stamps as it appends — nothing to capture up
+front or compute. A viewer only colorizes and aligns these for display, showing the
+time as-is; the file keeps the real times, which read fine raw too. There is no
+start file to manage: the start of a segment is simply its first entry.
+
+Before starting, check whether a worklog for this work already exists — ask the
+tool for the current one and read it if there is one:
+
+    sh worklog.sh path   # prints the current worklog, nothing if none yet
+
+If its **Goal** is the task you are now working on, keep working in it — append and
+continue. If it is leftover from unrelated work, start your own with `new`: that
+mints a separate file and every later command follows the new one, so you leave the
+old worklog untouched rather than writing over it.
 
 A worklog you reopen records what a past run *claimed*, not what is still true.
 Before building on a step it marks `done`, confirm the result still holds in the
@@ -58,16 +73,16 @@ to run the task again, verify the current state and ask the user whether it stil
 stands or should be redone; never read a full log and silently conclude there is
 nothing left to do.
 
-Within a session the worklog is cumulative. On a follow-up request, keep
-everything already there and add below it — never overwrite the file or start a
-new one. When the follow-up **continues the same goal**, append a
-`── follow-up: <one line on what this request asks> ──` divider — the label keeps
-each segment self-describing, the way the header's `goal:` does, and keep working
-under the existing plan items; its new steps join the plan as `plan` items (closed
-by `done`), so the numbering continues instead of restarting at `#1`. When the follow-up is a
-**different piece of work**, append a fresh header (its own **Goal** and **plan
-items**) and a new `── log ──` beneath the previous block. Either way the file grows
-into a chronological record of the whole session.
+On a follow-up that **continues the same goal**, keep working in the same worklog.
+Mark the new segment first, so each part of the log stays self-describing the way
+the header's `goal:` does:
+
+    sh worklog.sh followup "<one line on what this request asks>"
+
+then carry on under the existing plan — its new steps join as `plan` items (closed
+by `done`), so the numbering continues instead of restarting at `#1`. When the
+follow-up is a **different piece of work**, start a fresh worklog with `new`; it
+becomes its own file, and a running `watch-worklog` follows it automatically.
 
 Append as you go, never in a batch at the end. Work in a tight loop: the moment
 you weigh an option, learn a fact, make a decision, or finish a step, append that
@@ -112,10 +127,10 @@ HH:MM:SS #5 done <closes the follow-up's added item 5>
 
 ## Log entries
 
-Each log entry is one line: `HH:MM:SS` (the wall-clock time it happened), then
-`#<item>` (the plan step it belongs to), then one tag, then the text — fields
-separated by single spaces. Do not pad the
-columns to line up by hand. Two rules hold every entry together:
+You pass the tool three things — `<item> <tag> <text>` — and it builds the line:
+`HH:MM:SS` (the wall-clock time it happened), then `#<item>` (the plan step it
+belongs to), then the tag, then the text, separated by single spaces. Two rules
+hold every entry together:
 
 - **One entry per line.** Never put two entries on one line, and never split one
   entry across lines. A `question` and its later `answer` are separate lines,
@@ -160,14 +175,21 @@ Use this fixed set of tags, so the stream stays scannable:
 
 ## Before you finish
 
-Re-read the whole worklog top to bottom, then lint it with the bundled checker:
+Every append already shows a status footer — `Open items:` (plan items with no
+`done`) and `Open questions:` (a `question` with no matching `answer`) — so you can
+watch what is still open as you work; mid-flight those lines are just a running
+to-do list, not a problem.
 
-    sh assets/check_worklog.sh "$wl"
+When you think you are done, re-read the whole worklog top to bottom, then run the
+same tool as the completion gate:
 
-It flags any plan item with no `done`, any `find` without a `src:`, and any
-`question` with no `answer` — the drifts that are easy to miss reading by eye — and
-exits non-zero while anything is still open, so it can gate whether the task is
-really done. Fix what it lists, then finish.
+    sh worklog.sh check
 
-For a full worked example, see `assets/worklog_example.txt` — a shape to follow,
-not content to copy.
+`check` re-scans the whole file — the header and anything carried over from a
+reopened log too, not just the entries you appended — and is strict: it exits
+non-zero while **any** item is open, any question unanswered, or any `find` missing
+its `src:`. Drive it to `Open items: none`, `Open questions: none`, and the final
+`ok` line; fix whatever it lists, then finish.
+
+For a full worked example, see `references/worklog_example.txt` in this skill — a
+shape to follow, not content to copy.
