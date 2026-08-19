@@ -18,10 +18,14 @@
 # front of the command.
 #
 # Append mode stamps the wall-clock time, rejects an entry that can never be
-# right — an unknown tag, a non-numeric item, or a `find` with no `src:` — before
-# writing it (the log is append-only, so a bad line is permanent), then prints the
-# running `Open items:` / `Open questions:` status. Nothing is written when it
-# refuses; fix the entry and run it again.
+# right — an unknown tag, a non-numeric item, a `find` with no `src:`, or a second
+# `done` on an item already closed — before writing it (the log is append-only, so
+# a bad line is permanent). It then prints the running `Open items:` /
+# `Open questions:` status, nudging you to close what you have finished. Nothing is
+# written when it refuses; fix the entry and run it again. Closing an item while a
+# lower-numbered one is still open is also refused (a note the agent might ignore
+# is not enough) — but since plans aren't always linear, that one guard can be
+# overridden with a leading `--force`. The always-wrong checks have no such escape.
 #
 # Check mode re-scans the whole file — the header and anything carried over from a
 # reopened worklog too, not just the entries that passed through append — and exits
@@ -101,7 +105,11 @@ scan() {
         print "Open items:     " (oi == "" ? "none" : oi)
         print "Open questions: " (oq == "" ? "none" : oq)
 
-        if (mode != "gate") exit 0
+        if (mode != "gate") {
+          if (oi != "") print "  -> if any of items " oi " are now finished, close them: worklog.sh <item> done <what it produced> -- do not move on leaving a finished item open"
+          if (oq != "") print "  -> once an open question is resolved, record it: worklog.sh <item> answer <the answer>"
+          exit 0
+        }
         if (hard > 0 || oi != "" || oq != "") {
           print ""; print "not done yet — clear the errors above, close the open items, answer the open questions"
           exit 1
@@ -174,10 +182,15 @@ if [ "$1" = check ]; then
 fi
 
 # --- append mode ------------------------------------------------------------
+# A leading --force only overrides the out-of-order-close guard (the one soft rule);
+# it never bypasses the always-wrong checks below.
+force=0
+if [ "$1" = --force ]; then force=1; shift; fi
+
 item=$1
 tag=$2
 [ -n "$item" ] && [ -n "$tag" ] || {
-    echo "usage: worklog.sh <item> <tag> <text...>   |   worklog.sh check [path]" >&2
+    echo "usage: worklog.sh [--force] <item> <tag> <text...>   |   worklog.sh check [path]" >&2
     exit 2
 }
 shift 2
@@ -207,5 +220,41 @@ if [ "$tag" = find ] && ! printf '%s' "$text" | grep -q 'src:'; then
 fi
 
 FILE=$(resolve_file) || exit 2
+
+# An item is closed exactly once. Refuse a second `done` on an item already
+# closed — don't re-close everything at the end; close only what is still open.
+if [ "$tag" = done ]; then
+    prev=$(grep "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item done " "$FILE" | head -n1)
+    if [ -n "$prev" ]; then
+        when=${prev%% *}
+        echo "worklog: item $item is already closed (done at $when) — an item is closed once, so nothing was written. Close only the items still shown as open." >&2
+        exit 2
+    fi
+fi
+
+# Closing out of order is usually a sign an earlier item was left behind, so a
+# `done` on item N while a lower-numbered item is still open is refused (non-zero,
+# nothing written) — a note the agent might ignore is not enough. Plans aren't
+# always linear, so it can be overridden deliberately with --force.
+if [ "$tag" = done ]; then
+    lower=$(awk -v n="$item" '
+      /^plan items[[:space:]]*$/ { inp = 1; next }
+      /^── log ──/               { inp = 0 }
+      inp && /^[[:space:]]+[0-9]+\./ { m = $0; sub(/^[[:space:]]+/, "", m); sub(/\..*$/, "", m); planned[m + 0] = 1; next }
+      /^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #[0-9]+ / {
+        r = substr($0, 10); it = r; sub(/ .*$/, "", it); sub(/^#/, "", it); it += 0
+        a = r; sub(/^#[0-9]+ +/, "", a); tg = a; sub(/ .*$/, "", tg)
+        if (tg == "plan") planned[it] = 1
+        if (tg == "done") done[it]    = 1
+      }
+      END { out = ""; for (i = 1; i < n; i++) if (planned[i] && !done[i]) out = out (out == "" ? "" : ", ") "#" i; print out }
+    ' "$FILE")
+    if [ -n "$lower" ] && [ "$force" -eq 0 ]; then
+        echo "worklog: item $item closes before lower item(s) still open: $lower. Close those first; or if this out-of-order close is deliberate, repeat with: worklog.sh --force $item done <text>" >&2
+        exit 2
+    fi
+fi
+
 printf '%s #%s %s %s\n' "$(date +%H:%M:%S)" "$item" "$tag" "$text" >> "$FILE"
+[ "$tag" = done ] && [ -n "$lower" ] && echo "note: closed #$item out of order (--force); lower item(s) still open: $lower"
 scan status "$FILE"

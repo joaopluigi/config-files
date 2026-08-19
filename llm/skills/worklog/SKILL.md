@@ -140,7 +140,10 @@ hold every entry together:
   entry to add it first, then work under that item. `#<item>` is how the log proves
   every action was planned — and it is the item you are *currently* on, so stay on
   it until you close it with `done` before advancing to the next, rather
-  than letting the number run ahead of the work.
+  than letting the number run ahead of the work. The tool enforces this: a `done`
+  that closes an item while a lower-numbered one is still open is refused — close
+  them in order, or, when an out-of-order close is genuinely intended, repeat it
+  with a leading `--force` (`sh worklog.sh --force <item> done <text>`).
 
 Use this fixed set of tags, so the stream stays scannable:
 
