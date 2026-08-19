@@ -155,6 +155,12 @@ hold every entry together:
   that closes an item while a lower-numbered one is still open is refused — close
   them in order, or, when an out-of-order close is genuinely intended, repeat it
   with a leading `--force` (`sh worklog.sh --force <item> done <text>`).
+- **A closed item stays closed.** Once an item has a `done`, put new entries on an
+  item that is still open, not back on the finished one — after a follow-up
+  especially, use the new segment's numbers rather than a stale number from an
+  earlier one. The tool refuses a non-`done` entry on an already-closed item and
+  lists the items still open; if it truly belongs on the closed item, repeat with a
+  leading `--force`.
 
 Use this fixed set of tags, so the stream stays scannable:
 
