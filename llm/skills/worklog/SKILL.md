@@ -164,7 +164,10 @@ Use this fixed set of tags, so the stream stays scannable:
   repo*, *read the source*, or *research X*: its `done` records what you learned,
   since such a step is finished when you have the understanding, not only when it
   yields a file. If one turns out unnecessary, still close it with a `done` that
-  says why.
+  says why. The tool refuses a `done` on an item that has **no reasoning recorded**
+  — no `think` or `decide` entry — so the log shows *why*, not just *what*; record
+  the reasoning first, or, for a genuinely trivial item, repeat with a leading
+  `--force` (`sh worklog.sh --force <item> done <text>`).
 - **`plan`** — adds a step you discovered mid-flight. You cannot edit the header, so
   add the step here; give it the **next number after the highest item so far**
   (header items are `1, 2, 3, …`, so the first added step is `4`), and later entries
