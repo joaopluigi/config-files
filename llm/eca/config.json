@@ -67,8 +67,8 @@
         "shell_command": {
           "argsMatchers": {
             "command": [
-              ".*rm.*",
-              ".*mv.*"
+              ".*\\brm\\b.*",
+              ".*\\bmv\\b.*"
             ]
           }
         }
