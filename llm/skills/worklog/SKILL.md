@@ -75,14 +75,19 @@ nothing left to do.
 
 On a follow-up that **continues the same goal**, keep working in the same worklog.
 Mark the new segment first, so each part of the log stays self-describing the way
-the header's `goal:` does:
+the header's `goal:` does. If the follow-up already has its own steps, list them
+right after the one-line summary and the tool writes them as a fresh `plan items`
+block for this segment:
 
     sh worklog.sh followup "<one line on what this request asks>"
+    sh worklog.sh followup "<one line>" "<step>" "<step>" ...   # with its own plan
 
-then carry on under the existing plan — its new steps join as `plan` items (closed
-by `done`), so the numbering continues instead of restarting at `#1`. When the
-follow-up is a **different piece of work**, start a fresh worklog with `new`; it
-becomes its own file, and a running `watch-worklog` follows it automatically.
+Either way the numbering **continues** from the highest item so far instead of
+restarting at `#1`, so every `#<item>` in the log stays unambiguous — a follow-up
+after items `1, 2` starts at `3`. You can still add a step mid-segment with a `plan`
+entry, exactly as in the first segment; both close with `done`. When the follow-up
+is a **different piece of work**, start a fresh worklog with `new`; it becomes its
+own file, and a running `watch-worklog` follows it automatically.
 
 Append as you go, never in a batch at the end. Work in a tight loop: the moment
 you weigh an option, learn a fact, make a decision, or finish a step, append that
@@ -120,9 +125,15 @@ HH:MM:SS #4 note <an assumption you rely on, or a dead end not to repeat>
 HH:MM:SS #4 done <what item 4 produced — closes item 4>
 HH:MM:SS #3 done <final item validated — closes item 3>
 
-── follow-up: <one line on what this request asks> ──   (steps via plan)
-HH:MM:SS #5 plan <the follow-up's new step joins the plan as item 5>
-HH:MM:SS #5 done <closes the follow-up's added item 5>
+── follow-up: <one line on what this request asks> ──
+plan items
+  5. <the follow-up's own first step — numbering continues, it does not restart>
+  6. <the follow-up's second step>
+
+── log ──
+HH:MM:SS #5 think <what you are weighing on the follow-up's item 5>
+HH:MM:SS #5 done <closes the follow-up's item 5>
+HH:MM:SS #6 done <closes the follow-up's item 6>
 ```
 
 ## Log entries

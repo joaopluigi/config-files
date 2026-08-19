@@ -7,7 +7,8 @@
 #
 #   worklog.sh new "<goal>" "<what done looks like>" "<step>"...   create a new worklog
 #   worklog.sh <item> <tag> <text...>   append one entry, then show what is open
-#   worklog.sh followup "<one line>"    mark a new same-goal follow-up segment
+#   worklog.sh followup "<one line>" ["<step>"...]   mark a new same-goal segment,
+#                                       optionally with its own plan steps
 #   worklog.sh check [path]             completion gate: strict lint of the whole file
 #   worklog.sh path                     print the current worklog's path (empty if none)
 #
@@ -155,14 +156,40 @@ if [ "$1" = new ]; then
 fi
 
 # --- follow-up mode ---------------------------------------------------------
+# Mark a new same-goal segment, optionally with its own plan steps. Steps join the
+# existing plan with numbering continued from the highest item so far — never
+# restarting at 1 — so every `#<item>` in the log stays unambiguous. The segment
+# always ends with a `── log ──` divider so entries under it read as their own block.
 if [ "$1" = followup ]; then
-    line=$2
+    shift
+    line=$1
     [ -n "$line" ] || {
-        echo "usage: worklog.sh followup \"<one line on what this request asks>\"" >&2
+        echo "usage: worklog.sh followup \"<one line on what this request asks>\" [\"<step>\"...]" >&2
         exit 2
     }
+    shift
     FILE=$(resolve_file) || exit 2
-    printf '\n── follow-up: %s ──\n' "$line" >> "$FILE"
+    # Next item number = one past the highest item, counting header plan items,
+    # follow-up plan items, and any item referenced in the log (added via `plan`).
+    next=$(awk '
+      /^plan items[[:space:]]*$/ { inp = 1; next }
+      /^── log ──/               { inp = 0 }
+      inp && /^[[:space:]]+[0-9]+\./ { m = $0; sub(/^[[:space:]]+/, "", m); sub(/\..*$/, "", m); if (m + 0 > mx) mx = m + 0; next }
+      /^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #[0-9]+ / { r = substr($0, 10); it = r; sub(/ .*$/, "", it); sub(/^#/, "", it); if (it + 0 > mx) mx = it + 0 }
+      END { print mx + 1 }
+    ' "$FILE")
+    {
+        printf '\n── follow-up: %s ──\n' "$line"
+        if [ "$#" -gt 0 ]; then
+            printf 'plan items\n'
+            i=$next
+            for step in "$@"; do
+                printf '  %d. %s\n' "$i" "$step"
+                i=$((i + 1))
+            done
+        fi
+        printf '\n── log ──\n'
+    } >> "$FILE"
     exit 0
 fi
 

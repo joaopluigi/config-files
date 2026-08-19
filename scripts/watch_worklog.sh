@@ -53,11 +53,15 @@ colorize() {
         color["note"]     = "\033[90m"   # grey    — assumption / dead end
       }
       function pad(n,   s) { s = ""; while (length(s) < n) s = s " "; return s }
-      /── log ──/ || /── follow-up/ {
+      # The log divider prints the column header. A follow-up banner does not — it is
+      # always followed by its own `── log ──` (with an optional plan block between),
+      # which prints the header, so the banner just passes through bold below.
+      /── log ──/ {
         print
         print dim "time" pad(4) " " "item" pad(1) "tag" pad(6) "entry" reset
         fflush(); next
       }
+      /^── follow-up/ { print bold $0 reset; fflush(); next }
       /^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] / {
         ts = substr($0, 1, 8)
         rest = substr($0, 10); sub(/^ +/, "", rest)
