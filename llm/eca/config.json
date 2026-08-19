@@ -60,6 +60,9 @@
       "variant": "none"
     }
   },
+  "disabledTools": [
+    "slack__conversations_add_message"
+  ],
   "toolCall": {
     "approval": {
       "byDefault": "allow",
@@ -78,6 +81,9 @@
   "mcpServers": {
     "atlassian": {
       "url": "https://mcp.atlassian.com/v1/mcp/authv2"
+    },
+    "slack":{
+      "command": "$NU_HOME/slack-mcp-server/start.sh"
     }
   }
 }
