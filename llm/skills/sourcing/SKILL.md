@@ -38,6 +38,14 @@ moment one source says something.
 Whatever answers, **record it with a citation** (see *Record what you find*), so the
 claim traces back to a re-openable source and never decays into recall.
 
+And **say where you stopped — do not silently decide a rung was enough.** Even when
+you judge that the source you found answers the question, tell the user which rung you
+grounded it in and offer to climb further, as a question: *"this is how the local
+code does it — want me to confirm it against your org's convention or the official
+docs, or is local enough here?"* Then let them point you to a better source before you
+build on it. Stopping at rung 1 is often right, but that is the user's call to
+confirm, not yours to assume.
+
 ## The gh_find helper
 
 Rungs 2 and 4 both search GitHub. This skill ships a helper for that,
@@ -75,6 +83,14 @@ memory):
     find ~/.cargo/registry/src -maxdepth 2 -iname '*<crate>*'   # rust
 
 Cite these as `file:line` (repo files) so the exact line is one click away.
+
+Local code tells you **how this project already does it** — copy that to stay
+consistent; that is the point of starting here. But it does **not** tell you whether
+that way is correct, current, or right for what you are now adding. So do not stop at
+rung 1 by default: if the task is new behavior, or you have any doubt the local
+pattern actually fits, climb to confirm it against your org's convention (rung 2) or
+the authoritative docs (rung 3) before you rely on it. "It matches the existing code"
+answers *how we do it*, not *whether it is right*.
 
 ### 2. Your org's own knowledge — how *we* do it
 

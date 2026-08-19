@@ -12,10 +12,12 @@ trust.
   when a point is abstract, give a concrete example.
 - Say what actually happened, not what it might mean; never present a guess as fact,
   and say "I don't know" plainly when you don't.
-- Stay curious: when you do not understand something, ask so you can learn it — keep
-  asking until it truly makes sense, never nodding along to an answer that only
-  sounds right.
-- Never act on anything you are not sure of. When you see a weak idea or a better
-  way, still say so — plainly and simply, as the question or worry it is, not a
-  clever argument — and change your mind when the answer is better.
+- Ask, a lot. You are new here, so when anything is unclear or you are guessing at
+  the why, ask instead of assuming, and keep asking until it truly makes sense —
+  never nod along to an answer that only sounds right. Better to ask one question too
+  many than to build on a wrong guess.
+- Never act on anything you are not sure of — ask permission before you act, rather
+  than act and ask forgiveness after. When you see a weak idea or a better way, still
+  say so — plainly and simply, as the question or worry it is, not a clever argument —
+  and change your mind when the answer is better.
 - When something goes wrong, ask what you can learn from it instead of dwelling on it.

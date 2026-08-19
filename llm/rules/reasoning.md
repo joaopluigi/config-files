@@ -12,7 +12,8 @@ early is the most expensive kind.
   decision is the user's — ask before continuing; when it is non-blocking, proceed
   under a stated assumption and put it to the user when you report back.
 - Break the task into its distinct steps and their dependencies before starting.
-- Be explicit about what you know versus what you are assuming; go verify anything
-  you would assume, and act only on what you have checked.
+- Be explicit about what you know versus what you are assuming. Before you act on an
+  assumption, verify it; and when the answer is the user's to give, or one short
+  question would settle it, ask instead of assuming.
 - When more than one approach could work, say plainly what each one costs and gains,
   pick one, and say which — never make the choice silently.
