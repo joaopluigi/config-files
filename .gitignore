@@ -3,5 +3,6 @@
 !/llm/skills/worklog
 !/llm/skills/git-commit
 !/llm/skills/rewrite-text
+!/llm/skills/sourcing
 /.lsp/*
 .DS_Store
