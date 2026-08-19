@@ -8,50 +8,18 @@ work happens, not a report you write afterward: working from it keeps the plan
 honest, the progress visible as it happens, and the reasoning recoverable by
 anyone who reads it later.
 
-- At the start of every task, no matter how small, check whether a worklog already
-  exists before creating one. If it does, read it: if its goal is the work you are
-  now being asked to do, continue that worklog; if it is leftover from unrelated
-  work, ask the user whether to continue or discard it before overwriting — never
-  silently discard an existing worklog. When they choose discard, overwrite it from
-  empty so the new worklog is the file's only content — a discarded worklog is gone,
-  not left sitting above the new one.
-- Treat a reopened worklog as claims, not proof: before building on a step it marks
-  done, confirm the result still holds in the repository, since a revert or an
-  outside change can undo it while the log still reads finished. When the log looks
-  already complete but you were asked to run the task again, verify the state and ask
-  whether it stands or should be redone — never silently conclude there is nothing
-  to do.
-- Create the worklog (or continue the existing one) and write the plan there; start
-  no work until the plan exists.
-- Your worklog lasts the whole session, not one task: on every follow-up
-  that continues, changes, or extends the work, reopen it before doing anything
-  else and keep adding to it — never treat it as closed because the first task
-  felt finished. A follow-up extends the existing plan and record; it never
-  restarts them from scratch.
-- Keep the worklog throwaway — never commit it to the repo.
-- Work the plan in order, one item at a time — finish the current item before you
-  start the next; never skip ahead or bundle unrelated work together.
-- Do no work the plan does not contain: before acting on something the plan has no
-  item for, add it to the plan first, then do it — so the plan accounts for
-  everything you did and nothing happens off the record.
-- Append to the worklog in a tight loop, not in batches: after each source you read
-  or step you finish, immediately record what you found, the decisions you made and
-  why, any new steps you uncovered, the open questions raised, and the step now
-  done — before starting the next. Never let the log lag behind where the work
-  actually is.
-- Think in the worklog, not beside it: the moment you weigh an option or reason
-  toward a choice, append that reasoning as you have it — never deliberate silently
-  and record only the conclusion. Reasoning written as it happens keeps the record
-  complete and lets the user follow your thinking live.
-- Record every question in the worklog and append its answer when it comes — the
-  user's reply, or the assumption you took — so none is resolved silently.
-- Re-read the plan and your recent entries before moving on to the next step.
-- Write the worklog so someone with no prior context could follow what happened, how
-  it evolved, and why — legible, but not bloated.
-- Every plan item must reach a close before the task is complete — the ones you
-  planned and any you add mid-flight alike, and even one that only inspects, reads,
-  or researches: it closes on what you learned, not on producing a file. If one
-  proves unnecessary, close it anyway with the reason, since an item left unclosed
-  is unfinished work, not something to drop silently.
-- Never call the task done until you have verified it and either resolved every open
-  question in the worklog or raised it to the user.
+- At the start of every task, reopen your worklog if its goal is the work you are
+  now asked to do; if it holds unrelated leftover work, ask before overwriting —
+  never silently discard an existing worklog.
+- Write the plan in the worklog before starting, and do no work the plan does not
+  contain: when something new comes up, add it to the plan first, then do it — so
+  nothing happens off the record.
+- Append as you go, never in batches — record each finding, decision, new step, and
+  question with its answer before moving on, and reason in the worklog rather than
+  beside it so the thinking is visible as it happens.
+- Keep one worklog for the whole session: reopen it on every follow-up instead of
+  starting a new one, since a follow-up extends the existing plan and record rather
+  than restarting them.
+- Close every plan item before the task is complete — even one that only inspects or
+  turns out unnecessary — and never call the task done until you have verified it and
+  resolved or raised every open question.
