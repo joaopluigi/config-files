@@ -20,13 +20,7 @@
             "cacheRead": 0.18
           }
         },
-        "gpt-5.6-luna": {
-          "extraPayload": {
-            "reasoning": {
-              "effort": "none"
-            }
-          }
-        }
+        "gpt-5.6-luna": {}
       }
     },
     "anthropic": {
@@ -46,9 +40,6 @@
           "extraPayload": {
             "thinking": {
               "type": "adaptive"
-            },
-            "output_config": {
-              "effort": "high"
             }
           }
         }
@@ -57,11 +48,17 @@
   },
   "agent": {
     "code": {
-      "variant": "none"
+      "variant": "low"
     }
   },
   "disabledTools": [
-    "slack__conversations_add_message"
+    "slack__.*add.*",
+    "google-workspace__docs_(create|write|replace|format).*",
+    "google-workspace__drive_(create|move|trash|rename).*",
+    "google-workspace__calendar_(create|update|respond|delete).*",
+    "google-workspace__chat_(send|setUp).*",
+    "google-workspace__gmail_(modify|batchModify|send|create).*",
+    "atlassian__(create|update|edit|add|transition).*"
   ],
   "toolCall": {
     "approval": {
@@ -82,8 +79,15 @@
     "atlassian": {
       "url": "https://mcp.atlassian.com/v1/mcp/authv2"
     },
-    "slack":{
-      "command": "$NU_HOME/slack-mcp-server/start.sh"
+    "google-workspace": {
+      "command": "node",
+      "args": [
+        "$HOME/dev/workspace/workspace-server/dist/index.js"
+      ],
+      "env": {}
+    },
+    "slack": {
+      "command": "$HOME/dev/slack-mcp-server/start.sh"
     }
   }
 }
