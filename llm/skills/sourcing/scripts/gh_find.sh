@@ -9,15 +9,28 @@
 #
 #   gh_find.sh code  <query...> [gh flags]   who does this / who uses this API
 #   gh_find.sh repos <query...> [gh flags]   a whole repo doing something similar
+#   gh_find.sh prs   <query...> [gh flags]   pull requests that discuss something
+#   gh_find.sh pr    <owner/repo> <number> [--include-bots]   read one PR's discussion
 #
-# Extra `gh search` flags pass straight through, so you can narrow the search:
+# For code/repos/prs, extra `gh search` flags pass straight through, so you can
+# narrow the search:
 #   --language clojure   --repo owner/name   --owner org   --extension clj
-#   --filename deps.edn  --limit 10          (code & repos both default to 30)
+#   --author me          --commenter alice   --limit 10     (searches default to 30)
+#
+# `pr` reads one pull request's human discussion — its description, conversation
+# comments, inline review comments, and non-empty review summaries — merged in
+# time order, each with its author and a citeable permalink. Bot comments
+# (dependabot, codecov, CI, anything whose account is a Bot or ends in `[bot]`)
+# are dropped by default, since they are noise for sourcing; pass --include-bots
+# to keep them. A human service account with no `[bot]` marker cannot be told from
+# a person and will show — spot it by name.
 #
 # Examples:
 #   gh_find.sh code 'core.async pipeline' --language clojure --limit 5
 #   gh_find.sh code 'toolCall approval' --repo eclipse-eca/eca
 #   gh_find.sh repos 'mcp server' --language go
+#   gh_find.sh prs 'retry backoff' --owner my-org --state merged
+#   gh_find.sh pr my-org/service 482
 #
 # A code hit's URL is pinned to a commit SHA, so it keeps pointing at the exact
 # lines you read. Open it, confirm it really says what you think, then cite it —
@@ -29,7 +42,7 @@
 set -eu
 
 usage() {
-    echo "usage: gh_find.sh code <query...> [gh flags]   |   gh_find.sh repos <query...> [gh flags]" >&2
+    echo "usage: gh_find.sh code|repos|prs <query...> [gh flags]   |   gh_find.sh pr <owner/repo> <number> [--include-bots]" >&2
     exit 2
 }
 
@@ -50,6 +63,41 @@ case "$mode" in
     repos)
         out=$(gh search repos "$@" --json fullName,stargazersCount,description,url \
             --jq '.[] | "\(.fullName)  (\(.stargazersCount)★)\n  \(.description // "(no description)")\n  \(.url)"')
+        ;;
+    prs)
+        out=$(gh search prs "$@" --json repository,number,title,state,url \
+            --jq '.[] | "\(.repository.nameWithOwner) #\(.number)  [\(.state)]  \(.title)\n  \(.url)"')
+        ;;
+    pr)
+        repo=${1:-}
+        num=${2:-}
+        case "$repo" in
+            */*) : ;;
+            *)   echo "gh_find: pr needs <owner/repo> <number>, e.g. gh_find.sh pr my-org/service 482" >&2; exit 2 ;;
+        esac
+        case "$num" in
+            ''|*[!0-9]*) echo "gh_find: pr needs a numeric <number>, e.g. gh_find.sh pr my-org/service 482" >&2; exit 2 ;;
+        esac
+        shift 2
+        include_bots=false
+        for a in "$@"; do
+            [ "$a" = --include-bots ] && include_bots=true
+        done
+        raw=$(
+            gh api "repos/$repo/pulls/$num" \
+                --jq '{kind:"description", login:.user.login, type:.user.type, at:.created_at, body:.body, url:.html_url, path:null}'
+            gh api --paginate "repos/$repo/issues/$num/comments" \
+                --jq '.[] | {kind:"comment", login:.user.login, type:.user.type, at:.created_at, body:.body, url:.html_url, path:null}'
+            gh api --paginate "repos/$repo/pulls/$num/comments" \
+                --jq '.[] | {kind:"review-inline", login:.user.login, type:.user.type, at:.created_at, body:.body, url:.html_url, path:.path}'
+            gh api --paginate "repos/$repo/pulls/$num/reviews" \
+                --jq '.[] | select((.body // "") != "") | {kind:"review", login:.user.login, type:.user.type, at:.submitted_at, body:.body, url:.html_url, path:null}'
+        )
+        out=$(printf '%s\n' "$raw" | grep -v '^[[:space:]]*$' | jq -rs --argjson bots "$include_bots" '
+            map(select($bots or ((.type != "Bot") and ((.login // "") | test("\\[bot\\]$") | not))))
+            | sort_by(.at)
+            | .[]
+            | "\(.at[0:10])  @\(.login)  [\(.kind)\(if .path then " " + .path else "" end)]\n  \((.body // "") | gsub("\r"; "") | gsub("\n"; "\n  "))\n  \(.url)"')
         ;;
     *)
         usage

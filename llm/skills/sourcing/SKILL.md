@@ -1,7 +1,7 @@
 ---
 name: sourcing
-description: "A precedence ladder and concrete tools for grounding a claim in a real source before you act on it — read the task's own files and this repo's dependencies first, then your org's own knowledge (its GitHub repos, plus internal docs in Confluence and discussions in Slack when those tools are connected), then the official docs, and only then the whole of public GitHub. Ships a gh_find.sh helper that turns GitHub code/repo search into ready-to-cite URLs. Use whenever you need a fact about an API, a convention, or how something is done, and want it from a source instead of memory."
-compatibility: The gh_find.sh helper needs the GitHub CLI (`gh`) authenticated (`gh auth status`) and `jq`. The Confluence and Slack avenues need their MCP tools connected in the session — skip them if not. The rest use ripgrep/git and the web tools.
+description: "Use whenever you need information you do not already have in front of you — to answer a question, read a pull request's review comments, look up how an API or tool works, check a convention, gather requirements from a doc or a discussion, or find prior art — and want it from a real source instead of memory. Works for reading and answering, not only before acting. A precedence ladder with a concrete tool for each rung: the task's own files and this repo's dependencies first, then your org's own knowledge (its GitHub repos and pull-request discussions, plus internal docs in Confluence or Google Docs, discussions in Slack, and meeting notes and transcripts reached through the calendar, when those tools are connected), then the official docs, and only then the whole of public GitHub. Ships a gh_find.sh helper that turns GitHub code/repo/PR search into ready-to-cite URLs and reads a PR's discussion with bots filtered out."
+compatibility: The gh_find.sh helper needs the GitHub CLI (`gh`) authenticated (`gh auth status`) and `jq`. The Confluence, Slack, and Google Workspace (Docs, Drive, Calendar) avenues need their MCP tools connected in the session — skip them if not. The rest use ripgrep/git and the web tools.
 ---
 
 # sourcing
@@ -49,7 +49,7 @@ confirm, not yours to assume.
 ## The gh_find helper
 
 Rungs 2 and 4 both search GitHub. This skill ships a helper for that,
-`scripts/gh_find.sh`, which runs `gh search` and prints each hit as a ready-to-cite
+`scripts/gh_find.sh`, which runs `gh` and prints each hit as a ready-to-cite
 line (repo, path, and the URL you record as `src:`). It is **self-contained** —
 nothing on your `PATH` — so invoke it by its **full path**: this
 skill's directory is shown when the skill loads, and the tool is `scripts/gh_find.sh`
@@ -58,10 +58,21 @@ under it. Below, `gh_find.sh` is shorthand for that absolute path; always run
 
     sh gh_find.sh code  <query...> [gh flags]    # who does this / who uses this API
     sh gh_find.sh repos <query...> [gh flags]    # a whole repo doing something similar
+    sh gh_find.sh prs   <query...> [gh flags]    # pull requests that discuss something
+    sh gh_find.sh pr    <owner/repo> <number>    # read one PR's human discussion
 
-Narrow with any `gh search` flag — `--language`, `--extension`, `--filename`,
-`--repo owner/name`, `--limit`. The one that turns rung 4 into rung 2 is
+Narrow the searches with any `gh search` flag — `--language`, `--extension`,
+`--filename`, `--repo owner/name`, `--limit`, and for `prs` also `--author`,
+`--commenter`, `--state`. The one that turns rung 4 into rung 2 is
 **`--owner <org>`**: it restricts the search to your organization.
+
+`pr` reads a single pull request's **human discussion** — its description,
+conversation, inline review comments, and review summaries — merged in time order,
+each with its author and a citeable permalink. **Bot comments are dropped by
+default** (dependabot, codecov, CI — anything whose account is a Bot or ends in
+`[bot]`), because they are noise for sourcing; pass `--include-bots` on the rare
+occasion you want what a bot reported. A human service account with no `[bot]`
+marker cannot be told from a person and will show — spot it by name.
 
 ## The avenues, rung by rung
 
@@ -94,14 +105,21 @@ answers *how we do it*, not *whether it is right*.
 
 ### 2. Your org's own knowledge — how *we* do it
 
-Three internal avenues, in descending order of how settled the source is — code that
-runs, then a written doc, then a conversation. Reach for whichever your session has
-tools for, and skip any whose tools are not connected.
+Several internal avenues, in descending order of how settled the source is — code
+that runs, then a written doc, then a conversation or spoken record. Reach for
+whichever your session has tools for, and skip any whose tools are not connected.
 
 **Org code** — the GitHub helper, scoped to your organization with `--owner`:
 
     sh gh_find.sh code 'idempotency key' --owner <your-org> --language clojure
     sh gh_find.sh repos 'retry middleware' --owner <your-org>
+
+**Pull request discussion** — the review thread is where a code decision was argued
+and settled, so it often explains *why* the code is the way it is. Find the PR, then
+read its discussion (bots dropped by default):
+
+    sh gh_find.sh prs 'retry backoff' --owner <your-org> --state merged   → find the PR
+    sh gh_find.sh pr <your-org>/<repo> <number>                           → read it; cite the comment permalink
 
 **Internal docs (Confluence)** — when a Confluence/Atlassian tool is connected,
 search the wiki for the written decision or runbook, then read the page:
@@ -109,15 +127,29 @@ search the wiki for the written decision or runbook, then read the page:
     searchConfluenceUsingCql  (or the `search` tool)   → find the page
     getConfluencePage                                  → read it; cite the page URL
 
+**Internal docs (Google Docs)** — when the Google Workspace tools are connected,
+search Drive for the doc, then read its text:
+
+    drive_search   → find the doc
+    docs_getText   → read it; cite the doc URL
+
 **Discussion (Slack)** — when a Slack tool is connected, search for where something
 was decided or asked, then read the whole thread:
 
     conversations_search_messages   → find the message
     conversations_replies           → read the thread; cite the message permalink
 
+**Meeting notes & transcripts (Calendar → Docs)** — when the Google Workspace tools
+are connected, find the meeting on the calendar, open the event to reach its attached
+notes or recording transcript, then read that doc:
+
+    calendar_listEvents (or calendar_getEvent)   → find the meeting and its attachments
+    docs_getText (or drive_downloadFile)         → read the notes/transcript; cite its URL
+
 Prefer a match here over one from the wider public search — it already follows the
-conventions your change is expected to match. Trust them in the order above: Slack is
-the softest — a message is a lead and a pointer to a person, so confirm what it says
+conventions your change is expected to match. Trust them in the order above: Slack
+messages and meeting transcripts are the softest — a chat line, or something someone
+said aloud in a call, is a lead and a pointer to a person, so confirm what it says
 against code or a doc before you rely on it.
 
 ### 3. Official docs — the authoritative word
@@ -135,10 +167,13 @@ Cite the URL and the section.
 
 ### 4. All of public GitHub — the wide net
 
-When nothing closer answers, search all public code for real usage or prior art:
+When nothing closer answers, search all public code for real usage or prior art —
+and the pull requests where others hit and discussed the same problem:
 
     sh gh_find.sh code 'core.async pipeline' --language clojure --limit 5
     sh gh_find.sh repos 'mcp server' --language go
+    sh gh_find.sh prs 'flaky test retry' --language go --state merged
+    sh gh_find.sh pr <owner>/<repo> <number>   # read that PR's discussion
 
 A search hit is a **lead, not yet a source**: open it, read enough to confirm it
 truly does what you think, and only then cite it. The URL a code hit prints is
