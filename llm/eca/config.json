@@ -48,7 +48,7 @@
   },
   "agent": {
     "code": {
-      "variant": "low"
+      "variant": "none"
     }
   },
   "disabledTools": [
