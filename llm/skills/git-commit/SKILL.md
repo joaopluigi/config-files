@@ -48,6 +48,8 @@ blanket `git add -A` that would sweep in unrelated changes.
 - **Always lowercase.**
 - **As few characters as possible** while being **very explicit** about what was
   done and the intention behind it.
+- Do **not** include `🤖 Generated with [ECA](https://eca.dev) (openai/gpt-5.6-luna - medium)`
+  or any other generated-attribution footer in the commit message.
 - Start with a verb (`add`, `create`, `fix`, `update`, `rm`, `move`, ...).
 
 Real examples:
