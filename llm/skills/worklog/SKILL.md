@@ -1,6 +1,6 @@
 ---
 name: worklog
-description: "Write and maintain an append-only worklog for any task — a fixed Goal and Plan at the top, then a live stream of tagged entries (thinking, findings, decisions, progress, questions) appended as you work, so progress can be followed live. Use whenever a worklog will be written to plan and track work."
+description: "Write and maintain an append-only worklog for any task — a working-directory path, fixed Goal and Plan at the top, then a live stream of tagged entries (thinking, findings, decisions, progress, questions) appended as you work, so progress can be followed live. Use whenever a worklog will be written to plan and track work; select the file explicitly when agents may run concurrently."
 ---
 
 # worklog
@@ -24,16 +24,27 @@ numbered **plan steps**:
 
     sh worklog.sh new "<one-line goal>" "<what done looks like>" "<step 1>" "<step 2>" ...
 
-It writes the header, keeps the file in an ephemeral, out-of-repo location, and
-prints the file's path. **Tell the user that path** so they can follow along as you
-work. You create a worklog once per piece of work; every later command finds it on
-its own, so you never pass or remember the path. (When several agents run at once,
-put `WORKLOG=<path>` in front of a command to aim it at one specific file.)
+For every later operation, select the exact worklog file returned by `new`:
+
+    sh worklog.sh --worklog /tmp/worklogs/<id>.txt <item> <tag> <text...>
+    sh worklog.sh --worklog /tmp/worklogs/<id>.txt followup "<one line>"
+    sh worklog.sh --worklog /tmp/worklogs/<id>.txt check
+
+The explicit selector is required for operations on an existing worklog. Do not
+rely on the most recent file when multiple agents may be working at once.
+
+It writes the header, including the absolute working directory from which `new`
+was invoked, keeps the file in an ephemeral, out-of-repo location, and prints the
+file's path. **Tell the user that path** so they can follow along as you work. Keep
+that path and pass it explicitly to every later command with `--worklog <path>`;
+this is required when several agents run at once, because the tool must not guess
+from the most recent file. `WORKLOG=<path>` remains supported as an alternative
+for selecting the file.
 
 The worklog is **append-only**: only ever add lines at the end, and never edit or
 rewrite a line already written. Add each log entry with the tool:
 
-    sh worklog.sh <item> <tag> <text...>
+    sh worklog.sh --worklog /tmp/worklogs/<id>.txt <item> <tag> <text...>
 
 It stamps the time, then rejects an entry that can never be right — an unknown tag,
 a non-numeric item, or a `find` with no `src:` — before writing it, and after each
@@ -56,14 +67,16 @@ time as-is; the file keeps the real times, which read fine raw too. There is no
 start file to manage: the start of a segment is simply its first entry.
 
 Before starting, check whether a worklog for this work already exists — ask the
-tool for the current one and read it if there is one:
+tool for the most recent candidate and read it if there is one:
 
-    sh worklog.sh path   # prints the current worklog, nothing if none yet
+    sh worklog.sh path   # discovery only; prints the most recent path
 
-If its **Goal** is the task you are now working on, keep working in it — append and
-continue. If it is leftover from unrelated work, start your own with `new`: that
-mints a separate file and every later command follows the new one, so you leave the
-old worklog untouched rather than writing over it.
+Read the returned file and compare its **Goal** with the task you are now working
+on. If it is the same work, continue that worklog. If it is unrelated, start your
+own with `new`; that mints a separate file and prints its path. In either case, use
+the exact path explicitly with `--worklog <path>` for every later read, append,
+follow-up, or check. The `path` command must not be used as an implicit target,
+because another agent may create a newer worklog between commands.
 
 A worklog you reopen records what a past run *claimed*, not what is still true.
 Before building on a step it marks `done`, confirm the result still holds in the
@@ -79,8 +92,8 @@ the header's `goal:` does. If the follow-up already has its own steps, list them
 right after the one-line summary and the tool writes them as a fresh `plan items`
 block for this segment:
 
-    sh worklog.sh followup "<one line on what this request asks>"
-    sh worklog.sh followup "<one line>" "<step>" "<step>" ...   # with its own plan
+    sh worklog.sh --worklog /tmp/worklogs/<id>.txt followup "<one line on what this request asks>"
+    sh worklog.sh --worklog /tmp/worklogs/<id>.txt followup "<one line>" "<step>" "<step>" ...   # with its own plan
 
 Either way the numbering **continues** from the highest item so far instead of
 restarting at `#1`, so every `#<item>` in the log stays unambiguous — a follow-up
@@ -104,6 +117,8 @@ verbatim log of every keystroke.
 
 ```
 # worklog — <one-line goal>
+
+working directory: <absolute path from which the worklog was created>
 
 goal: <what "done" looks like, in a sentence or two>
 
@@ -154,7 +169,7 @@ hold every entry together:
   than letting the number run ahead of the work. The tool enforces this: a `done`
   that closes an item while a lower-numbered one is still open is refused — close
   them in order, or, when an out-of-order close is genuinely intended, repeat it
-  with a leading `--force` (`sh worklog.sh --force <item> done <text>`).
+  with a leading `--force` (`sh worklog.sh --worklog /tmp/worklogs/<id>.txt --force <item> done <text>`).
 - **A closed item stays closed.** Once an item has a `done`, put new entries on an
   item that is still open, not back on the finished one — after a follow-up
   especially, use the new segment's numbers rather than a stale number from an
@@ -206,7 +221,7 @@ to-do list, not a problem.
 When you think you are done, re-read the whole worklog top to bottom, then run the
 same tool as the completion gate:
 
-    sh worklog.sh check
+    sh worklog.sh --worklog /tmp/worklogs/<id>.txt check
 
 `check` re-scans the whole file — the header and anything carried over from a
 reopened log too, not just the entries you appended — and is strict: it exits

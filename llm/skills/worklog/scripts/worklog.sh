@@ -6,17 +6,18 @@
 # path — shown below as `worklog.sh` for brevity: `sh <skill>/scripts/worklog.sh …`.
 #
 #   worklog.sh new "<goal>" "<what done looks like>" "<step>"...   create a new worklog
-#   worklog.sh <item> <tag> <text...>   append one entry, then show what is open
-#   worklog.sh followup "<one line>" ["<step>"...]   mark a new same-goal segment,
-#                                       optionally with its own plan steps
-#   worklog.sh check [path]             completion gate: strict lint of the whole file
-#   worklog.sh path                     print the current worklog's path (empty if none)
+#                              (records the invoking working directory in the header)
+#   worklog.sh --worklog <path> <item> <tag> <text...>
+#                                       append one entry to the selected worklog
+#   worklog.sh --worklog <path> followup "<one line>" ["<step>"...]
+#                                       mark a segment in the selected worklog
+#   worklog.sh --worklog <path> check   completion gate: strict lint of the whole file
+#   worklog.sh path                     print the most recent worklog's path (discovery only)
 #
-# The worklog's location lives only in this script — every command resolves it the
-# same way, so nothing else needs to know where worklogs are kept. `new` mints the
-# path; the other commands find it automatically as the most recent worklog. When
-# several agents run at once, point each at its own file with WORKLOG=<path> in
-# front of the command.
+# The worklog's location lives only in this script — `new` mints the path and
+# prints it; operations on an existing log require an explicit --worklog <path>
+# selector. WORKLOG=<path> is also accepted for callers that prefer an environment
+# variable. Never fall back to the most recent worklog: concurrent agents can race.
 #
 # Append mode stamps the wall-clock time, rejects an entry that can never be
 # right — an unknown tag, a non-numeric item, a `find` with no `src:`, or a second
@@ -44,9 +45,13 @@
 WL_DIR=/tmp/worklogs
 
 resolve_file() {
-    f="${WORKLOG:-$(ls -t "$WL_DIR"/*.txt 2>/dev/null | head -n1)}"
-    if [ -z "$f" ] || [ ! -f "$f" ]; then
-        echo "worklog: no worklog yet — create one with: worklog.sh new \"<goal>\" \"<done looks like>\" \"<step>\"..." >&2
+    f="${WORKLOG:-}"
+    if [ -z "$f" ]; then
+        echo "worklog: select a worklog explicitly with: worklog.sh --worklog <path> ..." >&2
+        return 1
+    fi
+    if [ ! -f "$f" ]; then
+        echo "worklog: no such worklog: $f" >&2
         return 1
     fi
     printf '%s\n' "$f"
@@ -124,6 +129,17 @@ scan() {
     ' "$2"
 }
 
+# An explicit worklog path is required for every operation that reads or writes an
+# existing log. This prevents concurrent agents from selecting one another's files.
+if [ "$1" = --worklog ]; then
+    [ -n "$2" ] || {
+        echo "usage: worklog.sh --worklog <path> <item> <tag> <text...>" >&2
+        exit 2
+    }
+    WORKLOG=$2
+    shift 2
+fi
+
 # --- new mode ---------------------------------------------------------------
 if [ "$1" = new ]; then
     shift
@@ -143,6 +159,7 @@ if [ "$1" = new ]; then
     FILE="$WL_DIR/$id.txt"
     {
         printf '# worklog — %s\n\n' "$goal"
+        printf 'working directory: %s\n\n' "$PWD"
         printf 'goal: %s\n\n' "$done_desc"
         printf 'plan items\n'
         i=1
@@ -222,7 +239,7 @@ if [ "$1" = --force ]; then force=1; shift; fi
 item=$1
 tag=$2
 [ -n "$item" ] && [ -n "$tag" ] || {
-    echo "usage: worklog.sh [--force] <item> <tag> <text...>   |   worklog.sh check [path]" >&2
+    echo "usage: worklog.sh --worklog <path> [--force] <item> <tag> <text...>   |   worklog.sh --worklog <path> check" >&2
     exit 2
 }
 shift 2
