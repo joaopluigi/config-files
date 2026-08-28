@@ -4,5 +4,6 @@
 !/llm/skills/git-commit
 !/llm/skills/rewrite-text
 !/llm/skills/sourcing
+!/llm/skills/clj-rewrite
 /.lsp/*
 .DS_Store
