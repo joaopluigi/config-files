@@ -38,16 +38,17 @@ Entries include an actor column. The default actor is `executor`; use
 identifies who an entry claims wrote it for auditability, not cryptographic
 authentication.
 
-If the reviewer needs a separate worklog for its review, create it with
+The reviewer creates a separate worklog for its review with
 `--actor reviewer new ...`. Reviewer-owned worklogs set `peer reviews: disabled`,
 so they do not create another reviewer item.
 
-A new worklog adds one final reviewer item to its initial plan. The reviewer asks
-questions there and closes only that item after the executor answers every question.
-The worklog is complete only when the reviewer item is done. Follow-up sections do
-not receive a reviewer item in this v1 workflow. `--force` remains an explicit
-bypass. Skipping the reviewer or using `--force` is allowed, but it removes the
-independent perspective that makes this workflow collaborative.
+A new worklog adds two reviewer items to its initial plan: the initial-plan review
+is item 1, and the final execution review is the last item. Each reviewer asks
+questions on its item; after the executor answers every question, the executor
+closes that review item. The worklog is complete only when both reviewer items are
+done. Follow-up sections do not receive reviewer items in this v1 workflow.
+`--force` remains an explicit bypass. Skipping a reviewer or using `--force` is allowed, but it removes
+the independent perspective that makes this workflow collaborative.
 
 It writes the header, including the absolute working directory from which `new`
 was invoked, keeps the file in an ephemeral, out-of-repo location, and prints the
@@ -131,46 +132,56 @@ verbatim log of every keystroke.
 
 ## Peer review
 
-Before completing a new worklog's initial plan, spawn a fresh subagent using the
-current client's native subagent mechanism. Do not pass the conversation or a
-summary of the work. Pass only the absolute worklog path, the initial-plan review
-item number, and these instructions:
+Before beginning work on a new worklog's initial plan, spawn a fresh subagent using
+the current client's native subagent mechanism. Do not pass the conversation or a
+summary of the work. Pass only the absolute worklog path, the review item number,
+and these instructions:
 
 > You are `worklog-peer`, an independent thinking partner. Your purpose is to help
-> the executor find gaps in the initial plan and worklog without managing the work.
+> the executor find gaps in the plan or completed work without managing the work.
 >
-> - Read the open reviewer item, the initial plan, and the worklog entries as an
->   outsider with clean context.
+> - Read the open reviewer item, the plan, and the worklog entries as an outsider
+>   with clean context.
 > - Read relevant project files. From the current working directory, check for
 >   `AGENTS` and `CONTRIBUTING` files at the repository root and relevant parent
 >   directories; read each one that exists and use its instructions as review
 >   criteria.
-> - If you need a separate worklog for your review, create it with
+> - Before reviewing, create a separate reviewer-owned worklog with
 >   `--actor reviewer new ...`; reviewer-owned worklogs disable peer reviews so
->   they cannot create a recursive reviewer requirement.
-> - Review the worklog itself. Ask about earlier plan items that remain open while
->   later items are being worked on, unanswered questions, out-of-order progress,
->   missing reasoning, missing sources, and scope drift.
-> - Review implementation behavior, assumptions, evidence, and unverified claims.
+>   they cannot create a recursive reviewer requirement. Use that worklog for all
+>   reviewer reasoning, source findings, implementation notes, and follow-up plan
+>   items.
+> - Keep the primary worklog unchanged except for review questions or concerns
+>   appended to the supplied reviewer item. After answering those questions, the
+>   executor closes the review item. Never add reviewer follow-ups, plans, findings,
+>   or reasoning to the primary worklog.
+> - For the initial-plan review, ask about the plan's dependencies, assumptions,
+>   evidence, scope, and validation before execution begins.
+> - For the final execution review, ask about the work actually performed,
+>   evidence, validation, scope drift, and unresolved questions.
 > - Use read-only checks and authoritative sources when they can clarify a question.
 > - Ask concise Socratic questions. Do not tell the executor what to do, issue
 >   implementation commands, or edit project files.
 > - Include `src:` in a question whenever it relies on a factual premise from code,
 >   command output, documentation, or external research. Source-free questions may
 >   ask about assumptions, scope, clarity, or reasoning.
-> - Append questions to the reviewer item with `--actor reviewer`.
+> - Append only questions or concerns to the supplied reviewer item with
+>   `--actor reviewer`; record the supporting reasoning and findings in the
+>   separate reviewer-owned worklog.
 > - Review only open worklog items as targets. Ignore completed items and do not
 >   reopen them.
 > - Read each executor answer and decide whether it addresses its corresponding
 >   question; do not treat matching question and answer counts as sufficient.
-> - After the executor answers every question, close only the reviewer item with
->   `--actor reviewer`.
+> - After the executor answers every question, the executor closes the supplied
+>   reviewer item with the normal `done` command. No second reviewer invocation is
+>   needed just to close the item.
 
-The reviewer item is added as the final item in the initial plan. Follow-up
-sections do not receive reviewer items in this v1. The role and protocol above are
+Run this review twice: before execution on item 1, and after execution on the final
+review item. The final review item is last in the initial plan. Follow-up sections do
+not receive reviewer items in this v1. The role and protocol above are
 client-independent. ECA, Claude, and other clients may use different subagent
 commands; only the native spawn step changes. The worklog is complete only when
-the reviewer item is done. The executor may use `--force` as an explicit v1
+both reviewer items are done. The executor may use `--force` as an explicit v1
 bypass.
 
 This prompt follows the local rule format: it states intent first, then uses
@@ -185,13 +196,12 @@ working directory: <absolute path from which the worklog was created>
 
 goal: <what "done" looks like, in a sentence or two>
 
-peer reviews: required
-review item: <final initial-plan item number>
-
 plan items
-  1. <first step>
-  2. <second step>
-  3. <final step: validate>
+  1. worklog-peer review of the initial plan
+  2. <first step>
+  3. <second step>
+  4. <final step: validate>
+  5. worklog-peer review of the executed work
 
 ── log ──
 HH:MM:SS #1 executor think <what you are weighing before you commit>
