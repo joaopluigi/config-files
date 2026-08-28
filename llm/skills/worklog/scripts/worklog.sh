@@ -7,8 +7,8 @@
 #
 #   worklog.sh new "<goal>" "<what done looks like>" "<step>"...   create a new worklog
 #                              (records the invoking working directory in the header)
-#   worklog.sh --worklog <path> <item> <tag> <text...>
-#                                       append one entry to the selected worklog
+#   worklog.sh --worklog <path> [--actor <actor>] <item> <tag> <text...>
+#                                       append one actor-attributed entry
 #   worklog.sh --worklog <path> followup "<one line>" ["<step>"...]
 #                                       mark a segment in the selected worklog
 #   worklog.sh --worklog <path> check   completion gate: strict lint of the whole file
@@ -19,10 +19,10 @@
 # selector. WORKLOG=<path> is also accepted for callers that prefer an environment
 # variable. Never fall back to the most recent worklog: concurrent agents can race.
 #
-# Append mode stamps the wall-clock time, rejects an entry that can never be
-# right — an unknown tag, a non-numeric item, a `find` with no `src:`, or a second
-# `done` on an item already closed — before writing it (the log is append-only, so
-# a bad line is permanent). It then prints the running `Open items:` /
+# Append mode stamps the wall-clock time and actor, rejects an entry that can never be
+# right — an unknown actor or tag, a non-numeric item, a `find` with no `src:`, or a
+# second `done` on an item already closed — before writing it (the log is append-only,
+# so a bad line is permanent). It then prints the running `Open items:` /
 # `Open questions:` status, nudging you to close what you have finished. Nothing is
 # written when it refuses; fix the entry and run it again. Three further guards are
 # heuristics — likely-wrong, not always-wrong — so each can be overridden with a
@@ -61,8 +61,15 @@ resolve_file() {
 scan() {
     awk -v mode="$1" '
       BEGIN {
-        in_items = 0; maxN = 0; hard = 0
+        in_items = 0; maxN = 0; hard = 0; peer_reviews = 0
         validtags = " think find decide done plan question answer note "
+        validactors = " executor reviewer "
+      }
+
+      # A new worklog opts into a single final peer-review dependency.
+      /^peer reviews:[[:space:]]+required[[:space:]]*$/ { peer_reviews = 1; next }
+      /^review item:[[:space:]]*[0-9]+[[:space:]]*$/ {
+        review_target = $0; sub(/^review item:[[:space:]]*/, "", review_target); review_target += 0; next
       }
 
       # Header plan-items block: from the "plan items" line to the log divider. A
@@ -75,20 +82,36 @@ scan() {
         next
       }
 
-      # Log entries: HH:MM:SS #N tag text
+      # Log entries: HH:MM:SS #N actor tag text.
       /^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #[0-9]+ / {
         rest = substr($0, 10)                       # drop the "HH:MM:SS " prefix
         item = rest; sub(/ .*$/, "", item); sub(/^#/, "", item); item += 0
         after = rest; sub(/^#[0-9]+ +/, "", after)
+        first = after; sub(/ .*$/, "", first)
+        actor = "executor"
+        if (index(validactors, " " first " ") == 0) {
+          nb++; bad_line[nb] = FNR; bad_text[nb] = $0; hard++
+          next
+        }
+        actor = first
+        sub(/^[^ ]+ +/, "", after)
         tag = after; sub(/ .*$/, "", tag)
-        seen[item] = 1; if (item > maxN) maxN = item
-
+        text = after; sub(/^[^ ]+ +/, "", text)
         if (index(validtags, " " tag " ") == 0) {
           nb++; bad_line[nb] = FNR; bad_text[nb] = $0; hard++
           next
         }
-        if (tag == "plan") planned[item] = 1
-        if (tag == "done") done[item]    = 1
+        seen[item] = 1; if (item > maxN) maxN = item
+
+        if (tag == "plan") {
+          planned[item] = 1
+          if (text ~ /^peer-review-for:#/) {
+            target = text; sub(/^peer-review-for:#/, "", target); sub(/ .*/, "", target)
+            dynamic_review_item[item] = 1
+            review_for[item] = target + 0; reviews[target + 0] = item
+          }
+        }
+        if (tag == "done") { done[item] = 1; done_actor[item] = actor }
         if (tag == "question") q[item]++
         if (tag == "answer")   a[item]++
         if (tag == "find" && index($0, "src:") == 0) {
@@ -101,11 +124,16 @@ scan() {
         for (i = 1; i <= maxN; i++)
           if (seen[i] && !planned[i]) { no++; off[no] = i; hard++ }
 
+        if (peer_reviews && review_target && (!done[review_target] || done_actor[review_target] != "reviewer")) {
+          nr++; review_line[nr] = review_target; hard++
+        }
+
         # Hard errors: only the gate lints them; append mode just shows status.
         if (mode == "gate") {
           for (k = 1; k <= nf; k++) { print "  x `find` without a source at line " find_line[k] ":"; print "      " find_text[k] }
-          for (k = 1; k <= nb; k++) { print "  x unknown tag at line " bad_line[k] ":"; print "      " bad_text[k] }
+          for (k = 1; k <= nb; k++) { print "  x unknown actor or tag at line " bad_line[k] ":"; print "      " bad_text[k] }
           for (k = 1; k <= no; k++)   print "  x entries reference item " off[k] ", not in the plan (add a `plan` line first)"
+          for (k = 1; k <= nr; k++)   print "  x executor item " review_line[k] " has no completed reviewer review"
           if (hard > 0) print ""
         }
 
@@ -133,12 +161,28 @@ scan() {
 # existing log. This prevents concurrent agents from selecting one another's files.
 if [ "$1" = --worklog ]; then
     [ -n "$2" ] || {
-        echo "usage: worklog.sh --worklog <path> <item> <tag> <text...>" >&2
+        echo "usage: worklog.sh --worklog <path> [--actor <actor>] <item> <tag> <text...>" >&2
         exit 2
     }
     WORKLOG=$2
     shift 2
 fi
+
+actor=executor
+if [ "$1" = --actor ]; then
+    [ -n "$2" ] || {
+        echo "usage: worklog.sh --worklog <path> --actor <executor|reviewer> ..." >&2
+        exit 2
+    }
+    actor=$2
+    shift 2
+fi
+case "$actor" in
+    executor|reviewer) : ;;
+    *)
+        echo "worklog: unknown actor: $actor (use executor or reviewer)" >&2
+        exit 2 ;;
+esac
 
 # --- new mode ---------------------------------------------------------------
 if [ "$1" = new ]; then
@@ -161,12 +205,21 @@ if [ "$1" = new ]; then
         printf '# worklog — %s\n\n' "$goal"
         printf 'working directory: %s\n\n' "$PWD"
         printf 'goal: %s\n\n' "$done_desc"
+        if [ "$actor" = reviewer ]; then
+            printf 'peer reviews: disabled\n\n'
+        else
+            printf 'peer reviews: required\n'
+            printf 'review item: %d\n\n' "$(( $# + 1 ))"
+        fi
         printf 'plan items\n'
         i=1
         for step in "$@"; do
             printf '  %d. %s\n' "$i" "$step"
             i=$((i + 1))
         done
+        if [ "$actor" != reviewer ]; then
+            printf '  %d. worklog-peer review of the initial plan\n' "$i"
+        fi
         printf '\n── log ──\n'
     } > "$FILE"
     printf '%s\n' "$FILE"
@@ -270,6 +323,49 @@ fi
 
 FILE=$(resolve_file) || exit 2
 
+if [ "$tag" = done ] && [ "$actor" = executor ] && [ "$force" -eq 0 ]; then
+    review_target=$(awk '/^review item:[[:space:]]*[0-9]+[[:space:]]*$/ { r = $0; sub(/^review item:[[:space:]]*/, "", r); print r + 0; exit }' "$FILE")
+    if [ -n "$review_target" ] && [ "$item" -eq "$review_target" ]; then
+        echo "worklog: only actor reviewer may close the initial-plan review item" >&2
+        exit 2
+    fi
+fi
+
+if [ "$tag" = done ] && [ "$actor" = reviewer ] && [ "$force" -eq 0 ]; then
+    reviewer_state=$(awk -v target="$item" '
+      BEGIN { review_target = 0; disabled = 0; questions = 0; answers = 0 }
+      /^peer reviews:[[:space:]]+disabled[[:space:]]*$/ { disabled = 1; next }
+      /^review item:[[:space:]]*[0-9]+[[:space:]]*$/ {
+        review_target = $0; sub(/^review item:[[:space:]]*/, "", review_target); review_target += 0; next
+      }
+      /^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #[0-9]+ / {
+        r = substr($0, 10); it = r; sub(/ .*$/, "", it); sub(/^#/, "", it); it += 0
+        sub(/^#[0-9]+ +/, "", r)
+        first = r; sub(/ .*$/, "", first)
+        actor = first
+        sub(/^[^ ]+ +/, "", r)
+        tg = r; sub(/ .*$/, "", tg)
+        tx = r; sub(/^[^ ]+ +/, "", tx)
+        if (it == target && tg == "question") questions++
+        if (it == target && tg == "answer") answers++
+      }
+      END {
+        if (disabled) print "ok"
+        else if (!review_target || target != review_target) print "not-review"
+        else if (questions > answers) print "open-questions"
+        else print "ok"
+      }
+    ' "$FILE")
+    case "$reviewer_state" in
+      not-review)
+        echo "worklog: actor reviewer may close only the initial-plan review item" >&2
+        exit 2 ;;
+      open-questions)
+        echo "worklog: reviewer item #$item still has unanswered questions" >&2
+        exit 2 ;;
+    esac
+fi
+
 # An item is closed exactly once. Refuse a second `done` on an item already
 # closed — don't re-close everything at the end; close only what is still open.
 if [ "$tag" = done ]; then
@@ -287,7 +383,7 @@ fi
 # an earlier segment). Refuse it and point at the open items; --force allows the rare
 # legit case, like a late `note` on finished work.
 if [ "$tag" != done ]; then
-    closed=$(grep "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item done " "$FILE" | head -n1)
+    closed=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (executor|reviewer) done " "$FILE" | head -n1)
     if [ -n "$closed" ] && [ "$force" -eq 0 ]; then
         when=${closed%% *}
         open=$(awk '
@@ -296,7 +392,13 @@ if [ "$tag" != done ]; then
           inp && /^[[:space:]]+[0-9]+\./ { m = $0; sub(/^[[:space:]]+/, "", m); sub(/\..*$/, "", m); planned[m + 0] = 1; if (m + 0 > mx) mx = m + 0; next }
           /^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #[0-9]+ / {
             r = substr($0, 10); it = r; sub(/ .*$/, "", it); sub(/^#/, "", it); it += 0; if (it > mx) mx = it
-            a = r; sub(/^#[0-9]+ +/, "", a); tg = a; sub(/ .*$/, "", tg)
+            a = r; sub(/^#[0-9]+ +/, "", a)
+            first = a; sub(/ .*$/, "", first)
+            if (first == "executor" || first == "reviewer") {
+              sub(/^[^ ]+ +/, "", a); tg = a; sub(/ .*$/, "", tg)
+            } else {
+              tg = first
+            }
             if (tg == "plan") planned[it] = 1
             if (tg == "done") done[it]    = 1
           }
@@ -319,7 +421,13 @@ if [ "$tag" = done ]; then
       inp && /^[[:space:]]+[0-9]+\./ { m = $0; sub(/^[[:space:]]+/, "", m); sub(/\..*$/, "", m); planned[m + 0] = 1; next }
       /^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #[0-9]+ / {
         r = substr($0, 10); it = r; sub(/ .*$/, "", it); sub(/^#/, "", it); it += 0
-        a = r; sub(/^#[0-9]+ +/, "", a); tg = a; sub(/ .*$/, "", tg)
+        a = r; sub(/^#[0-9]+ +/, "", a)
+        first = a; sub(/ .*$/, "", first)
+        if (first == "executor" || first == "reviewer") {
+          sub(/^[^ ]+ +/, "", a); tg = a; sub(/ .*$/, "", tg)
+        } else {
+          tg = first
+        }
         if (tg == "plan") planned[it] = 1
         if (tg == "done") done[it]    = 1
       }
@@ -335,14 +443,14 @@ fi
 # carries its own why) — usually means the thinking never got written down: the log
 # shows what was done but not why. Refuse the `done` so the reasoning is captured
 # first; escapable with --force for a genuinely trivial item.
-if [ "$tag" = done ]; then
-    reasoned=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (think|decide) " "$FILE" | head -n1)
+if [ "$tag" = done ] && [ "$actor" != reviewer ]; then
+    reasoned=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (executor|reviewer) (think|decide) " "$FILE" | head -n1)
     if [ -z "$reasoned" ] && [ "$force" -eq 0 ]; then
         echo "worklog: item $item closes with no reasoning recorded — no \`think\` or \`decide\` entry for it. Record what you weighed first: worklog.sh $item think <what you weighed>. If the item is genuinely trivial, repeat with: worklog.sh --force $item done <text>" >&2
         exit 2
     fi
 fi
 
-printf '%s #%s %s %s\n' "$(date +%H:%M:%S)" "$item" "$tag" "$text" >> "$FILE"
+printf '%s #%s %s %s %s\n' "$(date +%H:%M:%S)" "$item" "$actor" "$tag" "$text" >> "$FILE"
 [ "$tag" = done ] && [ -n "$lower" ] && echo "note: closed #$item out of order (--force); lower item(s) still open: $lower"
 scan status "$FILE"

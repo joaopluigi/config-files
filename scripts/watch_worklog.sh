@@ -58,7 +58,7 @@ colorize() {
       # which prints the header, so the banner just passes through bold below.
       /── log ──/ {
         print
-        print dim "time" pad(4) " " "item" pad(1) "tag" pad(6) "entry" reset
+        print dim "time" pad(4) " " "item" pad(1) "actor" pad(4) "tag" pad(6) "entry" reset
         fflush(); next
       }
       /^── follow-up/ { print bold $0 reset; fflush(); next }
@@ -70,17 +70,28 @@ colorize() {
           sp = index(rest, " ")
           if (sp > 0) { item = substr(rest, 1, sp - 1); rest = substr(rest, sp + 1); sub(/^ +/, "", rest) }
         }
+        actor = "executor"
         sp = index(rest, " ")
-        if (sp > 0) { tag = substr(rest, 1, sp - 1); text = substr(rest, sp + 1) }
-        else        { tag = rest; text = "" }
+        if (sp > 0) { first = substr(rest, 1, sp - 1); rest = substr(rest, sp + 1); sub(/^ +/, "", rest) }
+        else        { first = rest; rest = "" }
+        if (first == "executor" || first == "reviewer") {
+          actor = first
+          sp = index(rest, " ")
+          if (sp > 0) { tag = substr(rest, 1, sp - 1); text = substr(rest, sp + 1) }
+          else        { tag = rest; text = "" }
+        } else {
+          tag = first; text = rest
+        }
         sub(/^ +/, "", text)
         if (tag in color) {
           indent = 9
           head = dim ts reset " "
           if (item != "") { ip = 5 - length(item); if (ip < 1) ip = 1; head = head dim item reset pad(ip); indent += 5 }
+          ap = 9 - length(actor); if (ap < 1) ap = 1
+          head = head dim actor reset pad(ap)
           tp = 9 - length(tag); if (tp < 1) tp = 1
           head = head color[tag] tag reset pad(tp)
-          indent += 9
+          indent += 18
           # Wrap long text to the window; continuation lines hang under the entry column.
           wrapw = maxw - indent; if (wrapw < 24) wrapw = 24
           nw = split(text, words, " ")
