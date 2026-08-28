@@ -26,12 +26,28 @@ numbered **plan steps**:
 
 For every later operation, select the exact worklog file returned by `new`:
 
-    sh worklog.sh --worklog /tmp/worklogs/<id>.txt <item> <tag> <text...>
+    sh worklog.sh --worklog /tmp/worklogs/<id>.txt [--actor <executor|reviewer>] <item> <tag> <text...>
     sh worklog.sh --worklog /tmp/worklogs/<id>.txt followup "<one line>"
     sh worklog.sh --worklog /tmp/worklogs/<id>.txt check
 
 The explicit selector is required for operations on an existing worklog. Do not
 rely on the most recent file when multiple agents may be working at once.
+
+Entries include an actor column. The default actor is `executor`; use
+`--actor reviewer` when the clean-context reviewer writes a review item. This
+identifies who an entry claims wrote it for auditability, not cryptographic
+authentication.
+
+If the reviewer needs a separate worklog for its review, create it with
+`--actor reviewer new ...`. Reviewer-owned worklogs set `peer reviews: disabled`,
+so they do not create another reviewer item.
+
+A new worklog adds one final reviewer item to its initial plan. The reviewer asks
+questions there and closes only that item after the executor answers every question.
+The worklog is complete only when the reviewer item is done. Follow-up sections do
+not receive a reviewer item in this v1 workflow. `--force` remains an explicit
+bypass. Skipping the reviewer or using `--force` is allowed, but it removes the
+independent perspective that makes this workflow collaborative.
 
 It writes the header, including the absolute working directory from which `new`
 was invoked, keeps the file in an ephemeral, out-of-repo location, and prints the
@@ -44,7 +60,7 @@ for selecting the file.
 The worklog is **append-only**: only ever add lines at the end, and never edit or
 rewrite a line already written. Add each log entry with the tool:
 
-    sh worklog.sh --worklog /tmp/worklogs/<id>.txt <item> <tag> <text...>
+    sh worklog.sh --worklog /tmp/worklogs/<id>.txt [--actor <executor|reviewer>] <item> <tag> <text...>
 
 It stamps the time, then rejects an entry that can never be right — an unknown tag,
 a non-numeric item, or a `find` with no `src:` — before writing it, and after each
@@ -113,6 +129,53 @@ follow what happened, how the thinking evolved, and why — legible and
 self-contained, but concise. Capture the reasoning and the decisions, not a
 verbatim log of every keystroke.
 
+## Peer review
+
+Before completing a new worklog's initial plan, spawn a fresh subagent using the
+current client's native subagent mechanism. Do not pass the conversation or a
+summary of the work. Pass only the absolute worklog path, the initial-plan review
+item number, and these instructions:
+
+> You are `worklog-peer`, an independent thinking partner. Your purpose is to help
+> the executor find gaps in the initial plan and worklog without managing the work.
+>
+> - Read the open reviewer item, the initial plan, and the worklog entries as an
+>   outsider with clean context.
+> - Read relevant project files. From the current working directory, check for
+>   `AGENTS` and `CONTRIBUTING` files at the repository root and relevant parent
+>   directories; read each one that exists and use its instructions as review
+>   criteria.
+> - If you need a separate worklog for your review, create it with
+>   `--actor reviewer new ...`; reviewer-owned worklogs disable peer reviews so
+>   they cannot create a recursive reviewer requirement.
+> - Review the worklog itself. Ask about earlier plan items that remain open while
+>   later items are being worked on, unanswered questions, out-of-order progress,
+>   missing reasoning, missing sources, and scope drift.
+> - Review implementation behavior, assumptions, evidence, and unverified claims.
+> - Use read-only checks and authoritative sources when they can clarify a question.
+> - Ask concise Socratic questions. Do not tell the executor what to do, issue
+>   implementation commands, or edit project files.
+> - Include `src:` in a question whenever it relies on a factual premise from code,
+>   command output, documentation, or external research. Source-free questions may
+>   ask about assumptions, scope, clarity, or reasoning.
+> - Append questions to the reviewer item with `--actor reviewer`.
+> - Review only open worklog items as targets. Ignore completed items and do not
+>   reopen them.
+> - Read each executor answer and decide whether it addresses its corresponding
+>   question; do not treat matching question and answer counts as sufficient.
+> - After the executor answers every question, close only the reviewer item with
+>   `--actor reviewer`.
+
+The reviewer item is added as the final item in the initial plan. Follow-up
+sections do not receive reviewer items in this v1. The role and protocol above are
+client-independent. ECA, Claude, and other clients may use different subagent
+commands; only the native spawn step changes. The worklog is complete only when
+the reviewer item is done. The executor may use `--force` as an explicit v1
+bypass.
+
+This prompt follows the local rule format: it states intent first, then uses
+standalone, explicit rules with the required behavior named after each prohibition.
+
 ## Layout
 
 ```
@@ -122,23 +185,26 @@ working directory: <absolute path from which the worklog was created>
 
 goal: <what "done" looks like, in a sentence or two>
 
+peer reviews: required
+review item: <final initial-plan item number>
+
 plan items
   1. <first step>
   2. <second step>
   3. <final step: validate>
 
 ── log ──
-HH:MM:SS #1 think <what you are weighing before you commit>
-HH:MM:SS #1 find <a fact you learned — src: file:line / URL / "user said X">
-HH:MM:SS #1 done <what item 1 established or produced — closes item 1>
-HH:MM:SS #2 decide <what — why; options rejected — src: where it rests>
-HH:MM:SS #2 question <a question you need answered>
-HH:MM:SS #2 answer <the user's reply, or the assumption you took>
-HH:MM:SS #2 done <what plan item 2 produced — closes item 2>
-HH:MM:SS #4 plan <a step you discovered mid-flight; this line adds it as plan item 4>
-HH:MM:SS #4 note <an assumption you rely on, or a dead end not to repeat>
-HH:MM:SS #4 done <what item 4 produced — closes item 4>
-HH:MM:SS #3 done <final item validated — closes item 3>
+HH:MM:SS #1 executor think <what you are weighing before you commit>
+HH:MM:SS #1 executor find <a fact you learned — src: file:line / URL / "user said X">
+HH:MM:SS #1 executor done <what item 1 established or produced — closes item 1>
+HH:MM:SS #2 executor decide <what — why; options rejected — src: where it rests>
+HH:MM:SS #2 executor question <a question you need answered>
+HH:MM:SS #2 executor answer <the user's reply, or the assumption you took>
+HH:MM:SS #2 executor done <what plan item 2 produced — closes item 2>
+HH:MM:SS #4 executor plan <a step you discovered mid-flight; this line adds it as plan item 4>
+HH:MM:SS #4 executor note <an assumption you rely on, or a dead end not to repeat>
+HH:MM:SS #4 executor done <what item 4 produced — closes item 4>
+HH:MM:SS #3 executor done <final item validated — closes item 3>
 
 ── follow-up: <one line on what this request asks> ──
 plan items
@@ -146,17 +212,18 @@ plan items
   6. <the follow-up's second step>
 
 ── log ──
-HH:MM:SS #5 think <what you are weighing on the follow-up's item 5>
-HH:MM:SS #5 done <closes the follow-up's item 5>
-HH:MM:SS #6 done <closes the follow-up's item 6>
+HH:MM:SS #5 executor think <what you are weighing on the follow-up's item 5>
+HH:MM:SS #5 executor done <closes the follow-up's item 5>
+HH:MM:SS #6 executor done <closes the follow-up's item 6>
 ```
 
 ## Log entries
 
-You pass the tool three things — `<item> <tag> <text>` — and it builds the line:
-`HH:MM:SS` (the wall-clock time it happened), then `#<item>` (the plan step it
-belongs to), then the tag, then the text, separated by single spaces. Two rules
-hold every entry together:
+You pass the tool an optional actor plus `<item> <tag> <text>` — the default actor is
+`executor`, and reviewer entries use `--actor reviewer`. It builds the line
+`HH:MM:SS #<item> <actor> <tag> <text>`. The timestamp is the wall-clock time it
+happened, and the item is the plan step it belongs to. Two rules hold every entry
+together:
 
 - **One entry per line.** Never put two entries on one line, and never split one
   entry across lines. A `question` and its later `answer` are separate lines,
