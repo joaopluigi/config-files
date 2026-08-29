@@ -1,0 +1,23 @@
+{
+  "defaultModel": "openai/gpt-5.6-luna",
+  "agent": {
+    "code": {
+      "variant": "low"
+    }
+  },
+  "toolCall": {
+    "approval": {
+      "byDefault": "allow",
+      "ask": {
+        "shell_command": {
+          "argsMatchers": {
+            "command": [
+              ".*\\brm\\b.*",
+              ".*\\bmv\\b.*"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
