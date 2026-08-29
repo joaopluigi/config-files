@@ -7,6 +7,20 @@ CONFIG_ECA="$HOME/.config/eca"
 CLAUDE="$HOME/.claude"
 LOCAL_BIN="$HOME/.local/bin"
 
+if [ "$#" -gt 1 ]; then
+  printf 'Usage: %s [personal|professional]\n' "$0" >&2
+  exit 2
+fi
+
+PROFILE="${1:-personal}"
+case "$PROFILE" in
+  personal|professional) ;;
+  *)
+    printf 'Usage: %s [personal|professional]\n' "$0" >&2
+    exit 2
+    ;;
+esac
+
 link() {
   local target="$1" linkname="$2"
   mkdir -p "$(dirname "$linkname")"
@@ -17,9 +31,9 @@ link() {
 echo "Linking config from: $REPO"
 
 ## ECA
-link "$REPO/llm/eca/config.json" "$CONFIG_ECA/config.json"
-link "$REPO/llm/rules"           "$CONFIG_ECA/rules"
-link "$REPO/llm/skills"          "$CONFIG_ECA/skills"
+link "$REPO/llm/eca/$PROFILE.json" "$CONFIG_ECA/config.json"
+link "$REPO/llm/rules" "$CONFIG_ECA/rules"
+link "$REPO/llm/skills" "$CONFIG_ECA/skills"
 
 ## Claude
 link "$REPO/llm/skills" "$CLAUDE/skills"
