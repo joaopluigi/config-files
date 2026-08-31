@@ -5,8 +5,8 @@
 # Ships inside this skill (scripts/worklog.sh); not on PATH. Run it by its full
 # path — shown below as `worklog.sh` for brevity: `sh <skill>/scripts/worklog.sh …`.
 #
-#   worklog.sh new "<goal>" "<what done looks like>" "<step>"...   create a new worklog
-#                              (records the invoking working directory in the header)
+#   worklog.sh new [--peer-reviews-disabled] "<goal>" "<what done looks like>" "<step>"...
+#                              create a new worklog (records the invoking working directory in the header)
 #   worklog.sh --worklog <path> [--actor <actor>] <item> <tag> <text...>
 #                                       append one actor-attributed entry
 #   worklog.sh --worklog <path> followup "<one line>" ["<step>"...]
@@ -224,10 +224,15 @@ esac
 # --- new mode ---------------------------------------------------------------
 if [ "$1" = new ]; then
     shift
+    peer_reviews_disabled=0
+    if [ "$1" = --peer-reviews-disabled ]; then
+        peer_reviews_disabled=1
+        shift
+    fi
     goal=$1
     done_desc=$2
     [ -n "$goal" ] && [ -n "$done_desc" ] || {
-        echo "usage: worklog.sh new \"<goal>\" \"<what done looks like>\" \"<step>\"..." >&2
+        echo "usage: worklog.sh new [--peer-reviews-disabled] \"<goal>\" \"<what done looks like>\" \"<step>\"..." >&2
         exit 2
     }
     shift 2
@@ -242,20 +247,16 @@ if [ "$1" = new ]; then
         printf '# worklog — %s\n\n' "$goal"
         printf 'working directory: %s\n\n' "$PWD"
         printf 'goal: %s\n\n' "$done_desc"
-        if [ "$actor" = reviewer ]; then
+        if [ "$peer_reviews_disabled" -eq 1 ]; then
             printf 'peer reviews: disabled\n\n'
         fi
         printf 'plan items\n'
         i=1
-        if [ "$actor" != reviewer ]; then
-            printf '  1. worklog-peer review of the initial plan\n'
-            i=2
-        fi
         for step in "$@"; do
             printf '  %d. %s\n' "$i" "$step"
             i=$((i + 1))
         done
-        if [ "$actor" != reviewer ]; then
+        if [ "$peer_reviews_disabled" -eq 0 ]; then
             printf '  %d. worklog-peer review of the executed work\n' "$i"
         fi
         printf '\n── log ──\n'
