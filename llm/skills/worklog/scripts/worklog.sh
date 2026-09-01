@@ -7,6 +7,8 @@
 #
 #   worklog.sh new [--peer-reviews-disabled] "<goal>" "<what done looks like>" "<step>"...
 #                              create a new worklog (records the invoking working directory in the header)
+#   worklog.sh --worklog <path> [--actor <actor>] result < <response-file>
+#                                       publish the executor's expected result
 #   worklog.sh --worklog <path> [--actor <actor>] <item> <tag> <text...>
 #                                       append one actor-attributed entry
 #   worklog.sh --worklog <path> followup "<one line>" ["<step>"...]
@@ -55,6 +57,14 @@ resolve_file() {
         return 1
     fi
     printf '%s\n' "$f"
+}
+
+result_file_for() {
+    f=$1
+    dir=${f%/*}
+    name=${f##*/}
+    id=${name%.txt}
+    printf '%s/%s-result.txt\n' "$dir" "$id"
 }
 
 # scan <mode> <file>   mode: status (open items/questions only) | gate (strict lint)
@@ -243,10 +253,13 @@ if [ "$1" = new ]; then
     id=$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' \n')
     mkdir -p "$WL_DIR"
     FILE="$WL_DIR/$id.txt"
+    RESULT_FILE=$(result_file_for "$FILE")
+    : > "$RESULT_FILE"
     {
         printf '# worklog — %s\n\n' "$goal"
         printf 'working directory: %s\n\n' "$PWD"
         printf 'goal: %s\n\n' "$done_desc"
+        printf 'result file: %s\n\n' "$RESULT_FILE"
         if [ "$peer_reviews_disabled" -eq 1 ]; then
             printf 'peer reviews: disabled\n\n'
         fi
@@ -263,6 +276,20 @@ if [ "$1" = new ]; then
     } > "$FILE"
     printf '%s\n' "$FILE"
     echo "worklog created — tell the user this path so they can follow along: $FILE" >&2
+    echo "result file — publish the expected response here: $RESULT_FILE" >&2
+    exit 0
+fi
+
+# --- result mode ------------------------------------------------------------
+if [ "$1" = result ]; then
+    FILE=$(resolve_file) || exit 2
+    if [ "$actor" = reviewer ]; then
+        echo "worklog: actor reviewer cannot publish the executor's result" >&2
+        exit 2
+    fi
+    RESULT_FILE=$(result_file_for "$FILE")
+    cat > "$RESULT_FILE"
+    printf '%s\n' "$RESULT_FILE"
     exit 0
 fi
 

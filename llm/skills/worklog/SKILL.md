@@ -54,11 +54,25 @@ workflow collaborative.
 
 It writes the header, including the absolute working directory from which `new`
 was invoked, keeps the file in an ephemeral, out-of-repo location, and prints the
-file's path. **Tell the user that path** so they can follow along as you work. Keep
-that path and pass it explicitly to every later command with `--worklog <path>`;
-this is required when several agents run at once, because the tool must not guess
-from the most recent file. `WORKLOG=<path>` remains supported as an alternative
-for selecting the file.
+file's path. It also creates `<id>-result.txt` beside the worklog and records that
+absolute path in the header. **Tell the user both paths** so they can follow along
+as you work. Before the final review, publish the complete response you expect to
+return with:
+
+    sh worklog.sh --worklog /tmp/worklogs/<id>.txt result < /path/to/response.txt
+
+The response should include any execution summary required by the task or skill,
+not just the implementation summary. Use `assets/execution_summary_template.md` as
+the starting structure, and remove sections that do not apply. For example, the
+architecture-interview-evaluation skill's execution summary includes the rubric,
+challenge, seniority, output path, and the inputs actually used. The `result`
+command replaces the result artifact from standard input; it does not generate or
+validate summary fields. The executor owns the artifact, and the reviewer reads it
+without editing it. Keep the worklog
+path and pass it explicitly to every later command with `--worklog <path>`; this is
+required when several agents run at once, because the tool must not guess from the
+most recent file. `WORKLOG=<path>` remains supported as an alternative for
+selecting the file.
 
 The worklog is **append-only**: only ever add lines at the end, and never edit or
 rewrite a line already written. Add each log entry with the tool:
@@ -144,6 +158,9 @@ and these instructions:
 >
 > - Read the open reviewer item, the plan, and the worklog entries as an outsider
 >   with clean context.
+> - Read the result file named in the primary worklog header. Treat its contents as
+>   the exact response the executor plans to return to the user, and review that
+>   response together with the executed work.
 > - Read relevant project files. From the current working directory, check for
 >   `AGENTS` and `CONTRIBUTING` files at the repository root and relevant parent
 >   directories; read each one that exists and use its instructions as review
@@ -195,6 +212,8 @@ standalone, explicit rules with the required behavior named after each prohibiti
 working directory: <absolute path from which the worklog was created>
 
 goal: <what "done" looks like, in a sentence or two>
+
+result file: /tmp/worklogs/<id>-result.txt
 
 plan items
   1. <first step>
