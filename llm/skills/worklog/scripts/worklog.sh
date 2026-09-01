@@ -253,13 +253,17 @@ if [ "$1" = new ]; then
     id=$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' \n')
     mkdir -p "$WL_DIR"
     FILE="$WL_DIR/$id.txt"
-    RESULT_FILE=$(result_file_for "$FILE")
-    : > "$RESULT_FILE"
+    if [ "$peer_reviews_disabled" -eq 0 ]; then
+        RESULT_FILE=$(result_file_for "$FILE")
+        : > "$RESULT_FILE"
+    fi
     {
         printf '# worklog — %s\n\n' "$goal"
         printf 'working directory: %s\n\n' "$PWD"
         printf 'goal: %s\n\n' "$done_desc"
-        printf 'result file: %s\n\n' "$RESULT_FILE"
+        if [ "$peer_reviews_disabled" -eq 0 ]; then
+            printf 'result file: %s\n\n' "$RESULT_FILE"
+        fi
         if [ "$peer_reviews_disabled" -eq 1 ]; then
             printf 'peer reviews: disabled\n\n'
         fi
@@ -276,7 +280,9 @@ if [ "$1" = new ]; then
     } > "$FILE"
     printf '%s\n' "$FILE"
     echo "worklog created — tell the user this path so they can follow along: $FILE" >&2
-    echo "result file — publish the expected response here: $RESULT_FILE" >&2
+    if [ "$peer_reviews_disabled" -eq 0 ]; then
+        echo "result file — publish the expected response here: $RESULT_FILE" >&2
+    fi
     exit 0
 fi
 
@@ -285,6 +291,10 @@ if [ "$1" = result ]; then
     FILE=$(resolve_file) || exit 2
     if [ "$actor" = reviewer ]; then
         echo "worklog: actor reviewer cannot publish the executor's result" >&2
+        exit 2
+    fi
+    if grep -q '^peer reviews: disabled$' "$FILE"; then
+        echo "worklog: result artifacts require peer review" >&2
         exit 2
     fi
     RESULT_FILE=$(result_file_for "$FILE")
