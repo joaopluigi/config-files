@@ -54,10 +54,10 @@ workflow collaborative.
 
 It writes the header, including the absolute working directory from which `new`
 was invoked, keeps the file in an ephemeral, out-of-repo location, and prints the
-file's path. It also creates `<id>-result.txt` beside the worklog and records that
-absolute path in the header. **Tell the user both paths** so they can follow along
-as you work. Before the final review, publish the complete response you expect to
-return with:
+When peer review is enabled, it also creates `<id>-result.txt` beside the worklog
+and records that absolute path in the header. **Tell the user both paths** so they
+can follow along as you work. Before the final review, publish the complete
+response you expect to return with:
 
     sh worklog.sh --worklog /tmp/worklogs/<id>.txt result < /path/to/response.txt
 
@@ -68,11 +68,11 @@ architecture-interview-evaluation skill's execution summary includes the rubric,
 challenge, seniority, output path, and the inputs actually used. The `result`
 command replaces the result artifact from standard input; it does not generate or
 validate summary fields. The executor owns the artifact, and the reviewer reads it
-without editing it. Keep the worklog
-path and pass it explicitly to every later command with `--worklog <path>`; this is
-required when several agents run at once, because the tool must not guess from the
-most recent file. `WORKLOG=<path>` remains supported as an alternative for
-selecting the file.
+without editing it. Peer-disabled reviewer worklogs do not create or accept result
+artifacts. Keep the worklog path and pass it explicitly to every later command with
+`--worklog <path>`; this is required when several agents run at once, because the
+tool must not guess from the most recent file. `WORKLOG=<path>` remains supported as
+an alternative for selecting the file.
 
 The worklog is **append-only**: only ever add lines at the end, and never edit or
 rewrite a line already written. Add each log entry with the tool:
@@ -213,7 +213,7 @@ working directory: <absolute path from which the worklog was created>
 
 goal: <what "done" looks like, in a sentence or two>
 
-result file: /tmp/worklogs/<id>-result.txt
+result file: /tmp/worklogs/<id>-result.txt  # peer-review-enabled worklogs only
 
 plan items
   1. <first step>
