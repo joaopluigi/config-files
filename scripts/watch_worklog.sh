@@ -10,19 +10,37 @@
 #   watch-worklog            follow the active worklog, and auto-switch to a new
 #                            one the moment the agent starts a fresh worklog
 #   watch-worklog [path]     pin one file and follow only it
+#   watch-worklog --clean    delete all top-level worklog text files
 #
 # With no path it watches the worklog directory: it tails whichever worklog is
 # most recently written, and when a newer one appears — a new piece of work — it
 # switches to that one on its own, so you start it once and never touch it again.
 
 # Where worklogs live — keep in sync with the worklog tool (worklog skill's
-# scripts/worklog.sh).
-WL_DIR=/tmp/worklogs
+# scripts/worklog.sh). WORKLOG_DIR is useful for isolated tests.
+WL_DIR=${WORKLOG_DIR:-/tmp/worklogs}
 
 case "$1" in
     -h|--help)
         echo "Usage: watch-worklog [path]   (no path: follow the active worklog, auto-switching)"
+        echo "       watch-worklog --clean  (delete all top-level worklog text files)"
         exit 0
+        ;;
+    --clean)
+        count=$(find "$WL_DIR" -maxdepth 1 -type f -name '*.txt' -print 2>/dev/null | awk 'NF { n++ } END { print n + 0 }')
+        if [ "$count" -eq 0 ]; then
+            echo "No worklogs found in $WL_DIR."
+            exit 0
+        fi
+        printf 'Delete %s worklog file(s) from %s? Type clean to confirm: ' "$count" "$WL_DIR"
+        read -r confirmation
+        [ "$confirmation" = clean ] || { echo "Cleanup cancelled."; exit 1; }
+        if find "$WL_DIR" -maxdepth 1 -type f -name '*.txt' -exec rm -f {} +; then
+            echo "Deleted $count worklog file(s) from $WL_DIR."
+            exit 0
+        fi
+        echo "Cleanup failed in $WL_DIR." >&2
+        exit 1
         ;;
 esac
 

@@ -57,11 +57,16 @@ was invoked, keeps the file in an ephemeral, out-of-repo location, and prints th
 When peer review is enabled, it also creates `<id>-result.txt` beside the worklog
 and records that absolute path in the header. **Tell the user both paths** so they
 can follow along as you work. Before the final review, publish the complete
-response you expect to return with:
+response you expect to return with a separate source file:
 
-    sh worklog.sh --worklog /tmp/worklogs/<id>.txt result < /path/to/response.txt
+    sh worklog.sh --worklog /tmp/worklogs/<id>.txt result /path/to/response.txt
 
-The response should include any execution summary required by the task or skill,
+The source file must not be the result artifact itself. Do not run
+`result < /tmp/worklogs/<id>-result.txt`: the shell truncates the result file before
+`worklog.sh` can read it. Standard-input publishing remains supported as
+`result < /path/to/response.txt`, but the separate source-file form is safer and is
+the recommended form. The response should include any execution summary required
+by the task or skill,
 not just the implementation summary. Use `assets/execution_summary_template.md` as
 the starting structure, and remove sections that do not apply. For example, the
 architecture-interview-evaluation skill's execution summary includes the rubric,
