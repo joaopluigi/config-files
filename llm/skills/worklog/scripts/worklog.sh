@@ -7,7 +7,7 @@
 #
 #   worklog.sh new [--peer-reviews-disabled] "<goal>" "<what done looks like>" "<step>"...
 #                              create a new worklog (records the invoking working directory in the header)
-#   worklog.sh --worklog <path> [--actor <actor>] result < <response-file>
+#   worklog.sh --worklog <path> [--actor <actor>] result [response-file]
 #                                       publish the executor's expected result
 #   worklog.sh --worklog <path> [--actor <actor>] <item> <tag> <text...>
 #                                       append one actor-attributed entry
@@ -298,7 +298,15 @@ if [ "$1" = result ]; then
         exit 2
     fi
     RESULT_FILE=$(result_file_for "$FILE")
-    cat > "$RESULT_FILE"
+    if [ -n "$2" ]; then
+        [ "$2" != "$RESULT_FILE" ] || {
+            echo "worklog: response source must not be the result artifact" >&2
+            exit 2
+        }
+        cat "$2" > "$RESULT_FILE" || exit 1
+    else
+        cat > "$RESULT_FILE" || exit 1
+    fi
     printf '%s\n' "$RESULT_FILE"
     exit 0
 fi
