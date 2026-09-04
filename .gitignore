@@ -3,7 +3,12 @@
 !/llm/skills/worklog
 !/llm/skills/git-commit
 !/llm/skills/rewrite-text
-!/llm/skills/sourcing
 !/llm/skills/clj-rewrite
+!/llm/skills/planning
+!/llm/skills/planning/**
+!/llm/skills/repairing
+!/llm/skills/repairing/**
+!/llm/skills/realizing
+!/llm/skills/realizing/**
 /.lsp/*
 .DS_Store
