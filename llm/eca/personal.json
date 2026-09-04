@@ -2,7 +2,7 @@
   "defaultModel": "openai/gpt-5.6-luna",
   "agent": {
     "code": {
-      "variant": "low"
+      "variant": "high"
     }
   },
   "toolCall": {
