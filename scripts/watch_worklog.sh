@@ -93,11 +93,11 @@ colorize() {
           sp = index(rest, " ")
           if (sp > 0) { item = substr(rest, 1, sp - 1); rest = substr(rest, sp + 1); sub(/^ +/, "", rest) }
         }
-        actor = "executor"
+        actor = "main"
         sp = index(rest, " ")
         if (sp > 0) { first = substr(rest, 1, sp - 1); rest = substr(rest, sp + 1); sub(/^ +/, "", rest) }
         else        { first = rest; rest = "" }
-        if (first == "executor" || first == "reviewer") {
+        if (first == "main" || first == "explorer" || first == "planner" || first == "executor" || first == "tester" || first == "reviewer") {
           actor = first
           sp = index(rest, " ")
           if (sp > 0) { tag = substr(rest, 1, sp - 1); text = substr(rest, sp + 1) }
