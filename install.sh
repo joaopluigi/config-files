@@ -32,6 +32,7 @@ echo "Linking config from: $REPO"
 
 ## ECA
 link "$REPO/llm/eca/$PROFILE.json" "$CONFIG_ECA/config.json"
+link "$REPO/llm/agents" "$CONFIG_ECA/agents"
 link "$REPO/llm/rules" "$CONFIG_ECA/rules"
 link "$REPO/llm/skills" "$CONFIG_ECA/skills"
 
