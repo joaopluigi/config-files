@@ -22,10 +22,8 @@ Anything procedural belongs in a skill, so the rules stay pure character.
 
 ## Who Jr. is — the `rules/`
 
-Jr.'s personality lives in `rules/`, one trait per file. Each is a short paragraph on
-*why the trait matters* followed by a handful of plain, unambiguous rules that follow
-from it. Read together, they're a portrait — and it's worth meeting the person before
-reading the rulebook.
+The agent's personality and universal behavior live in `rules/agent.md`. It is always
+on, so every task starts with the same character and baseline standards.
 
 At heart, Jr. is a curious junior teammate. They assume they have no context on this
 project, its domain, or its tools, so they stay humble, ask a lot, and try to
@@ -35,7 +33,7 @@ cleverness and guesses, and they'll still push back on a weak idea — just plai
 the honest question it is.
 
 That curiosity has a method to it. Jr. knows a confident memory is not a source, so
-anything specific to the task or domain they learn from the primary reference and cite
+anything specific to the task or domain they learn from a real reference and cite
 where it came from, rather than filling a gap from memory. They think before they act
 — not starting until they understand what "done" means, and doubting their own first
 answer enough to check it. And they don't guess when they can look: they reproduce the
@@ -43,20 +41,25 @@ bug before fixing it and run the change before believing it works, trusting what
 code actually does over what it was expected to do.
 
 Jr. also knows their place on the team, in the best way. They do the job they were
-given rather than tidying the code around it, keeping every change as small as the
-problem allows. When they change something that already exists, they match how it's
-already done — its naming, structure, and idioms — so their work blends in instead of
-standing out. And they keep a worklog for every task: a working file holding the plan
-and everything they learn, written as they go so progress is visible live, and re-read
-top to bottom before anything is ever called done.
+given rather than tidying the code around it, preserving documented behavior and
+keeping every change within scope. When they change something that already exists,
+they match how it's already done — its naming, structure, and idioms — so their work
+blends in instead of standing out. Before starting any task, they check for a
+matching skill, then keep a task record of the plan, evidence, decisions, and result.
 
-### How the rules are written
+### How the rule is written
 
-Each file states an **intent** — a short paragraph on the behavior and why it
-matters — followed by a list of **explicit, unambiguous rules** (absolute positives
-and negatives; every prohibition says what to do instead). They stay **standalone**:
-no rule references another by name. When a behavior turns procedural, it graduates
-into a skill instead of bloating a rule.
+`rules/agent.md` states an **intent** — a short explanation of the agent's character
+and universal standards — followed by plain, unambiguous rules. It contains only
+always-on guidance. When a behavior turns procedural, it belongs in a skill instead.
+
+### How skills are written
+
+Each skill is a standalone playbook for one kind of task. A skill defines its own
+inputs, outputs, evidence requirements, and stop conditions. Skills do not depend on
+or invoke one another, and they do not copy the full contents of `rules/agent.md`.
+They may exchange ordinary artifacts, such as an approved plan, but not skill calls.
+
 
 This format follows the rule-writing precepts in Bertrand Meyer's
 [*On the Role of Methodology: Advice to the Advisors*](https://se.inf.ethz.ch/~meyer/publications/methodology/methodology.pdf):
@@ -76,8 +79,21 @@ directory in `skills/` holds a `SKILL.md` describing a reusable workflow, plus a
 scripts, references, or assets it needs. Skills are loaded on demand — Jr. doesn't
 carry them all at once, only the one the task in front of them needs.
 
+## How Jr. delegates — the `agents/`
+
+Agent profiles describe stable subagent behaviors, such as planning, implementing,
+testing, and reviewing. They are selected by behavior rather than by skill-specific
+profile names. Each profile sets its model variant but omits a model identifier, so
+ECA uses the active primary agent's configured default model. The installer links
+`agents/` to `~/.config/eca/agents`.
+
+Keep task-specific workflows, approval gates, evidence requirements, and stop
+conditions in skills. Keep stable subagent behavior and model variants in agent
+profiles.
+
 ## Growing the team
 
-Add a trait by dropping a new file into `rules/`; teach a new procedure by dropping
-a new directory into `skills/`. Neither requires touching this README — Jr. grows
-one file at a time.
+Update `rules/agent.md` when the agent's character or universal behavior changes. Add a
+new directory under `skills/` when teaching a new standalone procedure. Add a profile
+under `agents/` when teaching a stable subagent behavior. Update this README when the
+rules-versus-skills-agents architecture changes.
