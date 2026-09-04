@@ -19,30 +19,39 @@ that absolute path — `<this skill's directory>/scripts/worklog.sh` — so alwa
 than as a bare relative path like `scripts/worklog.sh` (which resolves only from the
 skill directory, not from wherever you happen to be).
 
-Create one with a **goal**, a sentence on what **done** looks like, and the
-numbered **plan steps**:
+Create one with a **goal**, a sentence on what **done** looks like, and the numbered **plan steps**:
 
     sh worklog.sh new "<one-line goal>" "<what done looks like>" "<step 1>" "<step 2>" ...
 
+A main worklog is named `<8-hex-id>.txt`. A peer-owned worklog must identify its
+parent and is named `<main-id>-peer-<peer-id>.txt`:
+
+    sh worklog.sh new --peer-reviews-disabled --peer-of /tmp/worklogs/<main-id>.txt "<peer goal>" "<what done looks like>" "<step>" ...
+
 For every later operation, select the exact worklog file returned by `new`:
 
-    sh worklog.sh --worklog /tmp/worklogs/<id>.txt [--actor <executor|reviewer>] <item> <tag> <text...>
+    sh worklog.sh --worklog /tmp/worklogs/<id>.txt [--actor <profile>] <item> <tag> <text...>
     sh worklog.sh --worklog /tmp/worklogs/<id>.txt followup "<one line>"
     sh worklog.sh --worklog /tmp/worklogs/<id>.txt check
 
 The explicit selector is required for operations on an existing worklog. Do not
 rely on the most recent file when multiple agents may be working at once.
 
-Entries include an actor column. The default actor is `executor`; use
-`--actor reviewer` when the clean-context reviewer writes a review item. This
-identifies who an entry claims wrote it for auditability, not cryptographic
+Entries include an actor column. The actor must be the profile that performed the
+work: `main`, `explorer`, `planner`, `executor`, `tester`, or `reviewer`. The default
+is `main`, which identifies work performed by the primary agent. Specialized agents
+must pass their profile explicitly with `--actor`; existing `executor` entries remain
+valid for backward compatibility.
+
+The actor identifies who wrote an entry for auditability. It is not cryptographic
 authentication.
 
 The reviewer creates a separate worklog for its review with
-`new --peer-reviews-disabled ...`, using the default `executor` actor for its own
-entries. Reviewer-owned worklogs set `peer reviews: disabled`, so they do not
-create another reviewer item. The `reviewer` actor is used only for entries the
-reviewer appends to the primary worklog.
+`new --peer-reviews-disabled --peer-of <primary-worklog> ...`, then uses
+`--actor reviewer` for its own entries. Its filename includes the primary worklog id.
+Reviewer-owned worklogs set `peer reviews: disabled`, so they do not create another
+reviewer item. The `reviewer` actor is used for entries the reviewer appends to the
+primary worklog and for entries in the reviewer's own worklog.
 
 A new worklog adds a final execution review item to its initial plan. The reviewer
 asks questions on that item; after the executor answers every question, the
@@ -82,7 +91,7 @@ an alternative for selecting the file.
 The worklog is **append-only**: only ever add lines at the end, and never edit or
 rewrite a line already written. Add each log entry with the tool:
 
-    sh worklog.sh --worklog /tmp/worklogs/<id>.txt [--actor <executor|reviewer>] <item> <tag> <text...>
+    sh worklog.sh --worklog /tmp/worklogs/<id>.txt [--actor <profile>] <item> <tag> <text...>
 
 It stamps the time, then rejects an entry that can never be right — an unknown tag,
 a non-numeric item, or a `find` with no `src:` — before writing it, and after each
@@ -116,6 +125,13 @@ the exact path explicitly with `--worklog <path>` for every later read, append,
 follow-up, or check. The `path` command must not be used as an implicit target,
 because another agent may create a newer worklog between commands.
 
+Each agent keeps its own worklog. A parent agent must pass the parent worklog path to a
+subagent when the work is part of the same task. The subagent creates a separate log
+with `new --peer-of <parent-worklog>` when the relationship should be recorded; use
+`--peer-reviews-disabled` unless the subagent is specifically the independent reviewer.
+The subagent uses its own profile name as the actor for every entry. Never share one
+worklog between concurrent agents.
+
 A worklog you reopen records what a past run *claimed*, not what is still true.
 Before building on a step it marks `done`, confirm the result still holds in the
 code — a revert or an outside change can leave a `done` step undone while the log
@@ -138,7 +154,8 @@ restarting at `#1`, so every `#<item>` in the log stays unambiguous — a follow
 after items `1, 2` starts at `3`. You can still add a step mid-segment with a `plan`
 entry, exactly as in the first segment; both close with `done`. When the follow-up
 is a **different piece of work**, start a fresh worklog with `new`; it becomes its
-own file, and a running `watch-worklog` follows it automatically.
+own file. Automatic `watch-worklog` follows only main worklogs; use an explicit path
+when you need to follow a result or peer worklog.
 
 Append as you go, never in a batch at the end. Work in a tight loop: the moment
 you weigh an option, learn a fact, make a decision, or finish a step, append that
@@ -171,11 +188,11 @@ and these instructions:
 >   directories; read each one that exists and use its instructions as review
 >   criteria.
 > - Before reviewing, create a separate reviewer-owned worklog with
->   `new --peer-reviews-disabled ...`; use the default `executor` actor for all
->   entries in that worklog. Reviewer-owned worklogs disable peer reviews so they
->   cannot create a recursive reviewer requirement. Use that worklog for all
->   reviewer reasoning, source findings, implementation notes, and follow-up plan
->   items.
+>   `new --peer-reviews-disabled --peer-of <primary-worklog> ...`; use the
+>   `reviewer` actor for all entries in that worklog. Reviewer-owned worklogs disable
+>   peer reviews so they cannot create a recursive reviewer requirement. Use that
+>   worklog for all reviewer reasoning, source findings, implementation notes, and
+>   follow-up plan items. Its filename must include the primary worklog id.
 > - Keep the primary worklog unchanged except for review questions or concerns
 >   appended to the supplied reviewer item. After answering those questions, the
 >   executor closes the review item. Never add reviewer follow-ups, plans, findings,
@@ -253,10 +270,10 @@ HH:MM:SS #6 executor done <closes the follow-up's item 6>
 ## Log entries
 
 You pass the tool an optional actor plus `<item> <tag> <text>` — the default actor is
-`executor`, and reviewer entries use `--actor reviewer`. It builds the line
-`HH:MM:SS #<item> <actor> <tag> <text>`. The timestamp is the wall-clock time it
-happened, and the item is the plan step it belongs to. Two rules hold every entry
-together:
+`executor` for backward compatibility, and every other agent passes its own profile
+with `--actor <profile>`. It builds the line `HH:MM:SS #<item> <actor> <tag> <text>`.
+The timestamp is the wall-clock time it happened, and the item is the plan step it
+belongs to. Two rules hold every entry together:
 
 - **One entry per line.** Never put two entries on one line, and never split one
   entry across lines. A `question` and its later `answer` are separate lines,

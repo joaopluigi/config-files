@@ -7,22 +7,27 @@
 # Ctrl-C to stop.
 #
 # Usage:
-#   watch-worklog            follow the active worklog, and auto-switch to a new
-#                            one the moment the agent starts a fresh worklog
+#   watch-worklog            follow the active main worklog, and auto-switch to a
+#                            new main log when the agent starts a fresh worklog
 #   watch-worklog [path]     pin one file and follow only it
 #   watch-worklog --clean    delete all top-level worklog text files
 #
-# With no path it watches the worklog directory: it tails whichever worklog is
-# most recently written, and when a newer one appears — a new piece of work — it
-# switches to that one on its own, so you start it once and never touch it again.
+# With no path it watches the worklog directory: it tails whichever main worklog is
+# most recently written, and when a newer main worklog appears — a new piece of work
+# — it switches to that one on its own. Peer and result worklogs are ignored.
 
 # Where worklogs live — keep in sync with the worklog tool (worklog skill's
 # scripts/worklog.sh). WORKLOG_DIR is useful for isolated tests.
 WL_DIR=${WORKLOG_DIR:-/tmp/worklogs}
 
+main_worklogs() {
+    ls -t "$WL_DIR"/????????.txt 2>/dev/null |
+        awk -F/ '$NF ~ /^[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]\.txt$/'
+}
+
 case "$1" in
     -h|--help)
-        echo "Usage: watch-worklog [path]   (no path: follow the active worklog, auto-switching)"
+        echo "Usage: watch-worklog [path]   (no path: follow the active main worklog, auto-switching between main logs)"
         echo "       watch-worklog --clean  (delete all top-level worklog text files)"
         exit 0
         ;;
@@ -149,22 +154,22 @@ if [ -n "$1" ]; then
     exit 0
 fi
 
-# --- follow mode: track the active worklog, auto-switching ------------------
-# Tail the newest worklog from the top; when a different one becomes newest — the
-# agent started or reopened another worklog — stop and pick that one up instead.
+# --- follow mode: track the active main worklog, auto-switching --------------
+# Tail the newest main worklog from the top; when a different main worklog becomes
+# newest, stop and pick that one up instead. Peer and result worklogs are ignored.
 follow_dir() {
     trap 'kill "$tpid" 2>/dev/null; exit 0' INT TERM
-    until [ -n "$(ls "$WL_DIR"/*.txt 2>/dev/null)" ]; do sleep 0.3; done
+    until [ -n "$(main_worklogs)" ]; do sleep 0.3; done
     active=""
     while :; do
-        newest=$(ls -t "$WL_DIR"/*.txt 2>/dev/null | head -n1)
+        newest=$(main_worklogs | head -n1)
         [ -n "$newest" ] || { sleep 0.3; continue; }
         active="$newest"
         printf '\n── following: %s ──\n' "$(worklog_goal "$active")"
         tail -n +1 -f "$active" &
         tpid=$!
         while kill -0 "$tpid" 2>/dev/null; do
-            cur=$(ls -t "$WL_DIR"/*.txt 2>/dev/null | head -n1)
+            cur=$(main_worklogs | head -n1)
             [ -n "$cur" ] && [ "$cur" != "$active" ] && { kill "$tpid" 2>/dev/null; break; }
             sleep 0.5
         done
