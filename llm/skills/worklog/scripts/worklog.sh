@@ -5,7 +5,7 @@
 # Ships inside this skill (scripts/worklog.sh); not on PATH. Run it by its full
 # path — shown below as `worklog.sh` for brevity: `sh <skill>/scripts/worklog.sh …`.
 #
-#   worklog.sh new [--peer-reviews-disabled] "<goal>" "<what done looks like>" "<step>"...
+#   worklog.sh new [--peer-reviews-disabled] [--peer-of <main-worklog>] "<goal>" "<what done looks like>" "<step>"...
 #                              create a new worklog (records the invoking working directory in the header)
 #   worklog.sh --worklog <path> [--actor <actor>] result [response-file]
 #                                       publish the executor's expected result
@@ -74,7 +74,7 @@ scan() {
         in_items = 0; in_header = 0; header_seen = 0
         maxN = 0; header_max = 0; hard = 0; peer_reviews = 0
         validtags = " think find decide done plan question answer note "
-        validactors = " executor reviewer "
+        validactors = " main explorer planner executor tester reviewer "
       }
 
       # Legacy headers opt into peer-review dependencies; new logs infer them from
@@ -215,19 +215,19 @@ if [ "$1" = --worklog ]; then
     shift 2
 fi
 
-actor=executor
+actor=main
 if [ "$1" = --actor ]; then
     [ -n "$2" ] || {
-        echo "usage: worklog.sh --worklog <path> --actor <executor|reviewer> ..." >&2
+        echo "usage: worklog.sh --worklog <path> --actor <main|explorer|planner|executor|tester|reviewer> ..." >&2
         exit 2
     }
     actor=$2
     shift 2
 fi
 case "$actor" in
-    executor|reviewer) : ;;
+    main|explorer|planner|executor|tester|reviewer) : ;;
     *)
-        echo "worklog: unknown actor: $actor (use executor or reviewer)" >&2
+        echo "worklog: unknown actor: $actor (use main, explorer, planner, executor, tester, or reviewer)" >&2
         exit 2 ;;
 esac
 
@@ -235,14 +235,27 @@ esac
 if [ "$1" = new ]; then
     shift
     peer_reviews_disabled=0
+    peer_of=""
     if [ "$1" = --peer-reviews-disabled ]; then
         peer_reviews_disabled=1
         shift
     fi
+    if [ "$1" = --peer-of ]; then
+        [ -n "$2" ] || {
+            echo "usage: worklog.sh new [--peer-reviews-disabled] [--peer-of <main-worklog>] \"<goal>\" \"<what done looks like>\" \"<step>\"..." >&2
+            exit 2
+        }
+        peer_of=$2
+        shift 2
+    fi
+    if [ -n "$peer_of" ] && [ "$peer_reviews_disabled" -eq 0 ]; then
+        echo "worklog: --peer-of requires --peer-reviews-disabled" >&2
+        exit 2
+    fi
     goal=$1
     done_desc=$2
     [ -n "$goal" ] && [ -n "$done_desc" ] || {
-        echo "usage: worklog.sh new [--peer-reviews-disabled] \"<goal>\" \"<what done looks like>\" \"<step>\"..." >&2
+        echo "usage: worklog.sh new [--peer-reviews-disabled] [--peer-of <main-worklog>] \"<goal>\" \"<what done looks like>\" \"<step>\"..." >&2
         exit 2
     }
     shift 2
@@ -250,9 +263,42 @@ if [ "$1" = new ]; then
         echo "worklog: give at least one plan step after the goal" >&2
         exit 2
     }
-    id=$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' \n')
+    parent_id=""
+    if [ -n "$peer_of" ]; then
+        case "$peer_of" in
+            */*) parent_file=$peer_of ;;
+            *)   parent_file="$WL_DIR/$peer_of.txt" ;;
+        esac
+        [ -f "$parent_file" ] || {
+            echo "worklog: peer parent does not exist: $parent_file" >&2
+            exit 2
+        }
+        parent_name=${parent_file##*/}
+        case "$parent_name" in
+            ????????.txt) parent_id=${parent_name%.txt} ;;
+            *)
+                echo "worklog: peer parent must be a main worklog named <8-hex-id>.txt" >&2
+                exit 2
+                ;;
+        esac
+        case "$parent_id" in
+            *[!0123456789abcdef]*)
+                echo "worklog: peer parent must be a main worklog named <8-hex-id>.txt" >&2
+                exit 2
+                ;;
+        esac
+    fi
     mkdir -p "$WL_DIR"
-    FILE="$WL_DIR/$id.txt"
+    while :; do
+        id=$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' \n')
+        [ "$id" != "$parent_id" ] || continue
+        if [ -n "$parent_id" ]; then
+            FILE="$WL_DIR/$parent_id-peer-$id.txt"
+        else
+            FILE="$WL_DIR/$id.txt"
+        fi
+        [ ! -e "$FILE" ] && break
+    done
     if [ "$peer_reviews_disabled" -eq 0 ]; then
         RESULT_FILE=$(result_file_for "$FILE")
         : > "$RESULT_FILE"
@@ -437,7 +483,7 @@ reviewer_state=$(awk -v target="$item" '
     r = substr($0, 10); it = r; sub(/ .*$/, "", it); sub(/^#/, "", it); it += 0
     sub(/^#[0-9]+ +/, "", r)
     first = r; sub(/ .*$/, "", first)
-    if (first == "executor" || first == "reviewer") sub(/^[^ ]+ +/, "", r)
+    sub(/^[^ ]+ +/, "", r)
     tg = r; sub(/ .*$/, "", tg)
     if (it == target && tg == "question") questions++
     if (it == target && tg == "answer") answers++
@@ -471,7 +517,7 @@ fi
 # An item is closed exactly once. Refuse a second `done` on an item already
 # closed — don't re-close everything at the end; close only what is still open.
 if [ "$tag" = done ]; then
-    prev=$(grep "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item done " "$FILE" | head -n1)
+    prev=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|explorer|planner|executor|tester|reviewer) done " "$FILE" | head -n1)
     if [ -n "$prev" ]; then
         when=${prev%% *}
         echo "worklog: item $item is already closed (done at $when) — an item is closed once, so nothing was written. Close only the items still shown as open." >&2
@@ -485,7 +531,7 @@ fi
 # an earlier segment). Refuse it and point at the open items; --force allows the rare
 # legit case, like a late `note` on finished work.
 if [ "$tag" != done ]; then
-    closed=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (executor|reviewer) done " "$FILE" | head -n1)
+    closed=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|explorer|planner|executor|tester|reviewer) done " "$FILE" | head -n1)
     if [ -n "$closed" ] && [ "$force" -eq 0 ]; then
         when=${closed%% *}
         open=$(awk '
@@ -496,11 +542,7 @@ if [ "$tag" != done ]; then
             r = substr($0, 10); it = r; sub(/ .*$/, "", it); sub(/^#/, "", it); it += 0; if (it > mx) mx = it
             a = r; sub(/^#[0-9]+ +/, "", a)
             first = a; sub(/ .*$/, "", first)
-            if (first == "executor" || first == "reviewer") {
-              sub(/^[^ ]+ +/, "", a); tg = a; sub(/ .*$/, "", tg)
-            } else {
-              tg = first
-            }
+            sub(/^[^ ]+ +/, "", a); tg = a; sub(/ .*$/, "", tg)
             if (tg == "plan") planned[it] = 1
             if (tg == "done") done[it]    = 1
           }
@@ -524,12 +566,7 @@ if [ "$tag" = done ]; then
       /^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #[0-9]+ / {
         r = substr($0, 10); it = r; sub(/ .*$/, "", it); sub(/^#/, "", it); it += 0
         a = r; sub(/^#[0-9]+ +/, "", a)
-        first = a; sub(/ .*$/, "", first)
-        if (first == "executor" || first == "reviewer") {
-          sub(/^[^ ]+ +/, "", a); tg = a; sub(/ .*$/, "", tg)
-        } else {
-          tg = first
-        }
+        sub(/^[^ ]+ +/, "", a); tg = a; sub(/ .*$/, "", tg)
         if (tg == "plan") planned[it] = 1
         if (tg == "done") done[it]    = 1
       }
@@ -546,7 +583,7 @@ fi
 # shows what was done but not why. Refuse the `done` so the reasoning is captured
 # first; escapable with --force for a genuinely trivial item.
 if [ "$tag" = done ] && [ "$actor" != reviewer ]; then
-    reasoned=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (executor|reviewer) (think|decide) " "$FILE" | head -n1)
+    reasoned=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|explorer|planner|executor|tester|reviewer) (think|decide) " "$FILE" | head -n1)
     if [ -z "$reasoned" ] && [ "$force" -eq 0 ]; then
         echo "worklog: item $item closes with no reasoning recorded — no \`think\` or \`decide\` entry for it. Record what you weighed first: worklog.sh $item think <what you weighed>. If the item is genuinely trivial, repeat with: worklog.sh --force $item done <text>" >&2
         exit 2
