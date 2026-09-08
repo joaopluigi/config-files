@@ -5,6 +5,8 @@
 !/llm/skills/rewrite-text
 !/llm/skills/clj-rewrite
 !/llm/skills/planning
+!/llm/skills/pr-review
+!/llm/skills/pr-review/**
 !/llm/skills/planning/**
 !/llm/skills/repairing
 !/llm/skills/repairing/**
