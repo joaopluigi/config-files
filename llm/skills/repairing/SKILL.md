@@ -19,13 +19,14 @@ approved repair plan grounded in observed failure and evidence.
 1. State the symptom, expected behavior, constraints, compatibility boundary, and
    done condition.
 2. Record the goal, reasoning, evidence, decisions, and completion status as the task progresses.
-3. Explore the relevant implementation, interfaces, documentation, and tests.
+3. Spawn an `investigator` agent to explore the relevant implementation, interfaces,
+   documentation, and tests.
 4. Reproduce the failure and record the observed output or error.
 5. Develop multiple hypotheses that could explain the symptom.
 6. Describe the observable consequences of each hypothesis.
 7. Run the smallest REPL experiment, test, trace, or other check that distinguishes
    the hypotheses.
-8. Select the best-supported hypothesis and have an independent critic examine it
+8. Select the best-supported hypothesis and spawn a `critic` agent to examine it
    using only the question and evidence needed for the critique.
 9. Repeat the experiment and critique until one hypothesis withstands scrutiny or
    the evidence shows that the cause remains unknown.

@@ -20,16 +20,16 @@ an input and does not decide whether the change should be made.
    evidence, and recorded user approval.
 2. Stop if approval, scope, or acceptance properties are missing.
 3. Record the goal, scope, evidence, decisions, and validation as the task progresses.
-4. Spawn an authoring agent with only the approved scope and relevant sources.
-5. Spawn a separate agent to author tests from the stated properties, using the
+4. Spawn an `executor` agent with only the approved scope and relevant sources.
+5. Spawn a `tester` agent to author tests from the stated properties, using the
    repository's available testing approach.
 6. Inspect the changes for scope and conformity with the surrounding code.
 7. Run the implementation and relevant tests or checks. Record observed results.
-8. Spawn an independent adversarial review agent with the implementation, properties,
-   evidence boundary, and validation results.
+8. Spawn a `reviewer` agent with the implementation, properties, evidence boundary,
+   and validation results.
 9. Present the review findings to the user and identify which flaws, if any, are
    selected for remediation.
-10. Spawn a remediation agent only for the selected flaws and keep the approved scope.
+10. Spawn an `executor` agent only for the selected flaws and keep the approved scope.
 11. Run the affected tests or checks again after remediation.
 12. Repeat the review, findings, and selected-remediation cycle until review produces
     no actionable flaws or successive reviews produce the same findings.
