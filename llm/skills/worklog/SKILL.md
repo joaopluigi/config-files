@@ -39,7 +39,8 @@ The explicit selector is required for operations on an existing worklog. Do not
 rely on the most recent file when multiple agents may be working at once.
 
 Entries include an actor column. The actor must be the profile that performed the
-work: `main`, `explorer`, `planner`, `executor`, `tester`, or `reviewer`. The default
+work: `main`, `investigator`, `ideator`, `executor`, `tester`, `reviewer`, or
+`critic`. The default
 is `main`, which identifies work performed by the primary agent. Specialized agents
 must pass their profile explicitly with `--actor`; existing `executor` entries remain
 valid for backward compatibility.
