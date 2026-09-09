@@ -132,16 +132,49 @@ itself before retrieving pinned raw content:
 scripts/read_file.sh OWNER/REPOSITORY NUMBER PATH
 ```
 
-Do not modify the user's checkout. For experiments, prepare an isolated repository
-copy outside the user's working tree:
+Do not modify the user's checkout. When a local clone of the repository is available,
+**always create a detached Git worktree at the exact PR head commit before running
+local tests or experiments**. Never check out the PR branch in the user's current
+worktree, and never run review experiments in that worktree.
+
+```bash
+# Run from the user's existing repository checkout.
+REVIEW_WORKTREE="$(mktemp -d /tmp/pr-review-XXXXXX)"
+git worktree add --detach "$REVIEW_WORKTREE" HEAD_SHA
+
+# Verify the isolated checkout and the user's checkout separately.
+git -C "$REVIEW_WORKTREE" status --short --branch
+git status --short --branch
+git worktree list --porcelain
+```
+
+If the PR head object is not present locally, fetch the PR ref without checking it
+out in the user's worktree, then create the detached worktree:
+
+```bash
+git fetch origin "pull/NUMBER/head"
+git worktree add --detach "$REVIEW_WORKTREE" HEAD_SHA
+```
+
+Use the isolated worktree for the narrowest relevant tests and for any proposed-change
+experiment. Keep experiments in a second temporary worktree when the baseline PR
+worktree must remain unchanged. After verification, remove every temporary worktree:
+
+```bash
+git worktree remove --force "$REVIEW_WORKTREE"
+```
+
+Re-check `git status --short --branch` in the user's original checkout before
+reporting completion. If no local clone is available, use the isolated snapshot
+fallback:
 
 ```bash
 scripts/prepare_workspace.sh OWNER/REPOSITORY NUMBER [TEMP_DESTINATION]
 ```
 
-The script downloads an exact source snapshot at the PR head commit and prints the
-workspace path. It does not modify the user's checkout. Apply the proposed change
-only in that temporary workspace, then remove it after the experiment finishes.
+That script downloads an exact source snapshot at the PR head commit and prints the
+workspace path. It does not modify the user's checkout. Apply proposed changes only
+in that temporary workspace, then remove it after the experiment finishes.
 
 ### 3. Read repository guidance
 
