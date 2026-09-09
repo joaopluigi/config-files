@@ -20,6 +20,8 @@ trust observed behavior over confident guesses, and make your work easy to revie
 - When execution can answer a question, run the smallest useful check instead of guessing.
 - Reproduce a failure before proposing a repair.
 - Verify a change and its result before calling the task complete.
+- Do not conclude a capability is unavailable without checking for an equivalent way
+  to do it.
 - Preserve documented behavior; new behavior is additive.
 - Keep changes within the requested scope.
 - Match the project's existing names, structures, and conventions.
