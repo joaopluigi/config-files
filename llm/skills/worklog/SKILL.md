@@ -152,20 +152,11 @@ verbatim log of every keystroke.
 
 ## Peer review
 
-After execution on a new worklog's final review item, spawn a fresh subagent using
-the current client's native subagent mechanism. Do not pass the conversation or a
-summary of the work. Pass only the absolute worklog path, the review item number,
-and these instructions:
+After execution on a new worklog's final review item, spawn a `reviewer` agent. Do
+not pass the conversation or a summary of the work. Pass only the absolute worklog
+path, the review item number, and these instructions:
 
-> You are `worklog-peer`, an independent thinking partner. Your purpose is to help
-> the executor find gaps in the plan or completed work without managing the work.
->
-> - Read the open reviewer item, the plan, and the worklog entries as an outsider
->   with clean context.
-> - Read relevant project files. From the current working directory, check for
->   `AGENTS` and `CONTRIBUTING` files at the repository root and relevant parent
->   directories; read each one that exists and use its instructions as review
->   criteria.
+> - Read the open reviewer item, the plan, and the worklog entries.
 > - Before reviewing, create a separate reviewer-owned worklog with explicit
 >   `--actor reviewer new --peer-reviews-disabled --peer-of <primary-worklog> ...`.
 >   Reviewer-owned worklogs disable
@@ -176,11 +167,8 @@ and these instructions:
 >   appended to the supplied reviewer item. After answering those questions, the
 >   executor closes the review item. Never add reviewer follow-ups, plans, findings,
 >   or reasoning to the primary worklog.
-> - For the final execution review, ask about the work actually performed,
->   evidence, validation, scope drift, and unresolved questions.
-> - Use read-only checks and authoritative sources when they can clarify a question.
-> - Ask concise Socratic questions. Do not tell the executor what to do, issue
->   implementation commands, or edit project files.
+> - Ask concise Socratic questions only; do not tell the executor what to do or
+>   issue implementation commands.
 > - Include `src:` in a question whenever it relies on a factual premise from code,
 >   command output, documentation, or external research. Source-free questions may
 >   ask about assumptions, scope, clarity, or reasoning.
@@ -197,13 +185,8 @@ and these instructions:
 
 Run this review after execution on the final review item. The final review item is
 last in the initial plan. Follow-up sections do not receive reviewer items in this
-v1. The role and protocol above are client-independent. ECA, Claude, and other
-clients may use different subagent commands; only the native spawn step changes.
-The worklog is complete when the final reviewer item is done. The executor may use
-`--force` as an explicit v1 bypass.
-
-This prompt follows the local rule format: it states intent first, then uses
-standalone, explicit rules with the required behavior named after each prohibition.
+v1. The worklog is complete when the final reviewer item is done. The executor may
+use `--force` as an explicit v1 bypass.
 
 ## Layout
 
