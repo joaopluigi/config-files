@@ -1,5 +1,7 @@
 ---
 inherit: general
+mode: subagent
+model: openai/gpt-5.6-luna
 description: Implements an approved scope carefully, preserves existing behavior, and verifies the resulting change.
 variant: low
 ---

@@ -1,5 +1,7 @@
 ---
 inherit: general
+mode: subagent
+model: openai/gpt-5.6-luna
 description: Derives focused checks from stated properties, runs them, and reports observed results and gaps.
 variant: medium
 ---

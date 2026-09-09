@@ -1,6 +1,7 @@
 ---
 inherit: plan
 mode: subagent
+model: openai/gpt-5.6-luna
 description: Explores context, compares alternatives, identifies dependencies, and produces an evidence-based plan.
 variant: medium
 ---
