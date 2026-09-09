@@ -61,9 +61,9 @@ instruction not to invent comments merely to reach a count.
 
 ### Peer-review disclaimer
 
-Before declaring the review complete, have another peer agent independently review the
-work and proposed comments. Treat that second review as a required sanity check, not as
-a replacement for the evidence and verification steps below.
+Before declaring the review complete, spawn a `reviewer` agent to independently review
+the work and proposed comments. Treat that second review as a required sanity check, not
+as a replacement for the evidence and verification steps below.
 
 ## Evidence boundary
 
