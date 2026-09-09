@@ -19,7 +19,7 @@ an input and does not decide whether the change should be made.
 1. Read the approved plan and confirm that it contains scope, properties, validation,
    evidence, and recorded user approval.
 2. Stop if approval, scope, or acceptance properties are missing.
-3. Create or continue a worklog for the task.
+3. Record the goal, scope, evidence, decisions, and validation as the task progresses.
 4. Spawn an authoring agent with only the approved scope and relevant sources.
 5. Spawn a separate agent to author tests from the stated properties, using the
    repository's available testing approach.

@@ -23,16 +23,17 @@ Create one with a **goal**, a sentence on what **done** looks like, and the numb
 
     sh worklog.sh new "<one-line goal>" "<what done looks like>" "<step 1>" "<step 2>" ...
 
-A main worklog is named `<8-hex-id>.txt`. A peer-owned worklog must identify its
-parent and is named `<main-id>-peer-<peer-id>.txt`:
+A main worklog is stored at `/tmp/worklogs/<id>/<id>-main.txt`. A peer-owned
+worklog must identify its parent and actor, and is stored beside it as
+`<main-id>-peer-<actor>-<peer-id>.txt`:
 
-    sh worklog.sh new --peer-reviews-disabled --peer-of /tmp/worklogs/<main-id>.txt "<peer goal>" "<what done looks like>" "<step>" ...
+    sh worklog.sh --actor tester new --peer-reviews-disabled --peer-of /tmp/worklogs/<main-id>/<main-id>-main.txt "<peer goal>" "<what done looks like>" "<step>" ...
 
 For every later operation, select the exact worklog file returned by `new`:
 
-    sh worklog.sh --worklog /tmp/worklogs/<id>.txt [--actor <profile>] <item> <tag> <text...>
-    sh worklog.sh --worklog /tmp/worklogs/<id>.txt followup "<one line>"
-    sh worklog.sh --worklog /tmp/worklogs/<id>.txt check
+    sh worklog.sh --worklog /tmp/worklogs/<id>/<id>-main.txt [--actor <profile>] <item> <tag> <text...>
+    sh worklog.sh --worklog /tmp/worklogs/<id>/<id>-main.txt followup "<one line>"
+    sh worklog.sh --worklog /tmp/worklogs/<id>/<id>-main.txt check
 
 The explicit selector is required for operations on an existing worklog. Do not
 rely on the most recent file when multiple agents may be working at once.
@@ -46,9 +47,9 @@ valid for backward compatibility.
 The actor identifies who wrote an entry for auditability. It is not cryptographic
 authentication.
 
-The reviewer creates a separate worklog for its review with
-`new --peer-reviews-disabled --peer-of <primary-worklog> ...`, then uses
-`--actor reviewer` for its own entries. Its filename includes the primary worklog id.
+The reviewer creates a separate worklog for its review with an explicit
+`--actor reviewer` and `new --peer-reviews-disabled --peer-of <primary-worklog> ...`.
+Its filename is `<main-id>-peer-reviewer-<peer-id>.txt` in the main worklog's directory.
 Reviewer-owned worklogs set `peer reviews: disabled`, so they do not create another
 reviewer item. The `reviewer` actor is used for entries the reviewer appends to the
 primary worklog and for entries in the reviewer's own worklog.
@@ -62,36 +63,16 @@ workflow. `--force` remains an explicit bypass. Skipping a reviewer or using
 workflow collaborative.
 
 It writes the header, including the absolute working directory from which `new`
-was invoked, keeps the file in an ephemeral, out-of-repo location, and prints the
-When peer review is enabled, it also creates `<id>-result.txt` beside the worklog
-and records that absolute path in the header. **Tell the user both paths** so they
-can follow along as you work. Before the final review, publish the complete
-response you expect to return with a separate source file:
-
-    sh worklog.sh --worklog /tmp/worklogs/<id>.txt result /path/to/response.txt
-
-The source file must not be the result artifact itself. Do not run
-`result < /tmp/worklogs/<id>-result.txt`: the shell truncates the result file before
-`worklog.sh` can read it. Standard-input publishing remains supported as
-`result < /path/to/response.txt`, but the separate source-file form is safer and is
-the recommended form. The response should include any execution summary required
-by the task or skill,
-not just the implementation summary. Use `assets/execution_summary_template.md` as
-the starting structure, and remove sections that do not apply. For example, the
-architecture-interview-evaluation skill's execution summary includes the rubric,
-challenge, seniority, output path, and the inputs actually used. The `result`
-command replaces the result artifact from standard input; it does not generate or
-validate summary fields. The executor owns the artifact, and the reviewer reads it
-without editing it. Peer-disabled reviewer worklogs do not create or accept result
-artifacts. Keep the worklog path and pass it explicitly to every later command with
-`--worklog <path>`; this is required when several agents run at once, because the
-tool must not guess from the most recent file. `WORKLOG=<path>` remains supported as
-an alternative for selecting the file.
+was invoked, and keeps the files in an ephemeral, out-of-repo location. Tell the
+user the main worklog path, and pass the exact path explicitly to every later
+command with `--worklog <path>`; this is required when several agents run at once,
+because the tool must not guess from the most recent file. `WORKLOG=<path>` remains
+supported as an alternative for selecting the file.
 
 The worklog is **append-only**: only ever add lines at the end, and never edit or
 rewrite a line already written. Add each log entry with the tool:
 
-    sh worklog.sh --worklog /tmp/worklogs/<id>.txt [--actor <profile>] <item> <tag> <text...>
+    sh worklog.sh --worklog /tmp/worklogs/<id>/<id>-main.txt [--actor <profile>] <item> <tag> <text...>
 
 It stamps the time, then rejects an entry that can never be right — an unknown tag,
 a non-numeric item, or a `find` with no `src:` — before writing it, and after each
@@ -127,10 +108,10 @@ because another agent may create a newer worklog between commands.
 
 Each agent keeps its own worklog. A parent agent must pass the parent worklog path to a
 subagent when the work is part of the same task. The subagent creates a separate log
-with `new --peer-of <parent-worklog>` when the relationship should be recorded; use
-`--peer-reviews-disabled` unless the subagent is specifically the independent reviewer.
-The subagent uses its own profile name as the actor for every entry. Never share one
-worklog between concurrent agents.
+with an explicit actor and `new --peer-reviews-disabled --peer-of <parent-worklog>`
+when the relationship should be recorded. Use `--peer-reviews-disabled` unless the
+subagent is specifically the independent reviewer. The subagent uses its own profile
+name as the actor for every entry. Never share one worklog between concurrent agents.
 
 A worklog you reopen records what a past run *claimed*, not what is still true.
 Before building on a step it marks `done`, confirm the result still holds in the
@@ -146,8 +127,8 @@ the header's `goal:` does. If the follow-up already has its own steps, list them
 right after the one-line summary and the tool writes them as a fresh `plan items`
 block for this segment:
 
-    sh worklog.sh --worklog /tmp/worklogs/<id>.txt followup "<one line on what this request asks>"
-    sh worklog.sh --worklog /tmp/worklogs/<id>.txt followup "<one line>" "<step>" "<step>" ...   # with its own plan
+    sh worklog.sh --worklog /tmp/worklogs/<id>/<id>-main.txt followup "<one line on what this request asks>"
+    sh worklog.sh --worklog /tmp/worklogs/<id>/<id>-main.txt followup "<one line>" "<step>" "<step>" ...   # with its own plan
 
 Either way the numbering **continues** from the highest item so far instead of
 restarting at `#1`, so every `#<item>` in the log stays unambiguous — a follow-up
@@ -155,7 +136,7 @@ after items `1, 2` starts at `3`. You can still add a step mid-segment with a `p
 entry, exactly as in the first segment; both close with `done`. When the follow-up
 is a **different piece of work**, start a fresh worklog with `new`; it becomes its
 own file. Automatic `watch-worklog` follows only main worklogs; use an explicit path
-when you need to follow a result or peer worklog.
+when you need to follow a peer worklog.
 
 Append as you go, never in a batch at the end. Work in a tight loop: the moment
 you weigh an option, learn a fact, make a decision, or finish a step, append that
@@ -180,16 +161,13 @@ and these instructions:
 >
 > - Read the open reviewer item, the plan, and the worklog entries as an outsider
 >   with clean context.
-> - Read the result file named in the primary worklog header. Treat its contents as
->   the exact response the executor plans to return to the user, and review that
->   response together with the executed work.
 > - Read relevant project files. From the current working directory, check for
 >   `AGENTS` and `CONTRIBUTING` files at the repository root and relevant parent
 >   directories; read each one that exists and use its instructions as review
 >   criteria.
-> - Before reviewing, create a separate reviewer-owned worklog with
->   `new --peer-reviews-disabled --peer-of <primary-worklog> ...`; use the
->   `reviewer` actor for all entries in that worklog. Reviewer-owned worklogs disable
+> - Before reviewing, create a separate reviewer-owned worklog with explicit
+>   `--actor reviewer new --peer-reviews-disabled --peer-of <primary-worklog> ...`.
+>   Reviewer-owned worklogs disable
 >   peer reviews so they cannot create a recursive reviewer requirement. Use that
 >   worklog for all reviewer reasoning, source findings, implementation notes, and
 >   follow-up plan items. Its filename must include the primary worklog id.
@@ -234,8 +212,6 @@ standalone, explicit rules with the required behavior named after each prohibiti
 working directory: <absolute path from which the worklog was created>
 
 goal: <what "done" looks like, in a sentence or two>
-
-result file: /tmp/worklogs/<id>-result.txt  # peer-review-enabled worklogs only
 
 plan items
   1. <first step>
@@ -286,7 +262,7 @@ belongs to. Two rules hold every entry together:
   than letting the number run ahead of the work. The tool enforces this: a `done`
   that closes an item while a lower-numbered one is still open is refused — close
   them in order, or, when an out-of-order close is genuinely intended, repeat it
-  with a leading `--force` (`sh worklog.sh --worklog /tmp/worklogs/<id>.txt --force <item> done <text>`).
+  with a leading `--force` (`sh worklog.sh --worklog /tmp/worklogs/<id>/<id>-main.txt --force <item> done <text>`).
 - **A closed item stays closed.** Once an item has a `done`, put new entries on an
   item that is still open, not back on the finished one — after a follow-up
   especially, use the new segment's numbers rather than a stale number from an
@@ -338,7 +314,7 @@ to-do list, not a problem.
 When you think you are done, re-read the whole worklog top to bottom, then run the
 same tool as the completion gate:
 
-    sh worklog.sh --worklog /tmp/worklogs/<id>.txt check
+    sh worklog.sh --worklog /tmp/worklogs/<id>/<id>-main.txt check
 
 `check` re-scans the whole file — the header and anything carried over from a
 reopened log too, not just the entries you appended — and is strict: it exits

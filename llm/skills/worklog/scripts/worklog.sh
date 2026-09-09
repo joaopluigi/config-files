@@ -7,19 +7,18 @@
 #
 #   worklog.sh new [--peer-reviews-disabled] [--peer-of <main-worklog>] "<goal>" "<what done looks like>" "<step>"...
 #                              create a new worklog (records the invoking working directory in the header)
-#   worklog.sh --worklog <path> [--actor <actor>] result [response-file]
-#                                       publish the executor's expected result
 #   worklog.sh --worklog <path> [--actor <actor>] <item> <tag> <text...>
 #                                       append one actor-attributed entry
 #   worklog.sh --worklog <path> followup "<one line>" ["<step>"...]
 #                                       mark a segment in the selected worklog
 #   worklog.sh --worklog <path> check   completion gate: strict lint of the whole file
-#   worklog.sh path                     print the most recent worklog's path (discovery only)
+#   worklog.sh path                     print the most recent main worklog's path
 #
-# The worklog's location lives only in this script — `new` mints the path and
-# prints it; operations on an existing log require an explicit --worklog <path>
-# selector. WORKLOG=<path> is also accepted for callers that prefer an environment
-# variable. Never fall back to the most recent worklog: concurrent agents can race.
+# New worklogs are grouped by run under /tmp/worklogs/<id>/. The main file is
+# <id>-main.txt and peer files are <id>-peer-<actor>-<peer-id>.txt. Operations on
+# an existing log require an explicit --worklog <path> selector. WORKLOG=<path> is
+# also accepted for callers that prefer an environment variable. Never fall back
+# to the most recent worklog for writes: concurrent agents can race.
 #
 # Append mode stamps the wall-clock time and actor, rejects an entry that can never be
 # right — an unknown actor or tag, a non-numeric item, a `find` with no `src:`, or a
@@ -59,12 +58,34 @@ resolve_file() {
     printf '%s\n' "$f"
 }
 
-result_file_for() {
+is_main_file() {
     f=$1
-    dir=${f%/*}
-    name=${f##*/}
-    id=${name%.txt}
-    printf '%s/%s-result.txt\n' "$dir" "$id"
+    case "$f" in
+        "$WL_DIR"/*/*-main.txt)
+            dir=${f%/*}
+            dir_id=${dir##*/}
+            name=${f##*/}
+            file_id=${name%-main.txt}
+            case "$dir_id" in
+                ????????) : ;;
+                *) return 1 ;;
+            esac
+            case "$dir_id" in
+                *[!0123456789abcdef]*) return 1 ;;
+            esac
+            [ "$dir_id" = "$file_id" ] || return 1
+            return 0
+            ;;
+        "$WL_DIR"/????????.txt)
+            name=${f##*/}
+            id=${name%.txt}
+            case "$id" in
+                *[!0123456789abcdef]*|'') return 1 ;;
+            esac
+            return 0
+            ;;
+    esac
+    return 1
 }
 
 # scan <mode> <file>   mode: status (open items/questions only) | gate (strict lint)
@@ -216,12 +237,14 @@ if [ "$1" = --worklog ]; then
 fi
 
 actor=main
+actor_explicit=0
 if [ "$1" = --actor ]; then
     [ -n "$2" ] || {
         echo "usage: worklog.sh --worklog <path> --actor <main|explorer|planner|executor|tester|reviewer> ..." >&2
         exit 2
     }
     actor=$2
+    actor_explicit=1
     shift 2
 fi
 case "$actor" in
@@ -252,6 +275,10 @@ if [ "$1" = new ]; then
         echo "worklog: --peer-of requires --peer-reviews-disabled" >&2
         exit 2
     fi
+    if [ -n "$peer_of" ] && { [ "$actor_explicit" -eq 0 ] || [ "$actor" = main ]; }; then
+        echo "worklog: peer worklogs require an explicit non-main --actor" >&2
+        exit 2
+    fi
     goal=$1
     done_desc=$2
     [ -n "$goal" ] && [ -n "$done_desc" ] || {
@@ -264,10 +291,17 @@ if [ "$1" = new ]; then
         exit 2
     }
     parent_id=""
+    parent_dir=""
     if [ -n "$peer_of" ]; then
         case "$peer_of" in
             */*) parent_file=$peer_of ;;
-            *)   parent_file="$WL_DIR/$peer_of.txt" ;;
+            *)
+                if [ -f "$WL_DIR/$peer_of/$peer_of-main.txt" ]; then
+                    parent_file="$WL_DIR/$peer_of/$peer_of-main.txt"
+                else
+                    parent_file="$WL_DIR/$peer_of.txt"
+                fi
+                ;;
         esac
         [ -f "$parent_file" ] || {
             echo "worklog: peer parent does not exist: $parent_file" >&2
@@ -275,15 +309,29 @@ if [ "$1" = new ]; then
         }
         parent_name=${parent_file##*/}
         case "$parent_name" in
-            ????????.txt) parent_id=${parent_name%.txt} ;;
+            ????????.txt)
+                parent_id=${parent_name%.txt}
+                parent_dir="$WL_DIR/$parent_id"
+                ;;
+            ????????-main.txt)
+                parent_id=${parent_name%-main.txt}
+                parent_dir=${parent_file%/*}
+                ;;
             *)
-                echo "worklog: peer parent must be a main worklog named <8-hex-id>.txt" >&2
+                echo "worklog: peer parent must be a main worklog named <id>-main.txt or legacy <id>.txt" >&2
+                exit 2
+                ;;
+        esac
+        case "$parent_id" in
+            ????????) : ;;
+            *)
+                echo "worklog: peer parent id must be exactly 8 hexadecimal characters" >&2
                 exit 2
                 ;;
         esac
         case "$parent_id" in
             *[!0123456789abcdef]*)
-                echo "worklog: peer parent must be a main worklog named <8-hex-id>.txt" >&2
+                echo "worklog: peer parent id must be exactly 8 hexadecimal characters" >&2
                 exit 2
                 ;;
         esac
@@ -293,23 +341,18 @@ if [ "$1" = new ]; then
         id=$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' \n')
         [ "$id" != "$parent_id" ] || continue
         if [ -n "$parent_id" ]; then
-            FILE="$WL_DIR/$parent_id-peer-$id.txt"
+            mkdir -p "$parent_dir"
+            FILE="$parent_dir/$parent_id-peer-$actor-$id.txt"
         else
-            FILE="$WL_DIR/$id.txt"
+            mkdir -p "$WL_DIR/$id"
+            FILE="$WL_DIR/$id/$id-main.txt"
         fi
         [ ! -e "$FILE" ] && break
     done
-    if [ "$peer_reviews_disabled" -eq 0 ]; then
-        RESULT_FILE=$(result_file_for "$FILE")
-        : > "$RESULT_FILE"
-    fi
     {
         printf '# worklog — %s\n\n' "$goal"
         printf 'working directory: %s\n\n' "$PWD"
         printf 'goal: %s\n\n' "$done_desc"
-        if [ "$peer_reviews_disabled" -eq 0 ]; then
-            printf 'result file: %s\n\n' "$RESULT_FILE"
-        fi
         if [ "$peer_reviews_disabled" -eq 1 ]; then
             printf 'peer reviews: disabled\n\n'
         fi
@@ -326,34 +369,6 @@ if [ "$1" = new ]; then
     } > "$FILE"
     printf '%s\n' "$FILE"
     echo "worklog created — tell the user this path so they can follow along: $FILE" >&2
-    if [ "$peer_reviews_disabled" -eq 0 ]; then
-        echo "result file — publish the expected response here: $RESULT_FILE" >&2
-    fi
-    exit 0
-fi
-
-# --- result mode ------------------------------------------------------------
-if [ "$1" = result ]; then
-    FILE=$(resolve_file) || exit 2
-    if [ "$actor" = reviewer ]; then
-        echo "worklog: actor reviewer cannot publish the executor's result" >&2
-        exit 2
-    fi
-    if grep -q '^peer reviews: disabled$' "$FILE"; then
-        echo "worklog: result artifacts require peer review" >&2
-        exit 2
-    fi
-    RESULT_FILE=$(result_file_for "$FILE")
-    if [ -n "$2" ]; then
-        [ "$2" != "$RESULT_FILE" ] || {
-            echo "worklog: response source must not be the result artifact" >&2
-            exit 2
-        }
-        cat "$2" > "$RESULT_FILE" || exit 1
-    else
-        cat > "$RESULT_FILE" || exit 1
-    fi
-    printf '%s\n' "$RESULT_FILE"
     exit 0
 fi
 
@@ -397,8 +412,18 @@ fi
 
 # --- path mode --------------------------------------------------------------
 if [ "$1" = path ]; then
-    f="${WORKLOG:-$(ls -t "$WL_DIR"/*.txt 2>/dev/null | head -n1)}"
-    [ -n "$f" ] && [ -f "$f" ] && printf '%s\n' "$f"
+    if [ -n "${WORKLOG:-}" ]; then
+        if [ -f "$WORKLOG" ] && is_main_file "$WORKLOG"; then
+            printf '%s\n' "$WORKLOG"
+        fi
+        exit 0
+    fi
+    for f in $(ls -t "$WL_DIR"/*/*-main.txt "$WL_DIR"/*.txt 2>/dev/null); do
+        if is_main_file "$f"; then
+            printf '%s\n' "$f"
+            break
+        fi
+    done
     exit 0
 fi
 
