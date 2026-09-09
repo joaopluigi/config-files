@@ -32,16 +32,16 @@ case "$1" in
         exit 0
         ;;
     --clean)
-        count=$(find "$WL_DIR" -maxdepth 1 -type f -name '*.txt' -print 2>/dev/null | awk 'NF { n++ } END { print n + 0 }')
+        count=$(find "$WL_DIR" -maxdepth 1 \( -type f -name '*.txt' -o -type d -name '????????' \) -print 2>/dev/null | awk 'NF { n++ } END { print n + 0 }')
         if [ "$count" -eq 0 ]; then
             echo "No worklogs found in $WL_DIR."
             exit 0
         fi
-        printf 'Delete %s worklog file(s) from %s? Type clean to confirm: ' "$count" "$WL_DIR"
+        printf 'Delete %s worklog(s) (legacy files and run directories) from %s? Type clean to confirm: ' "$count" "$WL_DIR"
         read -r confirmation
         [ "$confirmation" = clean ] || { echo "Cleanup cancelled."; exit 1; }
-        if find "$WL_DIR" -maxdepth 1 -type f -name '*.txt' -exec rm -f {} +; then
-            echo "Deleted $count worklog file(s) from $WL_DIR."
+        if find "$WL_DIR" -maxdepth 1 \( -type f -name '*.txt' -o -type d -name '????????' \) -exec rm -rf {} +; then
+            echo "Deleted $count worklog(s) from $WL_DIR."
             exit 0
         fi
         echo "Cleanup failed in $WL_DIR." >&2
@@ -97,7 +97,7 @@ colorize() {
         sp = index(rest, " ")
         if (sp > 0) { first = substr(rest, 1, sp - 1); rest = substr(rest, sp + 1); sub(/^ +/, "", rest) }
         else        { first = rest; rest = "" }
-        if (first == "main" || first == "explorer" || first == "planner" || first == "executor" || first == "tester" || first == "reviewer") {
+        if (first == "main" || first == "investigator" || first == "ideator" || first == "executor" || first == "tester" || first == "reviewer" || first == "critic") {
           actor = first
           sp = index(rest, " ")
           if (sp > 0) { tag = substr(rest, 1, sp - 1); text = substr(rest, sp + 1) }

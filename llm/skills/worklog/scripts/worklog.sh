@@ -95,7 +95,7 @@ scan() {
         in_items = 0; in_header = 0; header_seen = 0
         maxN = 0; header_max = 0; hard = 0; peer_reviews = 0
         validtags = " think find decide done plan question answer note "
-        validactors = " main explorer planner executor tester reviewer "
+        validactors = " main investigator ideator executor tester reviewer critic "
       }
 
       # Legacy headers opt into peer-review dependencies; new logs infer them from
@@ -139,7 +139,6 @@ scan() {
         item = rest; sub(/ .*$/, "", item); sub(/^#/, "", item); item += 0
         after = rest; sub(/^#[0-9]+ +/, "", after)
         first = after; sub(/ .*$/, "", first)
-        actor = "executor"
         if (index(validactors, " " first " ") == 0) {
           nb++; bad_line[nb] = FNR; bad_text[nb] = $0; hard++
           next
@@ -240,7 +239,7 @@ actor=main
 actor_explicit=0
 if [ "$1" = --actor ]; then
     [ -n "$2" ] || {
-        echo "usage: worklog.sh --worklog <path> --actor <main|explorer|planner|executor|tester|reviewer> ..." >&2
+        echo "usage: worklog.sh --worklog <path> --actor <main|investigator|ideator|executor|tester|reviewer|critic> ..." >&2
         exit 2
     }
     actor=$2
@@ -248,9 +247,9 @@ if [ "$1" = --actor ]; then
     shift 2
 fi
 case "$actor" in
-    main|explorer|planner|executor|tester|reviewer) : ;;
+    main|investigator|ideator|executor|tester|reviewer|critic) : ;;
     *)
-        echo "worklog: unknown actor: $actor (use main, explorer, planner, executor, tester, or reviewer)" >&2
+        echo "worklog: unknown actor: $actor (use main, investigator, ideator, executor, tester, reviewer, or critic)" >&2
         exit 2 ;;
 esac
 
@@ -542,7 +541,7 @@ fi
 # An item is closed exactly once. Refuse a second `done` on an item already
 # closed — don't re-close everything at the end; close only what is still open.
 if [ "$tag" = done ]; then
-    prev=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|explorer|planner|executor|tester|reviewer) done " "$FILE" | head -n1)
+    prev=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|investigator|ideator|executor|tester|reviewer|critic) done " "$FILE" | head -n1)
     if [ -n "$prev" ]; then
         when=${prev%% *}
         echo "worklog: item $item is already closed (done at $when) — an item is closed once, so nothing was written. Close only the items still shown as open." >&2
@@ -556,7 +555,7 @@ fi
 # an earlier segment). Refuse it and point at the open items; --force allows the rare
 # legit case, like a late `note` on finished work.
 if [ "$tag" != done ]; then
-    closed=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|explorer|planner|executor|tester|reviewer) done " "$FILE" | head -n1)
+    closed=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|investigator|ideator|executor|tester|reviewer|critic) done " "$FILE" | head -n1)
     if [ -n "$closed" ] && [ "$force" -eq 0 ]; then
         when=${closed%% *}
         open=$(awk '
@@ -608,7 +607,7 @@ fi
 # shows what was done but not why. Refuse the `done` so the reasoning is captured
 # first; escapable with --force for a genuinely trivial item.
 if [ "$tag" = done ] && [ "$actor" != reviewer ]; then
-    reasoned=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|explorer|planner|executor|tester|reviewer) (think|decide) " "$FILE" | head -n1)
+    reasoned=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|investigator|ideator|executor|tester|reviewer|critic) (think|decide) " "$FILE" | head -n1)
     if [ -z "$reasoned" ] && [ "$force" -eq 0 ]; then
         echo "worklog: item $item closes with no reasoning recorded — no \`think\` or \`decide\` entry for it. Record what you weighed first: worklog.sh $item think <what you weighed>. If the item is genuinely trivial, repeat with: worklog.sh --force $item done <text>" >&2
         exit 2
