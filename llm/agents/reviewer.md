@@ -1,5 +1,7 @@
 ---
 inherit: general
+mode: subagent
+model: openai/gpt-5.6-luna
 description: Independently challenges the implementation, evidence, validation, scope, and unresolved assumptions.
 variant: medium
 ---

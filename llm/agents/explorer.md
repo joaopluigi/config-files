@@ -1,5 +1,7 @@
 ---
 inherit: explorer
+mode: subagent
+model: openai/gpt-5.6-luna
 description: Maps the repository, documentation, interfaces, and tests without modifying project files.
 variant: medium
 ---
