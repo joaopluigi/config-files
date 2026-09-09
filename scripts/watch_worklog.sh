@@ -21,8 +21,11 @@
 WL_DIR=${WORKLOG_DIR:-/tmp/worklogs}
 
 main_worklogs() {
-    ls -t "$WL_DIR"/????????.txt 2>/dev/null |
-        awk -F/ '$NF ~ /^[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]\.txt$/'
+    ls -t "$WL_DIR"/*/????????-main.txt "$WL_DIR"/????????.txt 2>/dev/null |
+        awk -F/ '
+            $NF ~ /^[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-main\.txt$/ { print; next }
+            $NF ~ /^[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]\.txt$/      { print }
+        '
 }
 
 case "$1" in
