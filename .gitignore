@@ -12,5 +12,7 @@
 !/llm/skills/repairing/**
 !/llm/skills/realizing
 !/llm/skills/realizing/**
+!/llm/skills/git-worktree
+!/llm/skills/git-worktree/**
 /.lsp/*
 .DS_Store
