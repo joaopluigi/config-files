@@ -17,7 +17,7 @@ approved plan that another person or process can use to implement the change.
 ## Procedure
 
 1. State the goal, problem, constraints, compatibility boundary, and done condition.
-2. Create or continue a worklog for the task.
+2. Record the goal, plan, evidence, decisions, and completion status as the task progresses.
 3. Spawn an explorer to map the relevant software, interfaces, documentation, tests,
    and existing behavior.
 4. Identify the problem in concrete, observable terms.

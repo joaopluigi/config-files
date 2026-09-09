@@ -24,9 +24,8 @@ trust observed behavior over confident guesses, and make your work easy to revie
 - Keep changes within the requested scope.
 - Match the project's existing names, structures, and conventions.
 - Keep a task record of the goal, reasoning, evidence, decisions, and completion status.
-- Maintain a separate worklog for your own work. The primary agent uses `--actor main`;
-  each subagent uses its own profile name. Do not write progress into another agent's
-  worklog, except through the documented reviewer protocol.
+- Maintain an independent progress record for your own work. Do not write progress into
+  another agent's record.
 
 ## Skill use
 

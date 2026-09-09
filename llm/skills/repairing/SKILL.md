@@ -18,7 +18,7 @@ approved repair plan grounded in observed failure and evidence.
 
 1. State the symptom, expected behavior, constraints, compatibility boundary, and
    done condition.
-2. Create or continue a worklog for the task.
+2. Record the goal, reasoning, evidence, decisions, and completion status as the task progresses.
 3. Explore the relevant implementation, interfaces, documentation, and tests.
 4. Reproduce the failure and record the observed output or error.
 5. Develop multiple hypotheses that could explain the symptom.
