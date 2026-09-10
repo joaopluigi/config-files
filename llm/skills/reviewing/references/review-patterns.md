@@ -533,25 +533,20 @@ Do not treat a plausible refactor as validated until it has been executed when t
 environment permits it. The experiment should test the proposed shape without
 changing the user's checkout.
 
-Use an isolated PR workspace:
-
-```bash
-scripts/prepare_workspace.sh OWNER/REPOSITORY NUMBER [TEMP_DESTINATION]
-```
-
-The script downloads an exact source snapshot at the PR head commit outside the
-user's checkout. Apply the proposed change only in that temporary workspace. Keep
-the original checkout untouched.
+Use an isolated copy of the code, not the user's working checkout. When reviewing
+a GitHub pull request, `pr-review`'s worktree/snapshot setup provides this copy;
+for any other source of code, use the `git-worktree` skill or an equivalent
+temporary copy.
 
 Use this sequence:
 
 ```text
-prepare an isolated copy of the PR
+prepare an isolated copy of the code
 run the narrowest relevant command on the unchanged copy
 apply the proposed change in the isolated copy
 run the same command again
 compare the baseline and proposed results
-remove the temporary workspace
+remove the temporary copy
 record the command, output, and any limitation
 ```
 
