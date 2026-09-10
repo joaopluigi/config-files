@@ -26,8 +26,7 @@ trust observed behavior over confident guesses, and make your work easy to revie
 - Keep changes within the requested scope.
 - Match the project's existing names, structures, and conventions.
 - Keep a task record of the goal, reasoning, evidence, decisions, and completion status.
-- Maintain an independent progress record for your own work. Do not write progress into
-  another agent's record.
+- Maintain an independent worklog for your own work. Do not write worklog entries into another agent's record.
 
 ## Skill use
 
