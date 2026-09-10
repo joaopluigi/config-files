@@ -27,7 +27,7 @@ A main worklog is stored at `/tmp/worklogs/<id>/<id>-main.txt`. A peer-owned
 worklog must identify its parent and actor, and is stored beside it as
 `<main-id>-peer-<actor>-<peer-id>.txt`:
 
-    sh worklog.sh --actor tester new --peer-reviews-disabled --peer-of /tmp/worklogs/<main-id>/<main-id>-main.txt "<peer goal>" "<what done looks like>" "<step>" ...
+    sh worklog.sh --actor tester new --peer-of /tmp/worklogs/<main-id>/<main-id>-main.txt "<peer goal>" "<what done looks like>" "<step>" ...
 
 For every later operation, select the exact worklog file returned by `new`:
 
@@ -48,20 +48,11 @@ valid for backward compatibility.
 The actor identifies who wrote an entry for auditability. It is not cryptographic
 authentication.
 
-The reviewer creates a separate worklog for its review with an explicit
-`--actor reviewer` and `new --peer-reviews-disabled --peer-of <primary-worklog> ...`.
-Its filename is `<main-id>-peer-reviewer-<peer-id>.txt` in the main worklog's directory.
-Reviewer-owned worklogs set `peer reviews: disabled`, so they do not create another
-reviewer item. The `reviewer` actor is used for entries the reviewer appends to the
-primary worklog and for entries in the reviewer's own worklog.
-
-A new worklog adds a final execution review item to its initial plan. The reviewer
-asks questions on that item; after the executor answers every question, the
-executor closes the review item. The worklog is complete only when the final
-review item is done. Follow-up sections do not receive reviewer items in this v1
-workflow. `--force` remains an explicit bypass. Skipping a reviewer or using
-`--force` is allowed, but it removes the independent perspective that makes this
-workflow collaborative.
+A subagent creates a separate worklog for its own work with an explicit
+`--actor <profile>` and `new --peer-of <primary-worklog> ...`.
+Its filename is `<main-id>-peer-<actor>-<peer-id>.txt` in the main worklog's directory.
+The actor named in `--actor` is used both for entries the subagent appends to the
+primary worklog and for entries in the subagent's own worklog.
 
 It writes the header, including the absolute working directory from which `new`
 was invoked, and keeps the files in an ephemeral, out-of-repo location. Tell the
@@ -109,9 +100,8 @@ because another agent may create a newer worklog between commands.
 
 Each agent keeps its own worklog. A parent agent must pass the parent worklog path to a
 subagent when the work is part of the same task. The subagent creates a separate log
-with an explicit actor and `new --peer-reviews-disabled --peer-of <parent-worklog>`
-when the relationship should be recorded. Use `--peer-reviews-disabled` unless the
-subagent is specifically the independent reviewer. The subagent uses its own profile
+with an explicit actor and `new --peer-of <parent-worklog>`
+when the relationship should be recorded. The subagent uses its own profile
 name as the actor for every entry. Never share one worklog between concurrent agents.
 
 A worklog you reopen records what a past run *claimed*, not what is still true.
@@ -150,44 +140,6 @@ follow what happened, how the thinking evolved, and why — legible and
 self-contained, but concise. Capture the reasoning and the decisions, not a
 verbatim log of every keystroke.
 
-## Peer review
-
-After execution on a new worklog's final review item, spawn a `reviewer` agent. Do
-not pass the conversation or a summary of the work. Pass only the absolute worklog
-path, the review item number, and these instructions:
-
-> - Read the open reviewer item, the plan, and the worklog entries.
-> - Before reviewing, create a separate reviewer-owned worklog with explicit
->   `--actor reviewer new --peer-reviews-disabled --peer-of <primary-worklog> ...`.
->   Reviewer-owned worklogs disable
->   peer reviews so they cannot create a recursive reviewer requirement. Use that
->   worklog for all reviewer reasoning, source findings, implementation notes, and
->   follow-up plan items. Its filename must include the primary worklog id.
-> - Keep the primary worklog unchanged except for review questions or concerns
->   appended to the supplied reviewer item. After answering those questions, the
->   executor closes the review item. Never add reviewer follow-ups, plans, findings,
->   or reasoning to the primary worklog.
-> - Ask concise Socratic questions only; do not tell the executor what to do or
->   issue implementation commands.
-> - Include `src:` in a question whenever it relies on a factual premise from code,
->   command output, documentation, or external research. Source-free questions may
->   ask about assumptions, scope, clarity, or reasoning.
-> - Append only questions or concerns to the supplied reviewer item with
->   `--actor reviewer`; record the supporting reasoning and findings in the
->   separate reviewer-owned worklog.
-> - Review only open worklog items as targets. Ignore completed items and do not
->   reopen them.
-> - Read each executor answer and decide whether it addresses its corresponding
->   question; do not treat matching question and answer counts as sufficient.
-> - After the executor answers every question, the executor closes the supplied
->   reviewer item with the normal `done` command. No second reviewer invocation is
->   needed just to close the item.
-
-Run this review after execution on the final review item. The final review item is
-last in the initial plan. Follow-up sections do not receive reviewer items in this
-v1. The worklog is complete when the final reviewer item is done. The executor may
-use `--force` as an explicit v1 bypass.
-
 ## Layout
 
 ```
@@ -201,7 +153,6 @@ plan items
   1. <first step>
   2. <second step>
   3. <final step: validate>
-  4. worklog-peer review of the executed work
 
 ── log ──
 HH:MM:SS #1 executor think <what you are weighing before you commit>

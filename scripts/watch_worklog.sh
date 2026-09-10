@@ -96,17 +96,22 @@ colorize() {
           sp = index(rest, " ")
           if (sp > 0) { item = substr(rest, 1, sp - 1); rest = substr(rest, sp + 1); sub(/^ +/, "", rest) }
         }
+        # Tell the modern "#item actor tag text" shape apart from the legacy
+        # "#item tag text" shape (no actor field) by checking against the fixed,
+        # closed set of tags in color[] rather than an actor name list — the set
+        # of actors grows as new subagent profiles are added, but the tag
+        # vocabulary does not, so this stays correct without edits here.
         actor = "main"
         sp = index(rest, " ")
-        if (sp > 0) { first = substr(rest, 1, sp - 1); rest = substr(rest, sp + 1); sub(/^ +/, "", rest) }
-        else        { first = rest; rest = "" }
-        if (first == "main" || first == "investigator" || first == "ideator" || first == "executor" || first == "tester" || first == "reviewer" || first == "critic") {
-          actor = first
-          sp = index(rest, " ")
-          if (sp > 0) { tag = substr(rest, 1, sp - 1); text = substr(rest, sp + 1) }
-          else        { tag = rest; text = "" }
+        if (sp > 0) { first = substr(rest, 1, sp - 1); rest2 = substr(rest, sp + 1); sub(/^ +/, "", rest2) }
+        else        { first = rest; rest2 = "" }
+        if (first in color) {
+          tag = first; text = rest2
         } else {
-          tag = first; text = rest
+          actor = first
+          sp = index(rest2, " ")
+          if (sp > 0) { tag = substr(rest2, 1, sp - 1); text = substr(rest2, sp + 1) }
+          else        { tag = rest2; text = "" }
         }
         sub(/^ +/, "", text)
         if (tag in color) {
