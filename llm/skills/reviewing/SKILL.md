@@ -31,13 +31,14 @@ sources:
    checklist;
 5. analogous code, tests, documents, and conventions found elsewhere in the
    current repository;
-6. organizational or group guidance and analogous artifacts from the same
-   company, team, working group, or GitHub organization, including related
-   GitHub repositories, pull requests, issues, and reviews, when those sources
-   are explicitly available;
-7. related repositories, tools, and ecosystem projects that provide a useful
-   analogy when no close same-context precedent is available, with the source
-   treated as analogous rather than organizational evidence;
+6. organizational or group guidance and analogous artifacts outside the target
+   repository from the same company, team, working group, or GitHub
+   organization, including related GitHub repositories, pull requests, issues,
+   and reviews, when those sources are explicitly available;
+7. related repositories, tools, and ecosystem projects outside the target
+   repository that provide a useful analogy when no close same-context
+   precedent is available, with the source treated as analogous rather than
+   organizational evidence;
 8. documents or artifacts explicitly linked by the work under review;
 9. official documentation for an external dependency, API, or fact the work
    relies on but does not itself establish.
@@ -67,8 +68,12 @@ Every review runs the same six independent lenses:
 - **Current repository patterns** -- does it follow relevant conventions and
   established patterns in the current repository, including analogous code,
   tests, and documentation;
-- **Organizational / group patterns** -- does it align with relevant patterns,
-  guidance, and terminology used by the same company, team, or working group.
+- **Organizational / group patterns** -- after identifying the target
+  repository's role, language, runtime, frameworks, tooling, and ecosystem,
+  what do related projects outside the target repository do? Does the change
+  align with relevant implementation patterns, guidance, and terminology in
+  comparable sibling repositories from the same company, team, working group,
+  or GitHub organization?
 
 Run all six on every review, regardless of how small or narrow the artifact
 looks. A lens that turns up nothing real is a legitimate result -- report "no
@@ -98,14 +103,17 @@ the independence that makes separate lenses useful in the first place.
 - **current repository patterns** -- spawn an `investigator` subagent to inspect
   analogous code, tests, documents, and local guidance in the current
   repository;
-- **organizational / group patterns** -- spawn a `researcher` subagent to look
-  first for relevant guidance and analogous GitHub repositories, pull requests,
-  issues, reviews, tools, and projects from the same company, team, or working
-  group. If no close same-context precedent is available, also inspect related
-  repositories, tools, and ecosystem projects, such as analogous Clojure CLI or
-  Babashka projects. Label those as ecosystem analogies rather than
-  organizational evidence, and use only sources explicitly available to the
-  review.
+- **organizational / group patterns** -- spawn a `researcher` subagent to work
+  outside the target repository. First identify the target repository's role,
+  language, runtime, frameworks, tooling, and ecosystem. Then look for
+  comparable implementation patterns in sibling GitHub repositories, pull
+  requests, issues, reviews, tools, and projects from the same company, team,
+  working group, or GitHub organization. Match sources by relevant technology
+  and role, not just by organization. If no close same-context precedent is
+  available, inspect related repositories, tools, and ecosystem projects, such
+  as analogous Clojure CLI or Babashka projects. Label those as ecosystem
+  analogies rather than organizational evidence, and use only sources
+  explicitly available to the review.
 
 Spawn all six subagents for every review. Give each one the artifact, the
 relevant evidence sources, and exactly one lens; none of them should edit
