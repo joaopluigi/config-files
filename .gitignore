@@ -14,5 +14,7 @@
 !/llm/skills/realizing/**
 !/llm/skills/git-worktree
 !/llm/skills/git-worktree/**
+!/llm/skills/reviewing
+!/llm/skills/reviewing/**
 /.lsp/*
 .DS_Store
