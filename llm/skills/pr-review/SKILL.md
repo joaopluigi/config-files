@@ -44,8 +44,22 @@ Resolve the mode before acting:
 Default to **read-only** when the user has not asked to post comments. Never
 submit an approval or change request implicitly.
 
-The mode only controls which GitHub write operations are allowed below; it
-does not change how many findings the `reviewing` skill should look for.
+The mode only controls which GitHub write operations are allowed below; it does
+not change how many findings the `reviewing` skill should look for.
+
+## Review comment formatting
+
+When a proposed review comment includes an example or code change, present every
+code example as a fenced Markdown code block with an appropriate language tag,
+including single-line examples. Do not put code examples in inline backticks.
+Keep inline backticks for short identifiers, expressions, and file names only.
+
+For example:
+
+```clojure
+(defn normalize-value [value]
+  ...)
+```
 
 ## The implementation lives in `scripts/`
 
