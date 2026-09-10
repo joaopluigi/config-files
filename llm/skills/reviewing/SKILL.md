@@ -1,6 +1,6 @@
 ---
 name: reviewing
-description: "Review any completed or proposed work -- code, pull requests, documents, designs, plans -- by grounding findings in real evidence and always splitting the review across four independent subagents (correctness, maintainability, prior-art/external research, and independent critique), auditing the draft with a fifth subagent for compliance with this skill, then reporting concise, evidence-backed findings. Use whenever asked to review, critique, or assess a piece of work, in any medium."
+description: "Review any completed or proposed work -- code, pull requests, documents, designs, plans -- by grounding findings in real evidence and always splitting the review across four independent subagents (correctness, maintainability, prior-art/external research, and independent critique), auditing the draft with a fifth subagent for compliance with this skill, then reporting every plausible improvement with explicit confidence, evidence, impact, and uncertainty. Use whenever asked to review, critique, or assess a piece of work, in any medium."
 ---
 
 # Reviewing
@@ -39,7 +39,8 @@ unverified.
 
 For every candidate finding, keep an internal record of: the location in the
 artifact, the behavior or claim observed, the source supporting the finding,
-the concrete impact, and the requested change.
+the concrete or conditional impact, the confidence level, the remaining
+uncertainty, and the requested change or validation step.
 
 ## Review lenses
 
@@ -86,17 +87,32 @@ relevant evidence sources, and exactly one lens; none of them should edit
 anything. Collect their findings yourself and reconcile overlaps before
 reporting -- do not just concatenate their raw output.
 
-## Finding quality rules
+## Finding quality and completeness rules
 
+- Report every plausible improvement surfaced by the four lenses. Do not limit
+  the report to high-confidence defects or to findings that are certain to
+  require a change. A review is incomplete if it silently drops a reasonable,
+  evidence-grounded improvement because its impact or preferred fix is
+  uncertain.
+- Preserve the evidence boundary: a plausible improvement must still be tied
+  to a specific location, observable behavior, claim, convention, or verified
+  external source. Do not turn a hunch, generic preference, or memory-based
+  concern into a finding.
+- State what is known, what is inferred, and what remains uncertain. Put the
+  supporting evidence and the uncertainty in the citation or explanation
+  rather than hiding them.
+- Include the likely impact even when it is conditional. Use wording such as
+  "could cause," "may make," or "is worth checking" when the consequence is
+  not established. If the impact cannot be made concrete at all, report the
+  concern as an unverified concern or missing source instead of presenting it
+  as a confirmed issue.
 - Keep findings personal and unlabelled by severity markers (no `[P1]`,
   `[P2]`, etc.) unless the user asks for that.
 - One concern per finding. Use a single summary-level finding only when the
   same pattern repeats many times across the artifact.
-- Be concise: state the concern and the concrete cost or benefit in one or two
-  sentences. Put evidence in the citation (location, quote, source), not in a
-  long narrative.
-- Ground each finding in a specific location or section of the artifact, not
-  a vague style preference. Name the concrete consequence.
+- Be concise: state the concern, the likely cost or benefit, and the requested
+  next step in one or two sentences. Put evidence in the citation (location,
+  quote, source), not in a long narrative.
 - Every finding must include a small example illustrating the concern or the
   requested change, regardless of medium: a before/after sketch for a code or
   test change (see `references/review-patterns.md` and
@@ -105,10 +121,19 @@ reporting -- do not just concatenate their raw output.
   names the concern in prose is incomplete if a short example would make it
   unambiguous.
 - Before reporting a candidate finding, check it against: is it tied to a
-  specific part of the artifact? Is the behavior or claim observable from the
-  source? Is the consequence concrete? Is it already covered by another
-  finding? Does it have one clear, actionable request? Reject the finding if
-  the answer to any of these is no.
+  specific part of the artifact? Is the behavior or claim observable or
+  reasonably inferred from the source? Is there a concrete or conditional
+  consequence? Is it already covered by another finding? Does it have one
+  clear next step, even if that step is to validate an assumption? Do not
+  reject a candidate merely because its confidence is low; report it with the
+  uncertainty stated, or move it to the unverified-concern section when the
+  evidence boundary is not met.
+- After reconciling the lenses, perform a completeness pass: enumerate every
+  candidate raised by any lens, merge only true duplicates, and retain
+  distinct improvements even when they overlap in location or have different
+  confidence levels. Record why a candidate was dropped only when it is
+  unsupported, duplicative, outside scope, or not actionable even as a
+  validation request.
 
 ## Verification
 
@@ -168,8 +193,8 @@ the language and conventions of the code under review.
 Report:
 
 1. a short overall assessment;
-2. findings grouped in whatever way fits the artifact (by lens, by severity,
-   by section);
+2. findings grouped in whatever way fits the artifact (by lens, by confidence,
+   by impact, or by section);
 3. each finding's location and supporting evidence;
 4. any unverified concern or missing source;
 5. checks or commands actually run;
