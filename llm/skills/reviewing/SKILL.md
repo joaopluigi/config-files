@@ -32,10 +32,14 @@ sources:
 5. analogous code, tests, documents, and conventions found elsewhere in the
    current repository;
 6. organizational or group guidance and analogous artifacts from the same
-   company, team, or working context, when those sources are explicitly
-   available;
-7. documents or artifacts explicitly linked by the work under review;
-8. official documentation for an external dependency, API, or fact the work
+   company, team, working group, or GitHub organization, including related
+   GitHub repositories, pull requests, issues, and reviews, when those sources
+   are explicitly available;
+7. related repositories, tools, and ecosystem projects that provide a useful
+   analogy when no close same-context precedent is available, with the source
+   treated as analogous rather than organizational evidence;
+8. documents or artifacts explicitly linked by the work under review;
+9. official documentation for an external dependency, API, or fact the work
    relies on but does not itself establish.
 
 Do not report a suspected issue from memory alone. If a claim depends on an
@@ -95,8 +99,13 @@ the independence that makes separate lenses useful in the first place.
   analogous code, tests, documents, and local guidance in the current
   repository;
 - **organizational / group patterns** -- spawn a `researcher` subagent to look
-  for relevant guidance and analogous artifacts from the same company, team,
-  or working group, using only sources explicitly available to the review.
+  first for relevant guidance and analogous GitHub repositories, pull requests,
+  issues, reviews, tools, and projects from the same company, team, or working
+  group. If no close same-context precedent is available, also inspect related
+  repositories, tools, and ecosystem projects, such as analogous Clojure CLI or
+  Babashka projects. Label those as ecosystem analogies rather than
+  organizational evidence, and use only sources explicitly available to the
+  review.
 
 Spawn all six subagents for every review. Give each one the artifact, the
 relevant evidence sources, and exactly one lens; none of them should edit
