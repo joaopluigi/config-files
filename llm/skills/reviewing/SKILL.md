@@ -1,6 +1,6 @@
 ---
 name: reviewing
-description: "Review any completed or proposed work -- code, pull requests, documents, designs, plans -- by grounding findings in real evidence and always splitting the review across four independent subagents (correctness, maintainability, prior-art/external research, and independent critique), auditing the draft with a fifth subagent for compliance with this skill, then reporting every plausible improvement with explicit confidence, evidence, impact, and uncertainty. Use whenever asked to review, critique, or assess a piece of work, in any medium."
+description: "Review any completed or proposed work -- code, pull requests, documents, designs, plans -- by grounding findings in real evidence and always splitting the review across six independent subagents (correctness, maintainability, prior-art/external research, independent critique, current repository patterns, and organizational/group patterns), auditing the draft with a seventh subagent for example completeness, then reporting every plausible improvement with explicit confidence, evidence, impact, and uncertainty. Use whenever asked to review, critique, or assess a piece of work, in any medium."
 ---
 
 # Reviewing
@@ -29,8 +29,13 @@ sources:
 4. project- or team-local guidance the user provides or that is present in the
    workspace, such as `AGENTS.md`, `CONTRIBUTING.md`, a style guide, or a
    checklist;
-5. documents or artifacts explicitly linked by the work under review;
-6. official documentation for an external dependency, API, or fact the work
+5. analogous code, tests, documents, and conventions found elsewhere in the
+   current repository;
+6. organizational or group guidance and analogous artifacts from the same
+   company, team, or working context, when those sources are explicitly
+   available;
+7. documents or artifacts explicitly linked by the work under review;
+8. official documentation for an external dependency, API, or fact the work
    relies on but does not itself establish.
 
 Do not report a suspected issue from memory alone. If a claim depends on an
@@ -44,7 +49,7 @@ uncertainty, and the requested change or validation step.
 
 ## Review lenses
 
-Every review runs the same four independent lenses:
+Every review runs the same six independent lenses:
 
 - **Correctness** -- does it do what it claims, are edge cases and failure
   modes handled;
@@ -54,19 +59,24 @@ Every review runs the same four independent lenses:
   elsewhere, is there a known pitfall, standard, or better-established
   approach;
 - **Independent critique** -- would an outsider find the stated evidence,
-  scope, and reasoning convincing, or does it rest on unexamined assumptions.
+  scope, and reasoning convincing, or does it rest on unexamined assumptions;
+- **Current repository patterns** -- does it follow relevant conventions and
+  established patterns in the current repository, including analogous code,
+  tests, and documentation;
+- **Organizational / group patterns** -- does it align with relevant patterns,
+  guidance, and terminology used by the same company, team, or working group.
 
-Run all four on every review, regardless of how small or narrow the artifact
+Run all six on every review, regardless of how small or narrow the artifact
 looks. A lens that turns up nothing real is a legitimate result -- report "no
-prior-art risk found" or "no correctness concern found" for that lens -- but
-deciding in advance that a lens does not apply and not spawning it is not a
-legitimate result. Treating a lens as conditional in practice becomes
-indistinguishable from never running it, so it is not a judgment call left to
-the reviewer.
+prior-art risk found," "no repository pattern found," or "no organizational
+pattern found" for that lens -- but deciding in advance that a lens does not
+apply and not spawning it is not a legitimate result. Treating a lens as
+conditional in practice becomes indistinguishable from never running it, so it
+is not a judgment call left to the reviewer.
 
 ## Split lenses across subagents
 
-Do not run the four lenses yourself in a single pass. Spawn one subagent per
+Do not run the six lenses yourself in a single pass. Spawn one subagent per
 lens to check it independently, then reconcile the results yourself. Running
 every lens in one pass lets one lens's framing anchor the others and gives up
 the independence that makes separate lenses useful in the first place.
@@ -80,16 +90,23 @@ the independence that makes separate lenses useful in the first place.
   alternatives;
 - **independent critique** -- spawn a `reviewer` subagent to challenge
   completed work, or a `critic` subagent to challenge a not-yet-implemented
-  plan.
+  plan;
+- **current repository patterns** -- spawn an `investigator` subagent to inspect
+  analogous code, tests, documents, and local guidance in the current
+  repository;
+- **organizational / group patterns** -- spawn a `researcher` subagent to look
+  for relevant guidance and analogous artifacts from the same company, team,
+  or working group, using only sources explicitly available to the review.
 
-Spawn all four subagents for every review. Give each one the artifact, the
+Spawn all six subagents for every review. Give each one the artifact, the
 relevant evidence sources, and exactly one lens; none of them should edit
-anything. Collect their findings yourself and reconcile overlaps before
-reporting -- do not just concatenate their raw output.
+anything. A pattern subagent with no relevant source must report that limitation
+rather than infer a convention. Collect the findings yourself and reconcile
+overlaps before reporting -- do not just concatenate their raw output.
 
 ## Finding quality and completeness rules
 
-- Report every plausible improvement surfaced by the four lenses. Do not limit
+- Report every plausible improvement surfaced by the six lenses. Do not limit
   the report to high-confidence defects or to findings that are certain to
   require a change. A review is incomplete if it silently drops a reasonable,
   evidence-grounded improvement because its impact or preferred fix is
@@ -128,8 +145,8 @@ reporting -- do not just concatenate their raw output.
   reject a candidate merely because its confidence is low; report it with the
   uncertainty stated, or move it to the unverified-concern section when the
   evidence boundary is not met.
-- After reconciling the lenses, perform a completeness pass: enumerate every
-  candidate raised by any lens, merge only true duplicates, and retain
+- After reconciling the six lenses, perform a completeness pass: enumerate
+  every candidate raised by any lens, merge only true duplicates, and retain
   distinct improvements even when they overlap in location or have different
   confidence levels. Record why a candidate was dropped only when it is
   unsupported, duplicative, outside scope, or not actionable even as a
@@ -148,29 +165,30 @@ hold.
 
 Verification checks findings against the artifact. This step checks the
 draft report against this skill itself, and needs a second, independent
-reader for the same reason the four lenses do: the agent that wrote a finding
+reader for the same reason the six lenses do: the agent that wrote a finding
 is the least likely to notice it silently overrode or forgot one of this
 skill's own rules.
 
-After reconciling the four lenses into a draft report -- and, for a code
-artifact, after applying the code-specific lens below -- spawn one more
+After reconciling the six lenses into a draft report -- and, for a code
+artifact, after applying the code-specific lens below -- spawn one final
 `reviewer` subagent to audit the draft, not the artifact. Give it:
 
 - this skill's full text;
 - `references/review-patterns.md` and `assets/review-examples.md` when the
   artifact is code;
-- the exact findings as drafted, including any examples, exactly as they
-  would be reported or posted.
+- the exact suggestions, comments, and concerns as drafted, including any
+  examples, exactly as they would be reported or posted.
 
-Ask it to check every finding against "Finding quality rules", "Verification",
-and, for code, the final candidate check in `review-patterns.md` -- in
-particular, whether every finding carries an example illustrating the concern
-or the requested change. Ask it to report only violations, not a re-review of
-the artifact's substance, and not to edit anything.
+Ask it to check only whether every suggestion, comment, or concern includes a
+concrete example of how it should be changed or addressed. It must not
+re-review the artifact's substance or assess correctness, evidence,
+verification, scope, impact, duplication, or any other rule. Ask it to report
+only items missing an example, and not to edit anything.
 
-Fix or drop every flagged finding before delivering the report or writing
-anything. Do not skip this step because the draft looks compliant already;
-that judgment is exactly what this step exists to check independently.
+Add an example to, or drop, every flagged suggestion, comment, or concern
+before delivering the report or writing anything. Do not skip this step
+because the draft looks compliant already; that judgment is exactly what this
+step exists to check independently.
 
 ## Handling an empty finding set
 
