@@ -5,7 +5,7 @@
 # Ships inside this skill (scripts/worklog.sh); not on PATH. Run it by its full
 # path — shown below as `worklog.sh` for brevity: `sh <skill>/scripts/worklog.sh …`.
 #
-#   worklog.sh new [--peer-reviews-disabled] [--peer-of <main-worklog>] "<goal>" "<what done looks like>" "<step>"...
+#   worklog.sh new [--peer-of <main-worklog>] "<goal>" "<what done looks like>" "<step>"...
 #                              create a new worklog (records the invoking working directory in the header)
 #   worklog.sh --worklog <path> [--actor <actor>] <item> <tag> <text...>
 #                                       append one actor-attributed entry
@@ -92,44 +92,22 @@ is_main_file() {
 scan() {
     awk -v mode="$1" '
       BEGIN {
-        in_items = 0; in_header = 0; header_seen = 0
-        maxN = 0; header_max = 0; hard = 0; peer_reviews = 0
+        in_items = 0; hard = 0
+        maxN = 0
         validtags = " think find decide done plan question answer note "
-        validactors = " main investigator ideator executor tester reviewer critic "
-      }
-
-      # Legacy headers opt into peer-review dependencies; new logs infer them from
-      # their explicit review plan items.
-      /^peer reviews:[[:space:]]+required[[:space:]]*$/ { peer_reviews = 1; next }
-      /^initial review item:[[:space:]]*[0-9]+[[:space:]]*$/ {
-        initial_review_target = $0; sub(/^initial review item:[[:space:]]*/, "", initial_review_target); initial_review_target += 0; next
-      }
-      /^final review item:[[:space:]]*[0-9]+[[:space:]]*$/ {
-        final_review_target = $0; sub(/^final review item:[[:space:]]*/, "", final_review_target); final_review_target += 0; next
-      }
-      # Read the old singular header so existing worklogs remain checkable.
-      /^review item:[[:space:]]*[0-9]+[[:space:]]*$/ {
-        initial_review_target = $0; sub(/^review item:[[:space:]]*/, "", initial_review_target); initial_review_target += 0; next
+        validactors = " main investigator ideator executor tester reviewer critic maintainer researcher "
       }
 
       # Plan-items blocks: the first block is the initial plan; later blocks are
-      # follow-ups. Review targets for new logs are inferred from the first plan
-      # block explicit review items.
+      # follow-ups.
       /^plan items[[:space:]]*$/ {
         in_items = 1
-        in_header = !header_seen
-        header_seen = 1
         next
       }
-      /^── log ──/               { in_items = 0; in_header = 0 }
+      /^── log ──/               { in_items = 0 }
       in_items && /^[[:space:]]+[0-9]+\./ {
         n = $0; sub(/^[[:space:]]+/, "", n); sub(/\..*$/, "", n); n += 0
         planned[n] = 1; if (n > maxN) maxN = n
-        if (in_header) {
-          if (n > header_max) header_max = n
-          if ($0 ~ /worklog-peer review of the initial plan[[:space:]]*$/) inferred_initial = n
-          if ($0 ~ /worklog-peer review of the executed work[[:space:]]*$/) inferred_final = n
-        }
         next
       }
 
@@ -153,14 +131,7 @@ scan() {
         }
         seen[item] = 1; if (item > maxN) maxN = item
 
-        if (tag == "plan") {
-          planned[item] = 1
-          if (text ~ /^peer-review-for:#/) {
-            target = text; sub(/^peer-review-for:#/, "", target); sub(/ .*/, "", target)
-            dynamic_review_item[item] = 1
-            review_for[item] = target + 0; reviews[target + 0] = item
-          }
-        }
+        if (tag == "plan") { planned[item] = 1 }
         if (tag == "done") { done[item] = 1; done_actor[item] = actor }
         if (tag == "question") q[item]++
         if (tag == "answer")   a[item]++
@@ -174,33 +145,11 @@ scan() {
         for (i = 1; i <= maxN; i++)
           if (seen[i] && !planned[i]) { no++; off[no] = i; hard++ }
 
-        if (!initial_review_target && inferred_initial) {
-          initial_review_target = inferred_initial
-          final_review_target = inferred_final
-          peer_reviews = 1
-        }
-        if (peer_reviews) {
-          if (initial_review_target && !done[initial_review_target]) {
-            nr++; review_line[nr] = initial_review_target; hard++
-          }
-          if (final_review_target && !done[final_review_target]) {
-            nr++; review_line[nr] = final_review_target; hard++
-          }
-          if (initial_review_target && done[initial_review_target] && q[initial_review_target] > a[initial_review_target]) {
-            nq_review++; review_question_line[nq_review] = initial_review_target; hard++
-          }
-          if (final_review_target && done[final_review_target] && q[final_review_target] > a[final_review_target]) {
-            nq_review++; review_question_line[nq_review] = final_review_target; hard++
-          }
-        }
-
         # Hard errors: only the gate lints them; append mode just shows status.
         if (mode == "gate") {
           for (k = 1; k <= nf; k++) { print "  x `find` without a source at line " find_line[k] ":"; print "      " find_text[k] }
           for (k = 1; k <= nb; k++) { print "  x unknown actor or tag at line " bad_line[k] ":"; print "      " bad_text[k] }
           for (k = 1; k <= no; k++)   print "  x entries reference item " off[k] ", not in the plan (add a `plan` line first)"
-          for (k = 1; k <= nr; k++)   print "  x review item " review_line[k] " is not closed"
-          for (k = 1; k <= nq_review; k++) print "  x review item " review_question_line[k] " has unanswered questions"
           if (hard > 0) print ""
         }
 
@@ -239,7 +188,7 @@ actor=main
 actor_explicit=0
 if [ "$1" = --actor ]; then
     [ -n "$2" ] || {
-        echo "usage: worklog.sh --worklog <path> --actor <main|investigator|ideator|executor|tester|reviewer|critic> ..." >&2
+        echo "usage: worklog.sh --worklog <path> --actor <main|investigator|ideator|executor|tester|reviewer|critic|maintainer|researcher> ..." >&2
         exit 2
     }
     actor=$2
@@ -247,32 +196,23 @@ if [ "$1" = --actor ]; then
     shift 2
 fi
 case "$actor" in
-    main|investigator|ideator|executor|tester|reviewer|critic) : ;;
+    main|investigator|ideator|executor|tester|reviewer|critic|maintainer|researcher) : ;;
     *)
-        echo "worklog: unknown actor: $actor (use main, investigator, ideator, executor, tester, reviewer, or critic)" >&2
+        echo "worklog: unknown actor: $actor (use main, investigator, ideator, executor, tester, reviewer, critic, maintainer, or researcher)" >&2
         exit 2 ;;
 esac
 
 # --- new mode ---------------------------------------------------------------
 if [ "$1" = new ]; then
     shift
-    peer_reviews_disabled=0
     peer_of=""
-    if [ "$1" = --peer-reviews-disabled ]; then
-        peer_reviews_disabled=1
-        shift
-    fi
     if [ "$1" = --peer-of ]; then
         [ -n "$2" ] || {
-            echo "usage: worklog.sh new [--peer-reviews-disabled] [--peer-of <main-worklog>] \"<goal>\" \"<what done looks like>\" \"<step>\"..." >&2
+            echo "usage: worklog.sh new [--peer-of <main-worklog>] \"<goal>\" \"<what done looks like>\" \"<step>\"..." >&2
             exit 2
         }
         peer_of=$2
         shift 2
-    fi
-    if [ -n "$peer_of" ] && [ "$peer_reviews_disabled" -eq 0 ]; then
-        echo "worklog: --peer-of requires --peer-reviews-disabled" >&2
-        exit 2
     fi
     if [ -n "$peer_of" ] && { [ "$actor_explicit" -eq 0 ] || [ "$actor" = main ]; }; then
         echo "worklog: peer worklogs require an explicit non-main --actor" >&2
@@ -281,7 +221,7 @@ if [ "$1" = new ]; then
     goal=$1
     done_desc=$2
     [ -n "$goal" ] && [ -n "$done_desc" ] || {
-        echo "usage: worklog.sh new [--peer-reviews-disabled] [--peer-of <main-worklog>] \"<goal>\" \"<what done looks like>\" \"<step>\"..." >&2
+        echo "usage: worklog.sh new [--peer-of <main-worklog>] \"<goal>\" \"<what done looks like>\" \"<step>\"..." >&2
         exit 2
     }
     shift 2
@@ -352,18 +292,12 @@ if [ "$1" = new ]; then
         printf '# worklog — %s\n\n' "$goal"
         printf 'working directory: %s\n\n' "$PWD"
         printf 'goal: %s\n\n' "$done_desc"
-        if [ "$peer_reviews_disabled" -eq 1 ]; then
-            printf 'peer reviews: disabled\n\n'
-        fi
         printf 'plan items\n'
         i=1
         for step in "$@"; do
             printf '  %d. %s\n' "$i" "$step"
             i=$((i + 1))
         done
-        if [ "$peer_reviews_disabled" -eq 0 ]; then
-            printf '  %d. worklog-peer review of the executed work\n' "$i"
-        fi
         printf '\n── log ──\n'
     } > "$FILE"
     printf '%s\n' "$FILE"
@@ -477,71 +411,10 @@ fi
 
 FILE=$(resolve_file) || exit 2
 
-reviewer_state=$(awk -v target="$item" '
-  BEGIN {
-    in_items = 0; in_header = 0; header_seen = 0
-    initial = 0; final = 0; inferred_initial = 0; inferred_final = 0
-    disabled = 0; questions = 0; answers = 0
-  }
-  /^peer reviews:[[:space:]]+disabled[[:space:]]*$/ { disabled = 1; next }
-  /^initial review item:[[:space:]]*[0-9]+[[:space:]]*$/ {
-    r = $0; sub(/^initial review item:[[:space:]]*/, "", r); initial = r + 0; next
-  }
-  /^final review item:[[:space:]]*[0-9]+[[:space:]]*$/ {
-    r = $0; sub(/^final review item:[[:space:]]*/, "", r); final = r + 0; next
-  }
-  /^review item:[[:space:]]*[0-9]+[[:space:]]*$/ {
-    r = $0; sub(/^review item:[[:space:]]*/, "", r); initial = r + 0; next
-  }
-  /^plan items[[:space:]]*$/ {
-    in_items = 1; in_header = !header_seen; header_seen = 1; next
-  }
-  /^── log ──/ { in_items = 0; in_header = 0 }
-  in_items && in_header && /^[[:space:]]+[0-9]+\./ {
-    n = $0; sub(/^[[:space:]]+/, "", n); sub(/\..*$/, "", n); n += 0
-    if ($0 ~ /worklog-peer review of the initial plan[[:space:]]*$/) inferred_initial = n
-    if ($0 ~ /worklog-peer review of the executed work[[:space:]]*$/) inferred_final = n
-    next
-  }
-  /^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #[0-9]+ / {
-    r = substr($0, 10); it = r; sub(/ .*$/, "", it); sub(/^#/, "", it); it += 0
-    sub(/^#[0-9]+ +/, "", r)
-    first = r; sub(/ .*$/, "", first)
-    sub(/^[^ ]+ +/, "", r)
-    tg = r; sub(/ .*$/, "", tg)
-    if (it == target && tg == "question") questions++
-    if (it == target && tg == "answer") answers++
-  }
-  END {
-    if (!initial && inferred_initial) initial = inferred_initial
-    if (!final && inferred_final) final = inferred_final
-    if (disabled) print "disabled"
-    else if (target != initial && target != final) print "not-review"
-    else if (questions > answers) print "open-questions"
-    else print "review"
-  }
-' "$FILE")
-
-if [ "$tag" = done ] && [ "$force" -eq 0 ]; then
-    case "$reviewer_state" in
-      open-questions)
-        echo "worklog: review item #$item still has unanswered questions" >&2
-        exit 2 ;;
-      review)
-        ;;
-      not-review|disabled)
-        if [ "$actor" = reviewer ]; then
-            echo "worklog: actor reviewer may close only a peer-review item" >&2
-            exit 2
-        fi
-        ;;
-    esac
-fi
-
 # An item is closed exactly once. Refuse a second `done` on an item already
 # closed — don't re-close everything at the end; close only what is still open.
 if [ "$tag" = done ]; then
-    prev=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|investigator|ideator|executor|tester|reviewer|critic) done " "$FILE" | head -n1)
+    prev=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|investigator|ideator|executor|tester|reviewer|critic|maintainer|researcher) done " "$FILE" | head -n1)
     if [ -n "$prev" ]; then
         when=${prev%% *}
         echo "worklog: item $item is already closed (done at $when) — an item is closed once, so nothing was written. Close only the items still shown as open." >&2
@@ -555,7 +428,7 @@ fi
 # an earlier segment). Refuse it and point at the open items; --force allows the rare
 # legit case, like a late `note` on finished work.
 if [ "$tag" != done ]; then
-    closed=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|investigator|ideator|executor|tester|reviewer|critic) done " "$FILE" | head -n1)
+    closed=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|investigator|ideator|executor|tester|reviewer|critic|maintainer|researcher) done " "$FILE" | head -n1)
     if [ -n "$closed" ] && [ "$force" -eq 0 ]; then
         when=${closed%% *}
         open=$(awk '
@@ -606,8 +479,8 @@ fi
 # carries its own why) — usually means the thinking never got written down: the log
 # shows what was done but not why. Refuse the `done` so the reasoning is captured
 # first; escapable with --force for a genuinely trivial item.
-if [ "$tag" = done ] && [ "$actor" != reviewer ]; then
-    reasoned=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|investigator|ideator|executor|tester|reviewer|critic) (think|decide) " "$FILE" | head -n1)
+if [ "$tag" = done ]; then
+    reasoned=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|investigator|ideator|executor|tester|reviewer|critic|maintainer|researcher) (think|decide) " "$FILE" | head -n1)
     if [ -z "$reasoned" ] && [ "$force" -eq 0 ]; then
         echo "worklog: item $item closes with no reasoning recorded — no \`think\` or \`decide\` entry for it. Record what you weighed first: worklog.sh $item think <what you weighed>. If the item is genuinely trivial, repeat with: worklog.sh --force $item done <text>" >&2
         exit 2
