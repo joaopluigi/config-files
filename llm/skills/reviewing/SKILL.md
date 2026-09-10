@@ -1,6 +1,6 @@
 ---
 name: reviewing
-description: "Review any completed or proposed work -- code, pull requests, documents, designs, plans -- by grounding findings in real evidence and always splitting the review across four independent subagents (correctness, maintainability, prior-art/external research, and independent critique), then reporting concise, evidence-backed findings. Use whenever asked to review, critique, or assess a piece of work, in any medium."
+description: "Review any completed or proposed work -- code, pull requests, documents, designs, plans -- by grounding findings in real evidence and always splitting the review across four independent subagents (correctness, maintainability, prior-art/external research, and independent critique), auditing the draft with a fifth subagent for compliance with this skill, then reporting concise, evidence-backed findings. Use whenever asked to review, critique, or assess a piece of work, in any medium."
 ---
 
 # Reviewing
@@ -97,6 +97,13 @@ reporting -- do not just concatenate their raw output.
   long narrative.
 - Ground each finding in a specific location or section of the artifact, not
   a vague style preference. Name the concrete consequence.
+- Every finding must include a small example illustrating the concern or the
+  requested change, regardless of medium: a before/after sketch for a code or
+  test change (see `references/review-patterns.md` and
+  `assets/review-examples.md`), a quoted excerpt with a suggested rewording
+  for text, or a concrete instance for a design or plan. A finding that only
+  names the concern in prose is incomplete if a short example would make it
+  unambiguous.
 - Before reporting a candidate finding, check it against: is it tied to a
   specific part of the artifact? Is the behavior or claim observable from the
   source? Is the consequence concrete? Is it already covered by another
@@ -111,6 +118,34 @@ artifact's real names and structure, and have duplicates been merged into one
 finding? Run the smallest real check available -- a test, a script, a build,
 a fact check against documentation -- rather than asserting that a claim would
 hold.
+
+## Audit the review against this skill
+
+Verification checks findings against the artifact. This step checks the
+draft report against this skill itself, and needs a second, independent
+reader for the same reason the four lenses do: the agent that wrote a finding
+is the least likely to notice it silently overrode or forgot one of this
+skill's own rules.
+
+After reconciling the four lenses into a draft report -- and, for a code
+artifact, after applying the code-specific lens below -- spawn one more
+`reviewer` subagent to audit the draft, not the artifact. Give it:
+
+- this skill's full text;
+- `references/review-patterns.md` and `assets/review-examples.md` when the
+  artifact is code;
+- the exact findings as drafted, including any examples, exactly as they
+  would be reported or posted.
+
+Ask it to check every finding against "Finding quality rules", "Verification",
+and, for code, the final candidate check in `review-patterns.md` -- in
+particular, whether every finding carries an example illustrating the concern
+or the requested change. Ask it to report only violations, not a re-review of
+the artifact's substance, and not to edit anything.
+
+Fix or drop every flagged finding before delivering the report or writing
+anything. Do not skip this step because the draft looks compliant already;
+that judgment is exactly what this step exists to check independently.
 
 ## Handling an empty finding set
 
@@ -137,4 +172,6 @@ Report:
    by section);
 3. each finding's location and supporting evidence;
 4. any unverified concern or missing source;
-5. checks or commands actually run.
+5. checks or commands actually run;
+6. any violation the audit step caught and how it was fixed or why the
+   finding was dropped.
