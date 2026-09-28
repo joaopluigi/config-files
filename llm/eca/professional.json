@@ -48,6 +48,7 @@
       }
     }
   },
+  "defaultAgent": "orchestrator",
   "agent": {
     "code": {
       "variant": "high"
@@ -90,6 +91,13 @@
     },
     "slack": {
       "command": "$HOME/dev/slack-mcp-server/start.sh"
+    },
+    "worklog": {
+      "command": "node",
+      "args": [
+        "${env:HOME}/.config/eca/mcp/worklog/server.mjs"
+      ],
+      "env": {}
     }
   }
 }
