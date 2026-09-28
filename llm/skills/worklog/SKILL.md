@@ -10,8 +10,10 @@ paths, capability tokens, and peer logs. Never invent any of them.
 
 The MCP project is self-contained at `llm/mcp/worklog/`. Install its dependencies with
 `cd llm/mcp/worklog && npm ci`; its local `npm test` owns the worklog-MCP tests. The
-ECA install symlink points directly to `server.mjs`. The legacy `scripts/watch_worklog.sh`
-viewer is intentionally not part of this server and is not recreated.
+ECA install symlink points directly to `server.mjs`.
+
+Reference index: [`references/REFERENCE.md`](references/REFERENCE.md). Read it before
+using the detailed MCP reference or worklog example.
 
 ## Lifecycle
 

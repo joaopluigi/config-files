@@ -24,6 +24,12 @@ cleanup() { git -C "$REPOSITORY" worktree remove --force "$WORKTREE" 2>/dev/null
 trap cleanup EXIT INT TERM
 ```
 
+## Reference
+
+See [`references/REFERENCE.md`](references/REFERENCE.md) for detailed setup,
+exact commit resolution, baseline/experiment worktrees, untracked inputs,
+cleanup ownership, fallback behavior, and final verification.
+
 ## Boundaries
 
 Do not switch the user's checkout, use an overlapping path, fetch without explicit authorization, or remove unrelated worktrees. Stop if the target commit is unavailable or cleanup cannot be registered.

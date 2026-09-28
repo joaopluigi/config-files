@@ -7,6 +7,8 @@ description: "Review work with independent evidence-grounded lenses."
 
 Review code, documents, plans, designs, or pull requests against the artifact, surrounding context, tests, local guidance, analogous repository patterns, and official external sources.
 
+Reference index: [`references/REFERENCE.md`](references/REFERENCE.md). Read it when the review needs the detailed pattern references.
+
 ## Procedure
 
 1. Define the artifact, properties, evidence boundary, and output format.
