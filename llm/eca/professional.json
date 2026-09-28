@@ -3,8 +3,8 @@
   "providers": {
     "openai": {
       "api": "openai-responses",
-      "urlEnv": "OPENAI_API_URL",
-      "keyEnv": "OPENAI_API_KEY",
+      "url": "${cmd:nu genai ai-gateway url}",
+      "key": "${cmd:nu genai ai-gateway token}",
       "fetchModels": false,
       "models": {
         "gpt-5.3-codex": {
@@ -24,8 +24,8 @@
     },
     "anthropic": {
       "api": "anthropic",
-      "urlEnv": "ANTHROPIC_API_URL",
-      "keyEnv": "ANTHROPIC_API_KEY",
+      "url": "${cmd:nu genai ai-gateway url}",
+      "key": "${cmd:nu genai ai-gateway token}",
       "fetchModels": false,
       "models": {
         "haiku-4.5": {
