@@ -95,7 +95,7 @@
     "worklog": {
       "command": "node",
       "args": [
-        "${env:HOME}/.config/eca/mcp/worklog/server.mjs"
+        "$HOME/dev/config-files/llm/mcp/worklog/server.mjs"
       ],
       "env": {}
     }
