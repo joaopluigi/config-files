@@ -50,7 +50,7 @@ observed facts from assumptions and predictions.
 ## Handoff gate
 
 Do not start planning/design until discovery is accepted. Validate the accepted
-artifact against [`../discovery/discovery-result.schema.json`](../discovery/discovery-result.schema.json); it must contain the lane matrix, sources and provenance, prior-art reuse decisions, gaps, contradictions, uncertainty, and stop status. This is a handoff gate, not a repeat of the discovery procedure.
+artifact against [`../discovery/assets/discovery-result.schema.json`](../discovery/assets/discovery-result.schema.json); it must contain the lane matrix, sources and provenance, prior-art reuse decisions, gaps, contradictions, uncertainty, and stop status. This is a handoff gate, not a repeat of the discovery procedure.
 
 ## Stop conditions
 
