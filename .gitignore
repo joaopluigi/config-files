@@ -17,4 +17,5 @@
 !/llm/skills/reviewing
 !/llm/skills/reviewing/**
 /.lsp/*
+/node_modules/
 .DS_Store
