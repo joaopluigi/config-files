@@ -5,7 +5,7 @@
 ## Ownership
 
 - `rules/` — always-on character and universal principles.
-- `skills/` — reusable procedures for named task types.
+- `skills/` — reusable procedures for named task types; mandatory discovery and prior-art behavior is defined in `skills/discovery/SKILL.md`, with the result contract in `skills/discovery/discovery-result.schema.json`.
 - `agents/` — role boundaries for the orchestrator and worker profiles.
 - `eca/` — runtime configuration for the personal and professional setups.
 - `mcp/worklog/` — the sole worklog implementation: sessions, peer logs, authorization, questions, status, locks, and completion.

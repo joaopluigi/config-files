@@ -47,10 +47,13 @@ Ground task-specific claims in repository files, documentation, observed behavio
 tests, or other real sources. Record the source for each important claim and separate
 observed facts from assumptions and predictions.
 
+## Handoff gate
+
+Do not start planning/design until discovery is accepted. The accepted artifact must contain the lane matrix, sources and provenance, prior-art reuse decisions, gaps, contradictions, uncertainty, and stop status. This is a handoff gate, not a repeat of the discovery procedure.
+
 ## Stop conditions
 
-Stop without implementation when the problem is not understood, required evidence is
-missing, a user decision is unresolved, or the user has not approved the plan.
+Stop without implementation when the problem is not understood, required evidence is missing, a user decision is unresolved, or the user has not approved the plan.
 
 ## Independence
 
