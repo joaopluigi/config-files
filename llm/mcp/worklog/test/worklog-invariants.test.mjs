@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const root = await mkdtemp(join(tmpdir(), 'worklog-invariants-'));
 process.env.WORKLOG_DIR = root;
-const { appendEntry, closeWorklog, createSession, createSubagent, pathFor, sessionCompletion } = await import('../llm/mcp/worklog/server.mjs');
+const { appendEntry, closeWorklog, createSession, createSubagent, pathFor, sessionCompletion } = await import('../server.mjs');
 
 async function prepared(steps = ['step']) {
   const session = await createSession('orchestrator', 'goal', 'done', steps);
