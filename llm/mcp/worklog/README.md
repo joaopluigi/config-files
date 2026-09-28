@@ -1,22 +1,44 @@
-# Worklog MCP
+# Local stdio MCP server
 
-This directory is a self-contained Node.js project for the worklog MCP server.
-It owns the server dependencies and all worklog-MCP tests.
+This directory contains a local MCP server that communicates over stdio.
 
-Install and test it from this directory:
+## Install
+
+From this directory, install the locked dependencies:
 
 ```sh
-cd llm/mcp/worklog
 npm ci
-npm test
 ```
 
-From the repository root, the equivalent explicit command is:
+## Test
+
+Run the test suite from the repository root or with an npm prefix:
 
 ```sh
 npm --prefix llm/mcp/worklog test
 ```
 
-The ECA installation keeps its symlink to `server.mjs`. The deleted
-`scripts/watch_worklog.sh` was a legacy read-only terminal viewer, not part of the
-MCP server, so it is intentionally not replaced.
+## Configure
+
+Add a server entry to the MCP client's configuration. Use the server launch
+command and arguments required by the local project; environment variables are
+optional:
+
+```json
+{
+  "mcpServers": {
+    "example-server": {
+      "command": "node",
+      "args": ["/absolute/path/to/server.mjs"],
+      "env": {
+        "WORKLOG_DIR": "/absolute/path/to/data"
+      }
+    }
+  }
+}
+```
+
+`command` is the executable, `args` are passed in order, and `env` supplies
+optional process variables. If `WORKLOG_DIR` is omitted, the server uses its
+default data location. Use absolute paths when the client does not guarantee a
+working directory.

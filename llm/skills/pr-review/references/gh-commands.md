@@ -18,8 +18,6 @@ scripts/read_reviews.sh OWNER/REPOSITORY NUMBER
 scripts/read_pending_review.sh OWNER/REPOSITORY NUMBER
 ```
 
-Remove the accidental leading `a` if copying the diff example; the canonical command is `scripts/read_pr.sh OWNER/REPOSITORY NUMBER diff`.
-
 ## Write and verify
 
 Create a pending review JSON with `commit_id`, `body`, and comments containing `path`, changed-file `line`, `side`, and body. Then run `create_pending_review.sh`. Add threads with `add_review_thread.sh`, delete only explicitly requested comments with `delete_review_comment.sh`, and verify with `verify_review.sh`.

@@ -7,6 +7,8 @@ description: "Operate on a GitHub pull request in an isolated worktree."
 
 Pair this skill with `reviewing` for review criteria. Use it when given a repository and pull request number or URL.
 
+Reference index: [`references/REFERENCE.md`](references/REFERENCE.md). Read it to choose the relevant reference document before using detailed mechanics.
+
 ## Modes
 
 Default to read-only. Pending review may create comments but must not submit. Submission requires explicit confirmation immediately before the submit command. Never approve or request changes implicitly.
@@ -21,6 +23,9 @@ Default to read-only. Pending review may create comments but must not submit. Su
 6. Verify every write with the verification script. Do not execute submission merely to validate syntax.
 
 ## Outputs
+
+See [`references/REFERENCE.md`](references/REFERENCE.md) for review modes,
+workspace setup, pending-review mechanics, command details, and output rules.
 
 Report mode, findings with file and line, proposed or posted text, sources, commands, worktree setup and cleanup, and exact review status. If no actionable finding exists, leave GitHub unchanged.
 

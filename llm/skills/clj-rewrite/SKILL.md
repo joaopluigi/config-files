@@ -19,6 +19,11 @@ Use this skill when one structural edit must apply to many Clojure forms. Do not
 
 Useful operations: `z/down`, `z/right`, `z/up`, `z/list?`, `z/map?`, `z/tag`, `z/sexpr`, `z/append-child`, `z/insert-left`, `z/insert-right`, `z/replace`, `z/remove`.
 
+## References
+
+See [`references/REFERENCE.md`](references/REFERENCE.md) for the script template,
+rewrite-clj operations, node construction, examples, hazards, and validation.
+
 ## Stop conditions
 
 Stop before writing if the recognizer is ambiguous, the scope is unclear, or the validation cannot distinguish a correct rewrite. Stop after the requested forms and checks are complete.
