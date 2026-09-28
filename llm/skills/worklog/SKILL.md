@@ -23,11 +23,14 @@ Create one with a **goal**, a sentence on what **done** looks like, and the numb
 
     sh worklog.sh new "<one-line goal>" "<what done looks like>" "<step 1>" "<step 2>" ...
 
-A main worklog is stored at `/tmp/worklogs/<id>/<id>-main.txt`. A peer-owned
-worklog must identify its parent and actor, and is stored beside it as
-`<main-id>-peer-<actor>-<peer-id>.txt`:
+A main worklog is stored at `/tmp/worklogs/<orchestration-id>/<orchestration-id>-main.txt`.
+A peer-owned worklog is server-owned and stored beside it as
+`<orchestration-id>-subagent-<peer-id>.txt`:
 
-    sh worklog.sh --actor tester new --peer-of /tmp/worklogs/<main-id>/<main-id>-main.txt "<peer goal>" "<what done looks like>" "<step>" ...
+    # Legacy CLI peer logs remain supported by scripts/worklog.sh:
+    sh worklog.sh --actor tester new --peer-of /tmp/worklogs/<orchestration-id>/<orchestration-id>-main.txt "<peer goal>" "<what done looks like>" "<step>" ...
+
+    # MCP sessions create `<orchestration-id>-subagent-<peer-id>.txt` logs:
 
 For every later operation, select the exact worklog file returned by `new`:
 
@@ -39,11 +42,10 @@ The explicit selector is required for operations on an existing worklog. Do not
 rely on the most recent file when multiple agents may be working at once.
 
 Entries include an actor column. The actor must be the profile that performed the
-work: `main`, `investigator`, `ideator`, `executor`, `tester`, `reviewer`, or
-`critic`. The default
-is `main`, which identifies work performed by the primary agent. Specialized agents
-must pass their profile explicitly with `--actor`; existing `executor` entries remain
-valid for backward compatibility.
+work: `orchestrator`, `main`, `investigator`, `ideator`, `executor`, `tester`,
+`reviewer`, or `critic`. The default is `main`, which identifies work performed by
+the primary agent. Specialized agents must pass their profile explicitly with
+`--actor`; existing `executor` entries remain valid for backward compatibility.
 
 The actor identifies who wrote an entry for auditability. It is not cryptographic
 authentication.
@@ -60,6 +62,32 @@ user the main worklog path, and pass the exact path explicitly to every later
 command with `--worklog <path>`; this is required when several agents run at once,
 because the tool must not guess from the most recent file. `WORKLOG=<path>` remains
 supported as an alternative for selecting the file.
+
+## MCP session protocol
+
+The MCP interface is the concurrency-safe interface for orchestrated work. Call
+`worklog_session_create` once with actor `orchestrator`; it returns an
+`orchestrationId` and a capability token. Send that token with every later tool
+call. Create peers with `worklog_subagent_create`; the server registers a random
+`peerId` and writes `<orchestration-id>-subagent-<peer-id>.txt`. Use
+`worklog_append`, `worklog_read`, `worklog_status`, and `worklog_close` with the
+session token and optional peer ID.
+
+To ask and answer across actors, call `worklog_ask` with source and target peer IDs.
+The server returns a question ID. The target calls `worklog_answer` with that ID.
+Answer claims are serialized under the session lock, so concurrent answers result in
+exactly one stored answer and an error for the other call. The session token is scoped
+for orchestrator main-log access and inspection/questions. `worklog_subagent_create`
+returns a distinct peer token; that token is required for the peer's append, answer,
+close, and read operations, is bound to the registered peer actor, and cannot be used
+for another peer. The orchestrator token may inspect peer logs and ask questions, but
+cannot rewrite peer history. Capability tokens, peer IDs, actors, tags, and question
+state are validated by the server. File locks recover when older than the configured
+stale threshold (`WORKLOG_LOCK_STALE_MS`, default 30 seconds) without allowing an old
+owner to delete a replacement lock, and otherwise fail after `WORKLOG_LOCK_WAIT_MS`
+(default 10 seconds). Reads use byte offsets for `since`/`next`, including UTF-8
+content. The legacy `scripts/worklog.sh` CLI remains supported for direct local logs;
+it does not share MCP session tokens or peer registration.
 
 The worklog is **append-only**: only ever add lines at the end, and never edit or
 rewrite a line already written. Add each log entry with the tool:

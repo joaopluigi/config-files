@@ -15,7 +15,7 @@
 #   worklog.sh path                     print the most recent main worklog's path
 #
 # New worklogs are grouped by run under /tmp/worklogs/<id>/. The main file is
-# <id>-main.txt and peer files are <id>-peer-<actor>-<peer-id>.txt. Operations on
+# <id>-main.txt and subagent files are <id>-subagent-<peer-id>.txt. Operations on
 # an existing log require an explicit --worklog <path> selector. WORKLOG=<path> is
 # also accepted for callers that prefer an environment variable. Never fall back
 # to the most recent worklog for writes: concurrent agents can race.
@@ -95,7 +95,7 @@ scan() {
         in_items = 0; hard = 0
         maxN = 0
         validtags = " think find decide done plan question answer note "
-        validactors = " main investigator ideator executor tester reviewer critic maintainer researcher "
+        validactors = " main orchestrator investigator ideator executor tester reviewer critic maintainer researcher "
       }
 
       # Plan-items blocks: the first block is the initial plan; later blocks are
@@ -188,7 +188,7 @@ actor=main
 actor_explicit=0
 if [ "$1" = --actor ]; then
     [ -n "$2" ] || {
-        echo "usage: worklog.sh --worklog <path> --actor <main|investigator|ideator|executor|tester|reviewer|critic|maintainer|researcher> ..." >&2
+        echo "usage: worklog.sh --worklog <path> --actor <main|orchestrator|investigator|ideator|executor|tester|reviewer|critic|maintainer|researcher> ..." >&2
         exit 2
     }
     actor=$2
@@ -196,9 +196,9 @@ if [ "$1" = --actor ]; then
     shift 2
 fi
 case "$actor" in
-    main|investigator|ideator|executor|tester|reviewer|critic|maintainer|researcher) : ;;
+    main|orchestrator|investigator|ideator|executor|tester|reviewer|critic|maintainer|researcher) : ;;
     *)
-        echo "worklog: unknown actor: $actor (use main, investigator, ideator, executor, tester, reviewer, critic, maintainer, or researcher)" >&2
+        echo "worklog: unknown actor: $actor (use main, orchestrator, investigator, ideator, executor, tester, reviewer, critic, maintainer, or researcher)" >&2
         exit 2 ;;
 esac
 
@@ -281,7 +281,7 @@ if [ "$1" = new ]; then
         [ "$id" != "$parent_id" ] || continue
         if [ -n "$parent_id" ]; then
             mkdir -p "$parent_dir"
-            FILE="$parent_dir/$parent_id-peer-$actor-$id.txt"
+            FILE="$parent_dir/$parent_id-subagent-$id.txt"
         else
             mkdir -p "$WL_DIR/$id"
             FILE="$WL_DIR/$id/$id-main.txt"
@@ -414,7 +414,7 @@ FILE=$(resolve_file) || exit 2
 # An item is closed exactly once. Refuse a second `done` on an item already
 # closed — don't re-close everything at the end; close only what is still open.
 if [ "$tag" = done ]; then
-    prev=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|investigator|ideator|executor|tester|reviewer|critic|maintainer|researcher) done " "$FILE" | head -n1)
+    prev=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|orchestrator|investigator|ideator|executor|tester|reviewer|critic|maintainer|researcher) done " "$FILE" | head -n1)
     if [ -n "$prev" ]; then
         when=${prev%% *}
         echo "worklog: item $item is already closed (done at $when) — an item is closed once, so nothing was written. Close only the items still shown as open." >&2
@@ -428,7 +428,7 @@ fi
 # an earlier segment). Refuse it and point at the open items; --force allows the rare
 # legit case, like a late `note` on finished work.
 if [ "$tag" != done ]; then
-    closed=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|investigator|ideator|executor|tester|reviewer|critic|maintainer|researcher) done " "$FILE" | head -n1)
+    closed=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|orchestrator|investigator|ideator|executor|tester|reviewer|critic|maintainer|researcher) done " "$FILE" | head -n1)
     if [ -n "$closed" ] && [ "$force" -eq 0 ]; then
         when=${closed%% *}
         open=$(awk '
@@ -480,7 +480,7 @@ fi
 # shows what was done but not why. Refuse the `done` so the reasoning is captured
 # first; escapable with --force for a genuinely trivial item.
 if [ "$tag" = done ]; then
-    reasoned=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|investigator|ideator|executor|tester|reviewer|critic|maintainer|researcher) (think|decide) " "$FILE" | head -n1)
+    reasoned=$(grep -E "^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] #$item (main|orchestrator|investigator|ideator|executor|tester|reviewer|critic|maintainer|researcher) (think|decide) " "$FILE" | head -n1)
     if [ -z "$reasoned" ] && [ "$force" -eq 0 ]; then
         echo "worklog: item $item closes with no reasoning recorded — no \`think\` or \`decide\` entry for it. Record what you weighed first: worklog.sh $item think <what you weighed>. If the item is genuinely trivial, repeat with: worklog.sh --force $item done <text>" >&2
         exit 2
