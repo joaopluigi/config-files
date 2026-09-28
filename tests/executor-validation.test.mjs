@@ -54,7 +54,7 @@ test('MCP recovers a stale file lock', async () => {
 test('stale recovery does not let an old owner remove a replacement lock', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'worklog-mcp-')); const a = await startClient(dir); const b = await startClient(dir);
   try {
-    const session = resultText(await call(a, 'worklog_session_create', { actor: 'orchestrator', goal: 'test', done: 'done', steps: ['lock'] }));
+    const session = resultText(await call(a, 'worklog_session_create', { actor: 'orchestrator', goal: 'test', done: 'done', steps: ['lock', 'append'] }));
     const lock = `${session.path}.lock`;
     await writeFile(lock, 'old-owner');
     const old = new Date(Date.now() - 60_000); await utimes(lock, old, old);
@@ -104,6 +104,32 @@ test('concurrent peer creation keeps every peer registered and readable', async 
       const read = await call(client, 'worklog_read', { orchestrationId: session.orchestrationId, capabilityToken: peer.capabilityToken, peerId: peer.peerId });
       assert.equal(read.result.isError, undefined, JSON.stringify(read));
     }
+  } finally { client.child.kill('SIGTERM'); }
+});
+
+test('status rejects random peer tokens and accepts only session or matching peer tokens', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'worklog-mcp-')); const client = await startClient(dir);
+  try {
+    const session = resultText(await call(client, 'worklog_session_create', { actor: 'orchestrator', goal: 'test', done: 'done', steps: ['status'] }));
+    const peer = resultText(await call(client, 'worklog_subagent_create', { orchestrationId: session.orchestrationId, capabilityToken: session.capabilityToken, actor: 'executor', goal: 'peer', done: 'done', steps: ['read'] }));
+    const random = await call(client, 'worklog_status', { orchestrationId: session.orchestrationId, capabilityToken: '0'.repeat(64), peerId: peer.peerId });
+    assert.equal(random.result.isError, true);
+    const peerStatus = await call(client, 'worklog_status', { orchestrationId: session.orchestrationId, capabilityToken: peer.capabilityToken, peerId: peer.peerId });
+    assert.equal(peerStatus.result.isError, undefined, JSON.stringify(peerStatus));
+    const sessionStatus = await call(client, 'worklog_status', { orchestrationId: session.orchestrationId, capabilityToken: session.capabilityToken, peerId: peer.peerId });
+    assert.equal(sessionStatus.result.isError, undefined, JSON.stringify(sessionStatus));
+  } finally { client.child.kill('SIGTERM'); }
+});
+
+test('questions require an existing target peer', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'worklog-mcp-')); const client = await startClient(dir);
+  try {
+    const session = resultText(await call(client, 'worklog_session_create', { actor: 'orchestrator', goal: 'test', done: 'done', steps: ['ask'] }));
+    const omitted = await call(client, 'worklog_ask', { orchestrationId: session.orchestrationId, capabilityToken: session.capabilityToken, item: 1, actor: 'orchestrator', question: 'No target.' });
+    assert.equal(omitted.result.isError, true);
+    const unknown = await call(client, 'worklog_ask', { orchestrationId: session.orchestrationId, capabilityToken: session.capabilityToken, targetPeerId: 'deadbeef', item: 1, actor: 'orchestrator', question: 'Unknown target.' });
+    assert.equal(unknown.result.isError, true);
+    assert.doesNotMatch(await readFile(session.path, 'utf8'), /No target\.|Unknown target\./);
   } finally { client.child.kill('SIGTERM'); }
 });
 
