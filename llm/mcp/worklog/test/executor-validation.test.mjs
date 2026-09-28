@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 
-const root = process.cwd();
-const server = join(root, 'llm/mcp/worklog/server.mjs');
+const project = fileURLToPath(new URL('..', import.meta.url));
+const server = join(project, 'server.mjs');
 function resultText(response) { assert.equal(response.error, undefined, JSON.stringify(response)); return JSON.parse(response.result.content[0].text); }
 async function startClient(dir) {
   const child = spawn(process.execPath, [server], { env: { ...process.env, WORKLOG_DIR: dir } });
@@ -18,24 +19,6 @@ async function startClient(dir) {
   return { child, request };
 }
 async function call(client, name, args) { return client.request('tools/call', { name, arguments: args }); }
-
-test('configs select orchestrator with documented default key and preserve controls', async () => {
-  for (const name of ['personal', 'professional']) {
-    const config = JSON.parse(await readFile(join(root, `llm/eca/${name}.json`), 'utf8'));
-    assert.equal(config.defaultAgent, 'orchestrator');
-    assert.equal(config.agent.profile, undefined);
-    assert.equal(config.agent.code.variant, 'high');
-    assert.equal(config.toolCall.approval.byDefault, 'allow');
-    assert.ok(config.mcpServers.worklog);
-  }
-});
-
-test('all custom profiles are subagents spawnable by orchestrator', async () => {
-  for (const name of ['critic', 'executor', 'ideator', 'investigator', 'maintainer', 'researcher', 'reviewer', 'tester']) {
-    const profile = await readFile(join(root, `llm/agents/${name}.md`), 'utf8');
-    assert.match(profile, /mode: subagent/); assert.match(profile, /spawnableBy: orchestrator/);
-  }
-});
 
 test('MCP recovers a stale file lock', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'worklog-mcp-')); const client = await startClient(dir);

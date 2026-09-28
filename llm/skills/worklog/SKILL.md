@@ -8,6 +8,11 @@ description: "Maintain an append-only, server-coordinated worklog for a task."
 Use the worklog MCP tools for the full lifecycle. The server creates the session, IDs,
 paths, capability tokens, and peer logs. Never invent any of them.
 
+The MCP project is self-contained at `llm/mcp/worklog/`. Install its dependencies with
+`cd llm/mcp/worklog && npm ci`; its local `npm test` owns the worklog-MCP tests. The
+ECA install symlink points directly to `server.mjs`. The legacy `scripts/watch_worklog.sh`
+viewer is intentionally not part of this server and is not recreated.
+
 ## Lifecycle
 
 1. Create one session with a goal, done condition, and plan steps.

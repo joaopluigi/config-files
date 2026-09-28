@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const root = await mkdtemp(join(tmpdir(), 'worklog-auth-'));
 process.env.WORKLOG_DIR = root;
-const { createSession, createSubagent, authorized, withLock } = await import('../llm/mcp/worklog/server.mjs');
+const { createSession, createSubagent, authorized, withLock } = await import('../server.mjs');
 
 test('session and peer capabilities enforce ownership and registered peers', async () => {
   const session = await createSession('orchestrator', 'goal', 'done', ['step']);

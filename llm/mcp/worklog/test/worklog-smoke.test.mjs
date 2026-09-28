@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 
-const server = join(process.cwd(), 'llm/mcp/worklog/server.mjs');
+const server = fileURLToPath(new URL('../server.mjs', import.meta.url));
 test('server starts without writing protocol data to stderr/stdout until input', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'worklog-mcp-'));
   const child = spawn(process.execPath, [server], { env: { ...process.env, WORKLOG_DIR: dir } });
