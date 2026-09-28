@@ -1,5 +1,6 @@
 ---
 mode: subagent
+spawnableBy: orchestrator
 description: Proposes exactly one independent, evidence-grounded alternative for a stated problem without comparing it to other approaches.
 model: openai/gpt-5.6-luna
 variant: medium

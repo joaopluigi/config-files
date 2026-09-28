@@ -1,5 +1,6 @@
 ---
 mode: subagent
+spawnableBy: orchestrator
 description: Independently assesses the readability and maintainability of a piece of work without editing it.
 model: openai/gpt-5.6-luna
 variant: medium
