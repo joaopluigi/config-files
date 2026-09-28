@@ -1,13 +1,32 @@
-# Agent Jr.
+# The Pyramid and the Pharaoh
 
-`llm/` contains durable agent behavior, task procedures, role profiles, and runtime configuration.
+A Pharaoh once asked for a pyramid that would outlast fashion, software, and very
+confident scribes. The workers replied, “Fine. But please label the stones.”
 
-## Ownership
+So the pyramid got a simple arrangement: one rulebook for everyone, specialist
+scrolls for repeatable jobs, role cards for boundaries, a small chamber for
+settings, and a worklog clerk who recorded what happened. The Pharaoh kept the
+map. The workers built only the stones assigned to them. Nobody replaced a
+load-bearing wall while claiming to tidy the doorway.
 
-- `rules/` — always-on character and universal principles.
-- `skills/` — reusable procedures for named task types; mandatory discovery and prior-art behavior is defined in `skills/discovery/SKILL.md`, with the result contract in `skills/discovery/discovery-result.schema.json`.
-- `agents/` — role boundaries for the orchestrator and worker profiles.
-- `eca/` — runtime configuration for the personal and professional setups.
-- `mcp/worklog/` — the sole worklog implementation: sessions, peer logs, authorization, questions, status, locks, and completion. It is a self-contained Node.js project whose local `npm test` owns the MCP tests.
+When a new job arrived, they discovered the ground, checked the old stones,
+planned the smallest safe addition, built it, and tested the result. If a stone
+cracked, they reproduced the crack before blaming the camel. Then they stopped
+when the approved work was complete.
 
-The orchestrator profile is canonical at `agents/orchestrator.md`. The worklog usage guide is canonical at `skills/worklog/SKILL.md`; runtime behavior belongs to `mcp/worklog/server.mjs`. Configured tool allowlists and the delegation contract remain integration boundaries.
+## Ownership map
+
+- `rules/` — shared behavior and principles.
+- `skills/` — reusable task procedures and their references.
+- `agents/` — role boundaries and responsibilities.
+- `eca/` — runtime configuration.
+- `mcp/worklog/` — worklog implementation and its tests.
+
+## Lifecycle
+
+1. Discover the task, sources, conventions, and prior art.
+2. Define scope, properties, evidence, and validation.
+3. Obtain approval before planned implementation.
+4. Make the smallest compatible change.
+5. Run focused checks and report observed results.
+6. Record the work and stop; do not invent extra pyramid.
