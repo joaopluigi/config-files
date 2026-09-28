@@ -8,6 +8,7 @@ import * as z from 'zod/v4';
 
 const root = process.env.WORKLOG_DIR || '/tmp/worklogs';
 const actors = new Set(['orchestrator', 'investigator', 'ideator', 'executor', 'tester', 'reviewer', 'critic', 'maintainer', 'researcher']);
+const availableActors = () => [...actors].join(', ');
 const tags = new Set(['think', 'find', 'decide', 'done', 'plan', 'question', 'answer', 'note']);
 const queues = new Map();
 const staleLockMs = Number(process.env.WORKLOG_LOCK_STALE_MS || 30_000);
@@ -68,7 +69,7 @@ export async function withLock(key, fn) {
 }
 
 async function readRegistry(orchestrationId) { return JSON.parse(await readFile(registryPath(orchestrationId), 'utf8')); }
-function validateActor(actor) { if (!actors.has(actor)) throw new Error(`invalid actor: ${actor}`); }
+function validateActor(actor) { if (!actors.has(actor)) throw new Error(`invalid actor "${actor}"; available actors: ${availableActors()}`); }
 function validateTag(tag) { if (!tags.has(tag)) throw new Error(`invalid tag: ${tag}`); }
 function validateId(value, name) { if (!/^[a-f0-9]{8}$/.test(value)) throw new Error(`invalid ${name}`); }
 function validateFreeForm(value, name) {
@@ -77,6 +78,7 @@ function validateFreeForm(value, name) {
 function pathFor(orchestrationId, peerId) { return peerId === undefined ? mainPath(orchestrationId) : subagentPath(orchestrationId, peerId); }
 function peerFor(registry, peerId) { return peerId === undefined ? undefined : registry.peers.find((peer) => peer.id === peerId); }
 async function authorized(orchestrationId, capabilityToken, peerId, kind = 'session', actor) {
+  if (actor !== undefined) validateActor(actor);
   validateId(orchestrationId, 'orchestration id');
   const registry = await readRegistry(orchestrationId);
   if (peerId === undefined) {
@@ -140,7 +142,7 @@ async function appendEntry(path, item, actor, tag, message) {
   });
 }
 async function createSession(actor, goal, done, steps) {
-  if (actor !== 'orchestrator') throw new Error('only orchestrator may create a session');
+  if (actor !== 'orchestrator') throw new Error(`only orchestrator may create a session; available actors: ${availableActors()}`);
   validateFreeForm(goal, 'goal'); validateFreeForm(done, 'done');
   steps.forEach((step) => validateFreeForm(step, 'plan step'));
   const orchestrationId = id(); const capabilityToken = token();

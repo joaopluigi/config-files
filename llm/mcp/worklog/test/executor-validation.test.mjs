@@ -20,6 +20,35 @@ async function startClient(dir) {
 }
 async function call(client, name, args) { return client.request('tools/call', { name, arguments: args }); }
 
+test('MCP session creation reports available actors for non-orchestrators', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'worklog-mcp-')); const client = await startClient(dir);
+  try {
+    const response = await call(client, 'worklog_session_create', { actor: 'executor', goal: 'test', done: 'done', steps: ['create'] });
+    assert.equal(response.result.isError, true);
+    assert.equal(response.result.content[0].text, 'only orchestrator may create a session; available actors: orchestrator, investigator, ideator, executor, tester, reviewer, critic, maintainer, researcher');
+  } finally { client.child.kill('SIGTERM'); }
+});
+
+test('MCP append reports invalid actors and available actors', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'worklog-mcp-')); const client = await startClient(dir);
+  try {
+    const session = resultText(await call(client, 'worklog_session_create', { actor: 'orchestrator', goal: 'test', done: 'done', steps: ['append'] }));
+    const response = await call(client, 'worklog_append', { orchestrationId: session.orchestrationId, capabilityToken: session.capabilityToken, item: 1, actor: 'unknown', tag: 'note', message: 'invalid' });
+    assert.equal(response.result.isError, true);
+    assert.equal(response.result.content[0].text, 'invalid actor "unknown"; available actors: orchestrator, investigator, ideator, executor, tester, reviewer, critic, maintainer, researcher');
+  } finally { client.child.kill('SIGTERM'); }
+});
+
+test('MCP peer creation reports invalid actors and available actors', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'worklog-mcp-')); const client = await startClient(dir);
+  try {
+    const session = resultText(await call(client, 'worklog_session_create', { actor: 'orchestrator', goal: 'test', done: 'done', steps: ['peer'] }));
+    const response = await call(client, 'worklog_subagent_create', { orchestrationId: session.orchestrationId, capabilityToken: session.capabilityToken, actor: 'unknown', goal: 'peer', done: 'done', steps: ['create'] });
+    assert.equal(response.result.isError, true);
+    assert.equal(response.result.content[0].text, 'invalid actor "unknown"; available actors: orchestrator, investigator, ideator, executor, tester, reviewer, critic, maintainer, researcher');
+  } finally { client.child.kill('SIGTERM'); }
+});
+
 test('MCP recovers a stale file lock', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'worklog-mcp-')); const client = await startClient(dir);
   try {
