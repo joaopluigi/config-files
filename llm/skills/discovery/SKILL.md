@@ -37,4 +37,4 @@ Independent lanes may fan out concurrently, but parallel discovery scopes must b
 
 ## Output
 
-Return a result matching `discovery-result.schema.json`: lane matrix; source provenance, type, and claims; prior-art candidates with reuse/adapt/reject decisions; contradictions; gaps; uncertainty; and stop status. The schema is a documented validation boundary, not a runtime sequencing guarantee: the ECA model/runtime must enforce discovery before dependent work. Do not edit, implement, or delegate unless explicitly assigned that role.
+Return a result matching [`assets/discovery-result.schema.json`](assets/discovery-result.schema.json): lane matrix; source provenance, type, and claims; prior-art candidates with reuse/adapt/reject decisions; contradictions; gaps; uncertainty; and stop status. The schema is a documented validation boundary, not a runtime sequencing guarantee: the ECA model/runtime must enforce discovery before dependent work. Do not edit, implement, or delegate unless explicitly assigned that role.

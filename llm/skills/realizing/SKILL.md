@@ -56,7 +56,7 @@ properties and do not add a testing dependency without a separate decision.
 
 ## Handoff gate
 
-Do not start implementation until an approved discovery/prior-art artifact is accepted. Validate it against [`../discovery/discovery-result.schema.json`](../discovery/discovery-result.schema.json); it must contain the lane matrix, sources and provenance, reuse decisions, gaps, contradictions, uncertainty, and stop status. This is a handoff gate, not a repeat of the discovery procedure.
+Do not start implementation until an approved discovery/prior-art artifact is accepted. Validate it against [`../discovery/assets/discovery-result.schema.json`](../discovery/assets/discovery-result.schema.json); it must contain the lane matrix, sources and provenance, reuse decisions, gaps, contradictions, uncertainty, and stop status. This is a handoff gate, not a repeat of the discovery procedure.
 
 ## Stop conditions
 
