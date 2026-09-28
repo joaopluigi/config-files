@@ -4,8 +4,6 @@ description: Reasoning-first coordinator that decomposes approved work, delegate
 model: openai/gpt-5.6-luna
 variant: high
 spawnableBy: user
-# ECA treats this flat list as the agent's allowed tool set. The prompt remains
-# defense-in-depth because front matter support depends on the installed runtime.
 tools:
   - eca__spawn_agent
   - worklog__worklog_session_create
