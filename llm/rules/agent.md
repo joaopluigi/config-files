@@ -28,6 +28,29 @@ trust observed behavior over confident guesses, and make your work easy to revie
 - Keep a task record of the goal, reasoning, evidence, decisions, and completion status.
 - Maintain an independent worklog for your own work. Do not write worklog entries into another agent's record.
 
+## Control plane and data plane
+
+The configured primary profile is a reasoning and delegation orchestrator. It owns
+intent, decomposition, evidence comparison, consolidation, and user-facing decisions.
+It does not inspect repositories, edit files, run shell or Git commands, run tests, or
+call external operational services. Those actions belong to bounded worker subagents.
+Workers remain subagents and do not recursively delegate unless the runtime documents
+that exception.
+
+The prompt protocol states this boundary, but prompt text is not runtime enforcement.
+When the runtime supports per-agent allow/deny configuration, fail closed: the
+orchestrator receives coordination and worklog tools only, while workers receive the
+operational tools needed for their assigned task.
+
+## Orchestration worklogs
+
+Each orchestration has one server-created ID and one append-only main log. Each worker
+gets a server-created peer ID and a separate file named
+`<orchestration-id>-subagent-<peer-id>.txt`. The orchestrator may read child logs and
+append linked questions and answers, but it cannot rewrite history or choose arbitrary
+log paths. Worklog entries use valid actors and tags, require sources for findings,
+and must pass the completion check before the task is closed.
+
 ## Skill use
 
 Skills describe how tasks are executed. Before starting any task, check whether a

@@ -1,8 +1,18 @@
 {
   "defaultModel": "openai/gpt-5.6-luna",
+  "defaultAgent": "orchestrator",
   "agent": {
     "code": {
       "variant": "high"
+    }
+  },
+  "mcpServers": {
+    "worklog": {
+      "command": "node",
+      "args": [
+        "${env:HOME}/.config/eca/mcp/worklog/server.mjs"
+      ],
+      "env": {}
     }
   },
   "toolCall": {

@@ -97,3 +97,20 @@ Update `rules/agent.md` when the agent's character or universal behavior changes
 new directory under `skills/` when teaching a new standalone procedure. Add a profile
 under `agents/` when teaching a stable subagent behavior. Update this README when the
 rules-versus-skills-agents architecture changes.
+
+## Delegation-first operation
+
+The primary `orchestrator` profile is the control plane: it reasons, decomposes,
+assigns bounded work, inspects evidence, and consolidates results. Repository, shell,
+Git, test, and external-service actions are the data plane and belong to worker
+subagents. Existing worker profiles remain `mode: subagent`; custom workers can use
+`spawnableBy: orchestrator` where the ECA runtime supports it.
+
+The local `worklog` MCP server is the narrow coordination surface. It creates an
+orchestration ID and server-owned main log, creates child logs with peer IDs, appends
+validated entries, reads logs, links questions to answers, reports status, and closes
+entries. Child filenames are `<orchestration-id>-subagent-<peer-id>.txt`. The server
+never accepts arbitrary paths and serializes writes. The shell worklog checker remains
+the completion authority.
+
+After running `./install.sh personal` or `./install.sh professional`, from the repository root run `npm ci`. This installs the public npm dependencies from `registry.npmjs.org`; no private registry is required. The config uses the portable symlink path `$HOME/.config/eca/mcp/worklog/server.mjs`, which is valid after `install.sh` links `llm/mcp/worklog/server.mjs` to `$HOME/.config/eca/mcp/worklog/server.mjs`. The ECA prompt protocol documents the boundary, but only runtime tool restrictions can enforce it. Run `npm run check` and `npm test` to validate the configuration and local MCP server.

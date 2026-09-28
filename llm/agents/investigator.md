@@ -1,5 +1,6 @@
 ---
 mode: subagent
+spawnableBy: orchestrator
 description: Maps the repository, documentation, interfaces, and tests without modifying project files.
 model: openai/gpt-5.6-luna
 variant: low

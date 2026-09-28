@@ -1,5 +1,6 @@
 ---
 mode: subagent
+spawnableBy: orchestrator
 description: Independently challenges the implementation, evidence, validation, scope, and unresolved assumptions.
 model: openai/gpt-5.6-luna
 variant: medium

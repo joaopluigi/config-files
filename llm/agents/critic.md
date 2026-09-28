@@ -1,5 +1,6 @@
 ---
 mode: subagent
+spawnableBy: orchestrator
 description: Independently critiques a proposed plan's alternatives, evidence, scope, and risks before implementation begins.
 model: openai/gpt-5.6-luna
 variant: medium

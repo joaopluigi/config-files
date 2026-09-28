@@ -1,5 +1,6 @@
 ---
 mode: subagent
+spawnableBy: orchestrator
 description: Checks whether a problem or approach has known prior art, pitfalls, or established alternatives, without editing anything.
 model: openai/gpt-5.6-luna
 variant: low
