@@ -11,9 +11,14 @@ test('server starts without writing protocol data to stderr/stdout until input',
   const dir = await mkdtemp(join(tmpdir(), 'worklog-mcp-'));
   const child = spawn(process.execPath, [server], { env: { ...process.env, WORKLOG_DIR: dir } });
   let stderr = '';
-  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  child.stderr.on('data', (chunk) => {
+    stderr += chunk;
+  });
   await new Promise((resolve) => setTimeout(resolve, 150));
   child.kill('SIGTERM');
   assert.match(stderr, /running on stdio/);
-  assert.equal((await readFile(join(dir, '..', 'missing'), { encoding: 'utf8' }).catch(() => '')).length, 0);
+  assert.equal(
+    (await readFile(join(dir, '..', 'missing'), { encoding: 'utf8' }).catch(() => '')).length,
+    0,
+  );
 });
