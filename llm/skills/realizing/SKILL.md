@@ -20,22 +20,51 @@ an input and does not decide whether the change should be made.
    evidence, and recorded user approval.
 2. Stop if approval, scope, or acceptance properties are missing.
 3. Record the goal, scope, evidence, decisions, and validation as the task progresses.
-4. Spawn an `executor` agent to implement only the approved scope, giving it the
-   relevant sources.
-5. Spawn a `tester` agent to author tests from the stated properties, using the
-   repository's available testing approach.
-6. Inspect the changes for scope and conformity with the surrounding code.
-7. Run the implementation and relevant tests or checks. Record observed results.
-8. Spawn a `reviewer` agent with the implementation, properties, evidence boundary,
-   and validation results.
-9. Present the review findings to the user and identify which flaws, if any, are
-   selected for remediation.
-10. Spawn an `executor` agent to implement only the selected flaws, keeping the
+4. Select the approved plan's implementation mode:
+   - **TDD mode is the default** when the approved plan does not explicitly declare a
+     mode. Do not infer standard mode from omission.
+   - **Standard mode** is permitted only when the approved plan explicitly records an
+     exception approved by the user. The exception record must include the reason TDD
+     cannot be used, the affected scope, the alternative validation to be used, and
+     affirmative user approval. Task size, urgency, implementation preference, or
+     missing tests are not sufficient reasons to silently switch to standard mode.
+   - If TDD cannot be used and the approved plan has no qualifying exception record,
+     stop and ask the user for explicit approval of the exception before implementation.
+   - **Standard mode** preserves the existing executor-before-tester sequence: spawn an
+     `executor` agent to implement only the approved scope, giving it the relevant
+     sources; then spawn a `tester` agent to author tests from the stated properties
+     and run the relevant checks.
+   - **TDD mode** uses the tester-first sequence below. The default and any exception
+     approval must be determined from the approved plan before realization; do not
+     switch modes during realization.
+5. In TDD mode, spawn a `tester` agent before implementation. It may create or update
+   test files from the approved properties, but must not modify implementation code.
+   Require it to run the tests before implementation (the red phase), classify
+   expected assertion failures separately from setup or environment failures, and
+   pass the test paths and observed output to the executor. A setup or environment
+   failure is not evidence of a valid red phase and must be reported as a stop or
+   unresolved validation condition.
+6. In TDD mode, after receiving the tester's artifacts and red-phase results, spawn an
+   `executor` agent to implement only the approved scope against those artifacts and
+   the relevant sources. The executor must not broaden the approved scope.
+7. In TDD mode, after implementation, require the tester to rerun the same tests and
+   report green verification, including commands and output. In standard mode, run
+   the implementation and relevant tests or checks as before.
+8. Inspect the changes for scope and conformity with the surrounding code.
+9. Run the implementation and relevant tests or checks. Record observed results.
+10. Spawn a `reviewer` agent with the implementation, properties, evidence boundary,
+    and validation results.
+11. Present the review findings to the user and identify which flaws, if any, are
+    selected for remediation.
+12. Spawn an `executor` agent to implement only the selected flaws, keeping the
     approved scope.
-11. Run the affected tests or checks again after remediation.
-12. Repeat the review, findings, and selected-remediation cycle until review produces
+13. Run the affected tests or checks again after remediation.
+14. Repeat the review, findings, and selected-remediation cycle until review produces
     no actionable flaws or successive reviews produce the same findings.
-13. Run final compatibility checks and record the result.
+15. Run final compatibility checks and record the result.
+
+Prompt text documents this workflow contract only; it does not provide runtime
+enforcement of agent ordering, file authority, or test outcomes.
 
 ## Outputs
 
