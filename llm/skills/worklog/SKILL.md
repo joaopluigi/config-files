@@ -26,7 +26,7 @@ using the detailed MCP reference or worklog example.
 7. Close only after every plan item is done and every linked question is answered.
 8. When a candidate session is known, the session owner must call `worklog_session_status` before deciding whether to reuse it or create a new session. Status discovery is discovery-only and does not grant mutation authority. Same-session reuse requires the exact existing orchestration ID and session capability token, materially matching goal/done/steps, incomplete status, and a compatible open plan item. If status is ambiguous, do not guess IDs or tokens; treat it as a non-match and create a new session or ask the user as appropriate. A follow-up session uses a new orchestration ID and token, records `predecessorOrchestrationId` and a non-empty `continuationReason`, preserves the goal/done/steps structure as appropriate, and never inherits old worker tokens.
 
-Follow-up entries may be appended repeatedly to an existing open item with existing non-`plan` tags. Plan items are creation-time-only, closed items reject later entries, and completion does not change until the item is closed. For an interrupted worker, use `worklog_subagent_replace` to create a new authorized peer linked to the predecessor, never reuse the predecessor token, pass the new peer context and continuation reason to the replacement, and preserve old peer history. These contracts specify required behavior and documented boundaries; prompt text does not prove hidden runtime prompt injection, orchestration sequencing, authorization, or other enforcement.
+Follow-up entries may be appended repeatedly to an existing open item with existing non-`plan` tags. Plan items are creation-time-only, closed items reject later entries, and completion does not change until the item is closed. For an interrupted worker, use `worklog_subagent_replace` to create a new authorized peer linked to the predecessor, never reuse the predecessor token, pass the new peer context and continuation reason to the replacement, and preserve old peer history. These contracts specify required behavior and documented boundaries; prompt text does not prove hidden runtime prompt injection, coordination sequencing, authorization, or other enforcement.
 
 The server is append-only and rejects invalid actors, tags, items, unsourced `find`
 entries, unauthorized peers, duplicate answers, and invalid capability tokens. The
@@ -55,6 +55,22 @@ the appropriate `orchestrationId`, `capabilityToken`, and optional `peerId`, but
 not use `actor` in the same authorization way and must not be treated as child
 mutations. A peer token authorizes that peer's read/status access; the session token
 can inspect registered child logs as allowed by the server.
+
+## Active child-worklog use protocol
+
+An initial `worklog_read` is only a prerequisite; it is not active worklog use. During execution, append entries through the authorized child context so the log records the work as it happens. The following are recording purposes, not server tags or tag categories:
+
+- **start/progress:** record the intended action and current status before or at the first substantive action.
+- **milestone:** record meaningful advances and the plan item(s) they cover.
+- **evidence/findings:** record required evidence with source path and section, observed fact, supported claim, validation result, assumptions or gaps, and stop status.
+- **question/answer:** use linked question and answer entries whenever clarification occurs; unanswered clarification is not complete.
+- **completion:** record final scope, evidence, validation, assumptions, open questions, stop status, and completion state before returning.
+
+Every append must use exactly one supported server tag: `think`, `find`, `decide`, `done`, `plan`, `question`, `answer`, or `note`. These tags are the server vocabulary; recording purposes describe why an entry is made and do not form a one-to-one tag mapping. For example, evidence/findings may use `find` with a source, question/answer use `question` and `answer`, and completion commonly uses `done`; other purposes may use the supported tag that best fits the entry.
+
+Cadence is mandatory: record start/progress before substantive work, milestone/progress after meaningful milestones, an entry covering each completed plan item, evidence/findings when evidence is required, question/answer entries after clarification, and completion before return or close. A close call does not replace the required completion entry.
+
+Before close or return, every plan item must be covered; evidence must be present or have an explicit no-evidence rationale; all questions must be answered; status must be `complete=true`, `openItems=[]`, and `openQuestions=[]`; and a completion entry must be present. This protocol requires active append usage, not merely an initial read, while preserving the existing lifecycle, tags, actor authorization, and capability rules.
 
 ## When working with subagents
 
