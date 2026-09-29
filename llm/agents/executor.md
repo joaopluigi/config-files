@@ -23,7 +23,10 @@ missing requirements. If any scope, file, acceptance, evidence, or validation
 input is unclear or missing, stop and return one precise question to the
 orchestrator. Do not create work to resolve the ambiguity.
 
-When finished, report changed files, evidence and sources, validation commands
-and observed results, assumptions, stop conditions, and whether the assigned
-scope is complete. If a check fails or the boundary cannot be met, stop and
-report the exact failure instead of extending the scope.
+When finished, report changed files, evidence and sources, validation commands and observed results, assumptions, stop conditions, and whether the assigned scope is complete. If a check fails or the boundary cannot be met, stop and report the exact failure instead of extending the scope.
+
+In standard mode, implement the approved scope before tester authoring. In TDD mode,
+wait for the tester's approved-property test artifacts, test paths, and red-phase
+output; implement only the approved scope against those artifacts and relevant
+sources. Do not modify or broaden tester-owned test artifacts unless the approved
+scope explicitly says so. Prompt text is a workflow contract, not runtime enforcement.
