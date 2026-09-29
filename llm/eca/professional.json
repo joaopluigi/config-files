@@ -60,8 +60,7 @@
     "google-workspace__drive_(create|move|trash|rename).*",
     "google-workspace__calendar_(create|update|respond|delete).*",
     "google-workspace__chat_(send|setUp).*",
-    "google-workspace__gmail_(modify|batchModify|send|create).*",
-    "atlassian__(create|update|edit|add|transition).*"
+    "google-workspace__gmail_(modify|batchModify|send|create).*"
   ],
   "toolCall": {
     "approval": {
