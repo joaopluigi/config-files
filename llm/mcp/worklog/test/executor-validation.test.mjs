@@ -705,12 +705,13 @@ test('MCP explicit session token reuses an incomplete session after discovery', 
       steps: ['continue'],
       plan: ['continue'],
       complete: false,
-      openItems: [1],
-      openQuestions: [],
       createdAt: candidate.createdAt,
       peers: [],
     });
     assert.equal(candidate.capabilityToken, undefined);
+    assert.equal(Object.hasOwn(candidate, 'openItems'), false);
+    assert.equal(Object.hasOwn(candidate, 'openQuestions'), false);
+    assert.equal(candidate.goal, 'reuse');
     assert.doesNotMatch(JSON.stringify(candidate), new RegExp(session.capabilityToken));
 
     const withoutToken = await call(client, 'worklog_append', {

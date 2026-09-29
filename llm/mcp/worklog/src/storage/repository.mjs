@@ -333,8 +333,6 @@ export async function discoverSessions(actor) {
         steps: registry.steps,
         plan,
         complete: result.complete,
-        openItems: result.openItems,
-        openQuestions: result.openQuestions,
         createdAt: registry.createdAt || (await stat(mainPath(entry.name))).birthtime.toISOString(),
         peers,
         ...(registry.predecessorOrchestrationId === undefined
