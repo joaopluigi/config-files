@@ -6,14 +6,18 @@ The self-contained server in `llm/mcp/worklog/server.mjs` registers these tools:
   returns `orchestrationId`, `capabilityToken`, and `path`.
 - `worklog_subagent_create(orchestrationId, capabilityToken, actor, goal, done,
   steps)` creates a peer log and returns its `peerId`, token, and path.
-- `worklog_append(..., peerId?, item, actor, tag, message)` appends an entry.
+- `worklog_append(..., peerId?, item, actor, tag, message)` appends an entry. A
+  `tag=done` append terminally completes that addressed plan item; do not call
+  `worklog_close` afterward for the same item.
 - `worklog_read(..., peerId?, since?)` reads a log from a byte offset.
 - `worklog_ask(..., sourcePeerId?, targetPeerId, item, actor, question)` creates
   a linked question; `worklog_answer(..., peerId, questionId, item, actor,
   answer)` answers it with the target peer token.
 - `worklog_status(..., peerId?)` returns path, content, and completion state.
-- `worklog_close(..., peerId?, item, actor, message)` appends the final `done`
-  only when items and linked questions are complete.
+- `worklog_close(..., peerId?, item, actor, message)` finalizes the entire
+  session or peer log by appending the final `done` only when items and linked
+  questions are complete. It is whole-log completion, not item completion, and
+  must not follow `worklog_append(tag=done)` for the same item.
 
 IDs are eight lowercase hexadecimal characters. Capability tokens are opaque
 hex strings: the session token authorizes the main log and orchestrator

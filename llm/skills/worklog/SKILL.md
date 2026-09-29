@@ -58,7 +58,7 @@ can inspect registered child logs as allowed by the server.
 
 ## Active child-worklog use protocol
 
-An initial `worklog_read` is only a prerequisite; it is not active worklog use. During execution, append entries through the authorized child context so the log records the work as it happens. The following are recording purposes, not server tags or tag categories:
+When a registered worklog context is supplied, read the supplied worklog context or previous work as the first action before substantive work or any other worklog mutation. This is a workflow requirement, not currently a runtime guarantee unless existing code supports it. The initial read is only a prerequisite; it is not active worklog use. During execution, append entries through the authorized child context so the log records the work as it happens. The following are recording purposes, not server tags or tag categories:
 
 - **start/progress:** record the intended action and current status before or at the first substantive action.
 - **milestone:** record meaningful advances and the plan item(s) they cover.
@@ -68,7 +68,7 @@ An initial `worklog_read` is only a prerequisite; it is not active worklog use. 
 
 Every append must use exactly one supported server tag: `think`, `find`, `decide`, `done`, `plan`, `question`, `answer`, or `note`. These tags are the server vocabulary; recording purposes describe why an entry is made and do not form a one-to-one tag mapping. For example, evidence/findings may use `find` with a source, question/answer use `question` and `answer`, and completion commonly uses `done`; other purposes may use the supported tag that best fits the entry.
 
-Cadence is mandatory: record start/progress before substantive work, milestone/progress after meaningful milestones, an entry covering each completed plan item, evidence/findings when evidence is required, question/answer entries after clarification, and completion before return or close. A close call does not replace the required completion entry.
+Cadence is mandatory: record start/progress before substantive work, milestone/progress after meaningful milestones, an entry covering each completed plan item, evidence/findings when evidence is required, question/answer entries after clarification, and completion before return or close. A `tag=done` append terminally completes the addressed plan item; do not call `worklog_close` afterward for that same item. `worklog_close` remains the whole-log completion operation and does not replace the required completion entry.
 
 Before close or return, every plan item must be covered; evidence must be present or have an explicit no-evidence rationale; all questions must be answered; status must be `complete=true`, `openItems=[]`, and `openQuestions=[]`; and a completion entry must be present. This protocol requires active append usage, not merely an initial read, while preserving the existing lifecycle, tags, actor authorization, and capability rules.
 
