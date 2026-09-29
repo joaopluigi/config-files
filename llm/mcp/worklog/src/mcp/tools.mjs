@@ -141,7 +141,7 @@ export function createServer() {
     'worklog_append',
     {
       description:
-        'Append to the main log with the orchestrator session token or to a peer log with that peer token.',
+        'Append to the main log with the orchestrator session token or to a peer log with that peer token. A tag=done append terminally completes the addressed plan item; do not call worklog_close afterward for that same item. worklog_close is reserved for finalizing the entire session or peer log once all items and linked questions are complete.',
       inputSchema: z.object({
         ...common,
         peerId: z.string().optional(),
@@ -324,7 +324,8 @@ export function createServer() {
   server.registerTool(
     'worklog_close',
     {
-      description: 'Append a final done entry only when the session or peer is complete.',
+      description:
+        'Finalize the entire session or peer log by appending its final done entry, only when every plan item and linked question is complete. This is whole-log completion, not item completion; do not call it after worklog_append(tag=done) for the same item.',
       inputSchema: z.object({
         ...common,
         peerId: z.string().optional(),
