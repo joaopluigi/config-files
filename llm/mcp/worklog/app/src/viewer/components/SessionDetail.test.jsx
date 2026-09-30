@@ -14,23 +14,42 @@ const session = {
 };
 
 describe('SessionDetail', () => {
-  it('shows the number of spawned peers in the Peers heading', () => {
+  it('shows closed peers over total peers in the Peers heading', () => {
     render(
       <SessionDetail
         session={{
           ...session,
-          peers: [{ id: 'peer-a' }, { id: 'peer-b' }],
+          peers: [
+            { id: 'peer-a', complete: false },
+            { id: 'peer-b', complete: true },
+          ],
         }}
       />,
     );
 
-    expect(screen.getByRole('heading', { name: 'Peers 2' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Peers (1/2)' })).toBeInTheDocument();
   });
 
   it('shows zero when no peers were spawned', () => {
     render(<SessionDetail session={session} />);
 
-    expect(screen.getByRole('heading', { name: 'Peers 0' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Peers (0/0)' })).toBeInTheDocument();
+  });
+
+  it('shows all peers closed when every persisted peer is complete', () => {
+    render(
+      <SessionDetail
+        session={{
+          ...session,
+          peers: [
+            { id: 'peer-a', complete: true },
+            { id: 'peer-b', complete: true },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Peers (2/2)' })).toBeInTheDocument();
   });
 
   it('formats Started in the browser timezone without the source label', () => {
