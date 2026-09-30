@@ -32,6 +32,15 @@ function peerDuration(peer) {
   return peer.duration ?? 'unavailable';
 }
 
+function peerStatus(peer) {
+  return peer.complete ? 'Closed' : 'Open';
+}
+
+function peerSubtitle(peer) {
+  const started = peer.createdAt ? formatStarted(peer.createdAt) : 'unavailable';
+  return `${peerStatus(peer)} - Started ${started} - Duration ${peerDuration(peer)}`;
+}
+
 export function SessionDetail({ session }) {
   const [, tick] = useState(0);
   const [expandedPeers, setExpandedPeers] = useState({});
@@ -66,10 +75,10 @@ export function SessionDetail({ session }) {
         {session.peers.map((peer) => {
           const panelId = `peer-entries-${session.orchestrationId}-${peer.id}`;
           return (
-            <li key={peer.id}>
+            <li key={peer.id} className="min-w-0">
               <button
                 type="button"
-                className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-left transition hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                className="w-full min-w-0 rounded-lg border border-slate-300 bg-white p-2.5 text-left transition hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500"
                 aria-expanded={Boolean(expandedPeers[peer.id])}
                 aria-controls={panelId}
                 onClick={() =>
@@ -77,12 +86,12 @@ export function SessionDetail({ session }) {
                 }
               >
                 <strong
-                  className="block truncate text-sm font-semibold text-slate-800"
+                  className="block break-words whitespace-normal text-sm font-semibold text-slate-800"
                   title={peer.goal}
                 >
                   {peer.goal}
                 </strong>
-                <span className="mt-0.5 flex items-center gap-2 truncate text-xs text-slate-600">
+                <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-2 break-words text-xs text-slate-600">
                   <span
                     aria-hidden="true"
                     className={`h-2 w-2 shrink-0 rounded-full ${
@@ -96,9 +105,10 @@ export function SessionDetail({ session }) {
               {expandedPeers[peer.id] && (
                 <div
                   id={panelId}
-                  className="mt-2 space-y-4 pl-5"
+                  className="mt-2 min-w-0 space-y-4 pl-5"
                   aria-label={`${peer.actor} worklog`}
                 >
+                  <p className="break-words text-sm text-slate-600">{peerSubtitle(peer)}</p>
                   <div>
                     <h4 className="font-semibold">Plan</h4>
                     <ol className="mt-1 list-decimal space-y-1 pl-5">

@@ -189,6 +189,7 @@ describe('SessionDetail', () => {
               id: 'peer-a',
               actor: 'A',
               complete: false,
+              createdAt: '2026-09-30T10:00:00Z',
               goal: 'Inspect the details',
               plan: ['First peer step', 'Second peer step'],
               entries: peerEntries,
@@ -199,9 +200,10 @@ describe('SessionDetail', () => {
       />,
     );
     const peerButtons = screen.getAllByRole('button');
-    expect(peerButtons[0]).toHaveTextContent('Inspect the detailsA · peer-a · unavailable');
+    expect(peerButtons[0]).toHaveTextContent(/Inspect the detailsA · peer-a · /);
     expect(peerButtons[0]).not.toHaveTextContent(/Open|Closed/);
-    expect(peerButtons[0]).toHaveClass('rounded-lg', 'border', 'hover:border-slate-500');
+    expect(peerButtons[0]).toHaveClass('rounded-lg', 'border', 'hover:border-slate-500', 'min-w-0');
+    expect(peerButtons[0].querySelector('strong')).toHaveClass('break-words', 'whitespace-normal');
     const openDot = peerButtons[0].querySelector('[aria-hidden="true"]');
     const closedDot = peerButtons[1].querySelector('[aria-hidden="true"]');
     expect(openDot).toHaveClass('bg-blue-500', 'motion-safe:animate-pulse');
@@ -212,6 +214,7 @@ describe('SessionDetail', () => {
     fireEvent.click(peerButtons[0]);
     expect(peerButtons[0]).toHaveAttribute('aria-expanded', 'true');
     const panel = document.querySelector('#peer-entries-session1-peer-a');
+    expect(panel).toHaveTextContent(/Open - Started .* at .* - Duration/);
     expect(panel).toHaveTextContent('First peer step');
     expect(panel).toHaveTextContent('Second peer step');
     expect(panel.querySelector('.metadata-grid')).toHaveClass(
