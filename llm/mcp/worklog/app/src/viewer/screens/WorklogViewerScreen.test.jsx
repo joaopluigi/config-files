@@ -136,7 +136,7 @@ describe('WorklogViewerScreen', () => {
       'aria-expanded',
       'false',
     );
-    expect(screen.getByRole('button', { name: 'Status: Open' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Status: All' })).toHaveAttribute(
       'aria-expanded',
       'false',
     );
