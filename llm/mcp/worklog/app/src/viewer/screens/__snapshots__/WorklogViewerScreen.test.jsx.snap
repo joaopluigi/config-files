@@ -43,11 +43,11 @@ exports[`WorklogViewerScreen > matches the open session view snapshot 1`] = `
             <button
               aria-controls="status-selector-menu"
               aria-expanded="false"
-              aria-label="Status: Open"
+              aria-label="Status: All"
               class="rounded-full border border-slate-300 bg-white px-3 py-1 text-sm font-medium text-slate-700 hover:border-slate-500"
               type="button"
             >
-              Open 
+              All 
               <span
                 aria-hidden="true"
               >

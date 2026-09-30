@@ -81,9 +81,10 @@ function entryTimeValue(time, createdAt) {
   );
 }
 
-export function durationValue(createdAt, entries = [], peers = []) {
+export function durationValue(createdAt, entries = [], peers = [], completedAt) {
   const started = Date.parse(createdAt);
   if (!Number.isFinite(started)) return 'unavailable (log timestamps are time-only)';
+  const completed = Date.parse(completedAt);
   const allEntries = [
     ...(Array.isArray(entries) ? entries : []),
     ...(Array.isArray(peers)
@@ -94,8 +95,9 @@ export function durationValue(createdAt, entries = [], peers = []) {
     .map((entry) => entryTimeValue(entry?.time, createdAt))
     .filter(Number.isFinite)
     .reduce((latestTime, entryTime) => Math.max(latestTime, entryTime), -Infinity);
-  if (!Number.isFinite(latest)) return 'unavailable (log timestamps are time-only)';
-  const seconds = Math.max(0, Math.floor((latest - started) / 1000));
+  const end = Number.isFinite(completed) ? completed : latest;
+  if (!Number.isFinite(end)) return 'unavailable (log timestamps are time-only)';
+  const seconds = Math.max(0, Math.floor((end - started) / 1000));
   return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m ${seconds % 60}s`;
 }
 
@@ -124,7 +126,7 @@ export async function readWorklogs() {
         const registryFile = registryPath(session.orchestrationId);
         const registry = JSON.parse(await readFile(registryFile, 'utf8'));
         birthtime = (await stat(registryFile)).birthtime;
-        Object.assign(session, { createdAt: registry.createdAt });
+        Object.assign(session, { createdAt: registry.createdAt, completedAt: registry.completedAt });
       } catch {
         try {
           birthtime = (await stat(registryPath(session.orchestrationId))).birthtime;
@@ -157,7 +159,7 @@ export async function readWorklogs() {
         createdAtSource,
         updatedAt: updatedAtValue(directoryMtime),
         duration: session.complete
-          ? durationValue(createdAt, entries, peers)
+          ? durationValue(createdAt, entries, peers, session.completedAt)
           : 'unavailable (log timestamps are time-only)',
         peers,
         entries,

@@ -113,7 +113,7 @@ export function WorklogViewerScreen({
     selectedId: null,
   });
   const [dateFilter, setDateFilter] = useState('24h');
-  const [statusFilter, setStatusFilter] = useState('open');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [sortFilter, setSortFilter] = useState('created');
   const inFlight = useRef(false);
   const queuedRefresh = useRef(false);
