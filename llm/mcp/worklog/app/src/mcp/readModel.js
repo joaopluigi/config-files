@@ -126,7 +126,10 @@ export async function readWorklogs() {
         const registryFile = registryPath(session.orchestrationId);
         const registry = JSON.parse(await readFile(registryFile, 'utf8'));
         birthtime = (await stat(registryFile)).birthtime;
-        Object.assign(session, { createdAt: registry.createdAt, completedAt: registry.completedAt });
+        Object.assign(session, {
+          createdAt: registry.createdAt,
+          completedAt: registry.completedAt,
+        });
       } catch {
         try {
           birthtime = (await stat(registryPath(session.orchestrationId))).birthtime;
