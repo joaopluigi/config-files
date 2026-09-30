@@ -107,7 +107,7 @@ export function createServer() {
     },
   );
   server.registerTool(
-    'worklog_subagent_replace',
+    'worklog_peer_replace',
     {
       description: 'Replace an incomplete peer with isolated credentials and preserved lineage.',
       inputSchema: z.object({
@@ -141,52 +141,6 @@ export function createServer() {
   );
   server.registerTool(
     'worklog_append',
-    {
-      description:
-        'Append to the main log with the orchestrator session token or to a peer log with that peer token. A tag=done append terminally completes the addressed plan item; do not call worklog_close afterward for that same item. worklog_close is reserved for finalizing the entire session or peer log once all items and linked questions are complete.',
-      inputSchema: z.object({
-        ...common,
-        peerId: z.string().optional(),
-        item: z.number().int().positive(),
-        actor: z.string(),
-        tag: z.string(),
-        message: z.string(),
-      }),
-    },
-    async (args) => {
-      try {
-        const context =
-          args.peerId === undefined
-            ? await authorized(
-                args.orchestrationId,
-                args.capabilityToken,
-                undefined,
-                'session',
-                args.actor,
-              )
-            : await authorizedPeerMutation(
-                args.orchestrationId,
-                args.capabilityToken,
-                args.peerId,
-                args.actor,
-              );
-        return text(
-          await appendEntry(
-            pathFor(args.orchestrationId, args.peerId),
-            args.item,
-            args.actor,
-            args.tag,
-            args.message,
-            context,
-          ),
-        );
-      } catch (e) {
-        return fail(e.message);
-      }
-    },
-  );
-  server.registerTool(
-    'worklog_append_batch',
     {
       description:
         'Append a non-empty ordered batch to the main or peer log using one shared actor. The full batch is validated before one locked write.',

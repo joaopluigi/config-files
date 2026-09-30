@@ -36,6 +36,6 @@ Other things to keep in mind:
 
 Whenever a session coordinates delegated participants, the session owner creates one peer log per participant with `worklog_peer_create`, records the participant's actor explicitly, and passes the exact server-returned `orchestrationId`, `peerId`, peer `capabilityToken`, peer log `path`, and the `actor` is the subagent being spwaned. The owner must instruct the participant to read its supplied peer worklog before executing any substantive step, then use all five values verbatim for every operation, must not use a parent token, and must not create or recreate another worklog or invent any identifier or path. The delegated prompt must identify these values as the server-created peer worklog context.
 
-> For an interrupted participant, use `worklog_subagent_replace` to create a new authorized peer linked to the predecessor, never reuse the predecessor token, pass the new peer context and continuation reason to the replacement, and preserve old peer history.
+> For an interrupted participant, use `worklog_peer_replace` to create a new authorized peer linked to the predecessor, never reuse the predecessor token, pass the new peer context and continuation reason to the replacement, and preserve old peer history.
 
 Before closing a session, the owner must also close all worklogs of subagents, if the subagent did not close them itself.
