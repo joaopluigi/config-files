@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { withLock } from '../src/storage/locks.mjs';
 
 const root = await mkdtemp(join(tmpdir(), 'worklog-invariants-'));
 process.env.WORKLOG_DIR = root;
@@ -20,6 +21,79 @@ async function prepared(steps = ['step']) {
   const session = await createSession('orchestrator', 'goal', 'done', steps);
   return session;
 }
+
+test('main close waits for registry serialization', async () => {
+  const session = await prepared();
+  await appendEntry(session.path, 1, 'orchestrator', 'decide', 'ready');
+  const registry = join(root, session.orchestrationId, 'session.json');
+  let settled = false;
+  const closing = closeWorklog(
+    session.orchestrationId,
+    session.capabilityToken,
+    undefined,
+    1,
+    'orchestrator',
+    'complete',
+  ).then((result) => {
+    settled = true;
+    return result;
+  });
+
+  await withLock(registry, async () => {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    assert.equal(settled, false);
+  });
+
+  assert.equal((await closing).closed, true);
+});
+
+test('orchestrator is rejected as a peer without mutation', async () => {
+  const session = await prepared();
+  const registryPath = join(root, session.orchestrationId, 'session.json');
+  const before = await readFile(registryPath, 'utf8');
+  await assert.rejects(
+    () =>
+      createSubagent(
+        session.orchestrationId,
+        session.capabilityToken,
+        'orchestrator',
+        'peer',
+        'done',
+        ['step'],
+      ),
+    /orchestrator may not act as a peer/,
+  );
+  assert.equal(await readFile(registryPath, 'utf8'), before);
+});
+
+test('orchestrator is rejected for replacement without mutation', async () => {
+  const session = await prepared();
+  const predecessor = await createSubagent(
+    session.orchestrationId,
+    session.capabilityToken,
+    'executor',
+    'old',
+    'done',
+    ['step'],
+  );
+  const registryPath = join(root, session.orchestrationId, 'session.json');
+  const before = await readFile(registryPath, 'utf8');
+  await assert.rejects(
+    () =>
+      replaceSubagent(
+        session.orchestrationId,
+        session.capabilityToken,
+        predecessor.peerId,
+        'orchestrator',
+        'replacement',
+        'done',
+        ['step'],
+        'resume safely',
+      ),
+    /orchestrator may not act as a peer/,
+  );
+  assert.equal(await readFile(registryPath, 'utf8'), before);
+});
 
 test('concurrent replacement and peer creation remain serialized', async () => {
   const session = await prepared();
@@ -272,4 +346,174 @@ test('rejects newline injection in plan steps, entries, and close messages', asy
 
   const content = await readFile(session.path, 'utf8');
   assert.doesNotMatch(content, /unplanned|fake reasoning|forged close/);
+});
+
+test('authorized repeated main close is successful and persists only one done entry', async () => {
+  const session = await prepared();
+  await appendEntry(session.path, 1, 'orchestrator', 'decide', 'ready');
+
+  const first = await closeWorklog(
+    session.orchestrationId,
+    session.capabilityToken,
+    undefined,
+    1,
+    'orchestrator',
+    'complete',
+  );
+  const second = await closeWorklog(
+    session.orchestrationId,
+    session.capabilityToken,
+    undefined,
+    1,
+    'orchestrator',
+    'complete again',
+  );
+
+  assert.equal(first.closed, true);
+  assert.equal(second.closed, true);
+  assert.equal((await readFile(session.path, 'utf8')).match(/ orchestrator done /g).length, 1);
+});
+
+test('authorized repeated peer close is successful and persists only one done entry', async () => {
+  const session = await prepared();
+  const peer = await createSubagent(
+    session.orchestrationId,
+    session.capabilityToken,
+    'executor',
+    'peer',
+    'done',
+    ['step'],
+  );
+  await appendEntry(peer.path, 1, 'executor', 'decide', 'ready');
+
+  const first = await closeWorklog(
+    session.orchestrationId,
+    peer.capabilityToken,
+    peer.peerId,
+    1,
+    'executor',
+    'complete',
+  );
+  const second = await closeWorklog(
+    session.orchestrationId,
+    peer.capabilityToken,
+    peer.peerId,
+    1,
+    'executor',
+    'complete again',
+  );
+
+  assert.equal(first.closed, true);
+  assert.equal(second.closed, true);
+  assert.equal((await readFile(peer.path, 'utf8')).match(/ executor done /g).length, 1);
+});
+
+test('an incomplete registered predecessor retained after replacement blocks main completion', async () => {
+  const session = await prepared();
+  const predecessor = await createSubagent(
+    session.orchestrationId,
+    session.capabilityToken,
+    'executor',
+    'old peer',
+    'done',
+    ['step'],
+  );
+  await replaceSubagent(
+    session.orchestrationId,
+    session.capabilityToken,
+    predecessor.peerId,
+    'tester',
+    'replacement peer',
+    'done',
+    ['step'],
+    'resume safely',
+  );
+  await appendEntry(session.path, 1, 'orchestrator', 'decide', 'ready');
+  const before = await readFile(session.path, 'utf8');
+
+  const result = await closeWorklog(
+    session.orchestrationId,
+    session.capabilityToken,
+    undefined,
+    1,
+    'orchestrator',
+    'complete',
+  );
+
+  assert.equal(result.closed, false);
+  assert.equal(await readFile(session.path, 'utf8'), before);
+});
+
+test('main close succeeds after every registered peer closes', async () => {
+  const session = await prepared();
+  const peer = await createSubagent(
+    session.orchestrationId,
+    session.capabilityToken,
+    'executor',
+    'peer',
+    'done',
+    ['step'],
+  );
+  await appendEntry(peer.path, 1, 'executor', 'decide', 'ready');
+  const peerResult = await closeWorklog(
+    session.orchestrationId,
+    peer.capabilityToken,
+    peer.peerId,
+    1,
+    'executor',
+    'complete',
+  );
+  assert.equal(peerResult.closed, true);
+
+  await appendEntry(session.path, 1, 'orchestrator', 'decide', 'ready');
+  const result = await closeWorklog(
+    session.orchestrationId,
+    session.capabilityToken,
+    undefined,
+    1,
+    'orchestrator',
+    'complete',
+  );
+  assert.equal(result.closed, true);
+});
+
+test('zero-peer session remains valid for main close', async () => {
+  const session = await prepared();
+  await appendEntry(session.path, 1, 'orchestrator', 'decide', 'ready');
+  const result = await closeWorklog(
+    session.orchestrationId,
+    session.capabilityToken,
+    undefined,
+    1,
+    'orchestrator',
+    'complete',
+  );
+  assert.equal(result.closed, true);
+});
+
+test('incomplete main close is non-mutating while a peer remains open', async () => {
+  const session = await prepared();
+  const peer = await createSubagent(
+    session.orchestrationId,
+    session.capabilityToken,
+    'reviewer',
+    'peer',
+    'done',
+    ['step'],
+  );
+  await appendEntry(session.path, 1, 'orchestrator', 'decide', 'ready');
+  const before = await readFile(session.path, 'utf8');
+
+  const result = await closeWorklog(
+    session.orchestrationId,
+    session.capabilityToken,
+    undefined,
+    1,
+    'orchestrator',
+    'blocked',
+  );
+
+  assert.equal(result.closed, false);
+  assert.equal(await readFile(session.path, 'utf8'), before);
+  assert.doesNotMatch(await readFile(peer.path, 'utf8'), / reviewer done /);
 });

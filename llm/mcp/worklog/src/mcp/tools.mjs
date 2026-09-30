@@ -7,7 +7,9 @@ import {
   registryPath,
   pathFor,
   authorized,
+  authorizedPeerMutation,
   appendEntry,
+  appendEntries,
   createSession,
   createSubagent,
   closeWorklog,
@@ -76,7 +78,7 @@ export function createServer() {
     },
   );
   server.registerTool(
-    'worklog_subagent_create',
+    'worklog_peer_create',
     {
       description: 'Create a child log and return a distinct peer capability token.',
       inputSchema: z.object({
@@ -153,13 +155,21 @@ export function createServer() {
     },
     async (args) => {
       try {
-        await authorized(
-          args.orchestrationId,
-          args.capabilityToken,
-          args.peerId,
-          args.peerId === undefined ? 'session' : 'peer',
-          args.actor,
-        );
+        const context =
+          args.peerId === undefined
+            ? await authorized(
+                args.orchestrationId,
+                args.capabilityToken,
+                undefined,
+                'session',
+                args.actor,
+              )
+            : await authorizedPeerMutation(
+                args.orchestrationId,
+                args.capabilityToken,
+                args.peerId,
+                args.actor,
+              );
         return text(
           await appendEntry(
             pathFor(args.orchestrationId, args.peerId),
@@ -167,6 +177,57 @@ export function createServer() {
             args.actor,
             args.tag,
             args.message,
+            context,
+          ),
+        );
+      } catch (e) {
+        return fail(e.message);
+      }
+    },
+  );
+  server.registerTool(
+    'worklog_append_batch',
+    {
+      description:
+        'Append a non-empty ordered batch to the main or peer log using one shared actor. The full batch is validated before one locked write.',
+      inputSchema: z.object({
+        ...common,
+        peerId: z.string().optional(),
+        actor: z.string(),
+        entries: z
+          .array(
+            z.object({
+              item: z.number().int().positive(),
+              tag: z.string(),
+              message: z.string(),
+            }),
+          )
+          .min(1),
+      }),
+    },
+    async (args) => {
+      try {
+        const context =
+          args.peerId === undefined
+            ? await authorized(
+                args.orchestrationId,
+                args.capabilityToken,
+                undefined,
+                'session',
+                args.actor,
+              )
+            : await authorizedPeerMutation(
+                args.orchestrationId,
+                args.capabilityToken,
+                args.peerId,
+                args.actor,
+              );
+        return text(
+          await appendEntries(
+            pathFor(args.orchestrationId, args.peerId),
+            args.actor,
+            args.entries,
+            context,
           ),
         );
       } catch (e) {
@@ -336,6 +397,21 @@ export function createServer() {
     },
     async (args) => {
       try {
+        const context =
+          args.peerId === undefined
+            ? await authorized(
+                args.orchestrationId,
+                args.capabilityToken,
+                undefined,
+                'session',
+                args.actor,
+              )
+            : await authorizedPeerMutation(
+                args.orchestrationId,
+                args.capabilityToken,
+                args.peerId,
+                args.actor,
+              );
         return text(
           await closeWorklog(
             args.orchestrationId,
@@ -344,6 +420,7 @@ export function createServer() {
             args.item,
             args.actor,
             args.message,
+            context,
           ),
         );
       } catch (e) {

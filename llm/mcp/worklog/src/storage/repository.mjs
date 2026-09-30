@@ -3,13 +3,17 @@ import { mkdir, readFile, appendFile, writeFile, readdir, stat } from 'node:fs/p
 import { join } from 'node:path';
 import { withLock } from './locks.mjs';
 import {
+  actors,
   validateActor,
+  validateMainActor,
+  validatePeerActor,
   availableActors,
   validateFreeForm,
   validateId,
   validateTag,
   validateAppend,
   completion,
+  tags,
 } from '../domain/worklog.mjs';
 
 export const root = process.env.WORKLOG_DIR || '/tmp/worklogs';
@@ -30,6 +34,33 @@ export async function readRegistry(orchestrationId) {
 function peerFor(registry, peerId) {
   return peerId === undefined ? undefined : registry.peers.find((peer) => peer.id === peerId);
 }
+const peerMutationContext = Symbol('authorized peer mutation');
+const trustedPeerMutationContexts = new WeakSet();
+
+function mutationContextFor(orchestrationId, peerId, actor, path, registry) {
+  const context = Object.freeze({
+    registry,
+    orchestrationId,
+    peerId,
+    actor,
+    path,
+    [peerMutationContext]: true,
+  });
+  trustedPeerMutationContexts.add(context);
+  return context;
+}
+
+function allowsUnreasonedDone(path, actor, context) {
+  return (
+    trustedPeerMutationContexts.has(context) &&
+    context?.[peerMutationContext] === true &&
+    context.orchestrationId === path.split('/').at(-2) &&
+    context.peerId !== undefined &&
+    context.actor === actor &&
+    context.path === path
+  );
+}
+
 export async function authorized(
   orchestrationId,
   capabilityToken,
@@ -42,8 +73,8 @@ export async function authorized(
   const registry = await readRegistry(orchestrationId);
   if (peerId === undefined) {
     if (registry.token !== capabilityToken) throw new Error('invalid session capability token');
-    if (actor !== undefined && actor !== 'orchestrator')
-      throw new Error('only orchestrator may use the session capability');
+    if (actor !== undefined)
+      validateMainActor(actor, 'only orchestrator may use the session capability');
     return registry;
   }
   validateId(peerId, 'peer id');
@@ -60,24 +91,74 @@ export async function authorized(
   if (actor !== undefined && peer.actor !== actor) throw new Error('actor does not own peer');
   return registry;
 }
-export async function appendEntry(path, item, actor, tag, message) {
+export async function authorizedPeerMutation(orchestrationId, capabilityToken, peerId, actor) {
+  if (peerId === undefined) throw new Error('peer id is required');
+  const registry = await authorized(orchestrationId, capabilityToken, peerId, 'peer', actor);
+  return mutationContextFor(
+    orchestrationId,
+    peerId,
+    actor,
+    pathFor(orchestrationId, peerId),
+    registry,
+  );
+}
+function validateEntryInput(item, actor, tag, message) {
   validateActor(actor);
   validateTag(tag);
   validateFreeForm(message, 'message');
   if (!Number.isInteger(item) || item < 1) throw new Error('item must be a positive integer');
   if (!message.trim()) throw new Error('message must not be empty');
   if (tag === 'find' && !message.includes('src:')) throw new Error('find entries require src:');
-  const line = `${new Date().toTimeString().slice(0, 8)} #${item} ${actor} ${tag} ${message.trim()}\n`;
+}
+
+function renderEntry(item, actor, tag, message) {
+  return `${new Date().toTimeString().slice(0, 8)} #${item} ${actor} ${tag} ${message.trim()}\n`;
+}
+
+export async function appendEntry(path, item, actor, tag, message, context) {
+  validateEntryInput(item, actor, tag, message);
+  const line = renderEntry(item, actor, tag, message);
   return withLock(path, async () => {
     const content = await readFile(path, 'utf8');
-    validateAppend(content, item, tag);
+    validateAppend(content, item, tag, allowsUnreasonedDone(path, actor, context));
     await appendFile(path, line);
     return line.trim();
   });
 }
+
+export async function appendEntries(path, actor, entries, context) {
+  validateActor(actor);
+  if (!Array.isArray(entries) || entries.length === 0) throw new Error('entries must not be empty');
+  entries.forEach(({ item, tag, message }) => validateEntryInput(item, actor, tag, message));
+  return withLock(path, async () => {
+    const before = await readFile(path, 'utf8');
+    let content = before;
+    const lines = [];
+    for (const { item, tag, message } of entries) {
+      validateAppend(content, item, tag, allowsUnreasonedDone(path, actor, context));
+      const line = renderEntry(item, actor, tag, message);
+      lines.push(line.trim());
+      content += line;
+    }
+    await appendFile(path, content.slice(before.length));
+    return lines;
+  });
+}
 export async function sessionCompletion(orchestrationId, peerId, content) {
   const registry = await readRegistry(orchestrationId);
-  return completion(content, peerId === undefined ? registry.questions : {});
+  const result = completion(content, peerId === undefined ? registry.questions : {});
+  if (peerId !== undefined) return result;
+
+  const openPeers = [];
+  for (const peer of registry.peers) {
+    const peerContent = await readFile(subagentPath(orchestrationId, peer.id), 'utf8');
+    if (!completion(peerContent).complete) openPeers.push(peer.id);
+  }
+  return {
+    ...result,
+    complete: result.complete && openPeers.length === 0,
+    ...(openPeers.length === 0 ? {} : { openPeers }),
+  };
 }
 export async function createSession(
   actor,
@@ -87,10 +168,10 @@ export async function createSession(
   predecessorOrchestrationId,
   continuationReason,
 ) {
-  if (actor !== 'orchestrator')
-    throw new Error(
-      `only orchestrator may create a session; available actors: ${availableActors()}`,
-    );
+  validateMainActor(
+    actor,
+    `only orchestrator may create a session; available actors: ${availableActors()}`,
+  );
   validateFreeForm(goal, 'goal');
   validateFreeForm(done, 'done');
   steps.forEach((step) => validateFreeForm(step, 'plan step'));
@@ -141,6 +222,7 @@ export async function createSession(
         peers: [],
         questions: {},
         orchestrationId,
+        actor,
         goal,
         done,
         steps,
@@ -157,10 +239,12 @@ export async function createSession(
   return {
     orchestrationId,
     capabilityToken,
+    available_tags: [...tags],
     path: mainPath(orchestrationId),
     ...(predecessorOrchestrationId === undefined
       ? {}
       : { predecessorOrchestrationId, continuationReason }),
+    available_actors: [...actors],
   };
 }
 export async function createSubagent(
@@ -173,12 +257,13 @@ export async function createSubagent(
   predecessorPeerId,
   continuationReason,
 ) {
-  validateActor(actor);
+  validatePeerActor(actor);
   validateFreeForm(goal, 'goal');
   validateFreeForm(done, 'done');
   steps.forEach((step) => validateFreeForm(step, 'plan step'));
   const peerId = id();
   const peerToken = token();
+  const createdAt = new Date().toISOString();
   const path = subagentPath(orchestrationId, peerId);
   const lineage =
     predecessorPeerId === undefined
@@ -214,6 +299,7 @@ export async function createSubagent(
       id: peerId,
       actor,
       token: peerToken,
+      createdAt,
       ...(predecessorPeerId === undefined ? {} : { predecessorPeerId, continuationReason }),
     });
     await writeFile(registryPath(orchestrationId), JSON.stringify(registry, null, 2));
@@ -238,7 +324,7 @@ export async function replaceSubagent(
   continuationReason,
 ) {
   validateFreeForm(continuationReason, 'continuation reason');
-  validateActor(actor);
+  validatePeerActor(actor);
   validateFreeForm(goal, 'goal');
   validateFreeForm(done, 'done');
   steps.forEach((step) => validateFreeForm(step, 'plan step'));
@@ -250,6 +336,7 @@ export async function replaceSubagent(
     if (completion(content).complete) throw new Error('predecessor peer is already complete');
     const peerId = id();
     const peerToken = token();
+    const createdAt = new Date().toISOString();
     const path = subagentPath(orchestrationId, peerId);
     const header = [
       `# worklog — ${goal}`,
@@ -277,6 +364,7 @@ export async function replaceSubagent(
       id: peerId,
       actor,
       token: peerToken,
+      createdAt,
       predecessorPeerId,
       continuationReason,
     });
@@ -314,20 +402,33 @@ export async function discoverSessions(actor) {
       const plan = registry.steps;
       const result = await sessionCompletion(entry.name, undefined, content);
       const peers = await Promise.all(
-        registry.peers.map(async ({ id, actor, predecessorPeerId, continuationReason }) => {
-          const peerContent = await readFile(subagentPath(entry.name, id), 'utf8');
-          return {
-            id,
-            actor,
-            goal: goalFromContent(peerContent),
-            complete: completion(peerContent).complete,
-            ...(predecessorPeerId === undefined ? {} : { predecessorPeerId, continuationReason }),
-          };
-        }),
+        registry.peers.map(
+          async ({ id, actor, createdAt, completedAt, predecessorPeerId, continuationReason }) => {
+            const peerPath = subagentPath(entry.name, id);
+            const peerContent = await readFile(peerPath, 'utf8');
+            const peerBirthtime = (await stat(peerPath)).birthtime;
+            return {
+              id,
+              actor,
+              ...(createdAt === undefined ? {} : { createdAt }),
+              ...(completedAt === undefined ? {} : { completedAt }),
+              ...(createdAt === undefined && Number.isFinite(peerBirthtime.getTime())
+                ? {
+                    birthtime: peerBirthtime.toISOString(),
+                    birthtimeSource: 'filesystem birthtime fallback',
+                  }
+                : {}),
+              goal: goalFromContent(peerContent),
+              complete: completion(peerContent).complete,
+              ...(predecessorPeerId === undefined ? {} : { predecessorPeerId, continuationReason }),
+            };
+          },
+        ),
       );
       sessions.push({
         orchestrationId: entry.name,
         path: mainPath(entry.name),
+        actor: typeof registry.actor === 'string' ? registry.actor : 'orchestrator',
         goal: registry.goal,
         done: registry.done,
         steps: registry.steps,
@@ -348,7 +449,15 @@ export async function discoverSessions(actor) {
   }
   return { sessions };
 }
-export async function closeWorklog(orchestrationId, capabilityToken, peerId, item, actor, message) {
+export async function closeWorklog(
+  orchestrationId,
+  capabilityToken,
+  peerId,
+  item,
+  actor,
+  message,
+  context,
+) {
   validateFreeForm(message, 'message');
   if (!message.trim()) throw new Error('message must not be empty');
   await authorized(
@@ -359,16 +468,28 @@ export async function closeWorklog(orchestrationId, capabilityToken, peerId, ite
     actor,
   );
   const path = pathFor(orchestrationId, peerId);
-  return withLock(path, async () => {
-    const before = await readFile(path, 'utf8');
-    validateAppend(before, item, 'done');
-    const after = `${before}${new Date().toTimeString().slice(0, 8)} #${item} ${actor} done ${message.trim()}\n`;
-    const result = completion(
-      after,
-      peerId === undefined ? (await readRegistry(orchestrationId)).questions : {},
-    );
-    if (!result.complete) return { closed: false, completion: result };
-    await appendFile(path, after.slice(before.length));
-    return { entry: after.slice(before.length).trim(), closed: true, completion: result };
+  return withLock(registryPath(orchestrationId), async () => {
+    return withLock(path, async () => {
+      const before = await readFile(path, 'utf8');
+      const alreadyComplete = completion(before).complete;
+      if (alreadyComplete) {
+        const result = await sessionCompletion(orchestrationId, peerId, before);
+        return { closed: result.complete, completion: result };
+      }
+      validateAppend(before, item, 'done', allowsUnreasonedDone(path, actor, context));
+      const after = `${before}${new Date().toTimeString().slice(0, 8)} #${item} ${actor} done ${message.trim()}\n`;
+      const result = await sessionCompletion(orchestrationId, peerId, after);
+      if (!result.complete) return { closed: false, completion: result };
+      await appendFile(path, after.slice(before.length));
+      if (peerId !== undefined) {
+        const registry = await readRegistry(orchestrationId);
+        const peer = peerFor(registry, peerId);
+        if (peer) {
+          peer.completedAt = new Date().toISOString();
+          await writeFile(registryPath(orchestrationId), JSON.stringify(registry, null, 2));
+        }
+      }
+      return { entry: after.slice(before.length).trim(), closed: true, completion: result };
+    });
   });
 }
