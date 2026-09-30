@@ -35,7 +35,9 @@ function peerFor(registry, peerId) {
   return peerId === undefined ? undefined : registry.peers.find((peer) => peer.id === peerId);
 }
 const peerMutationContext = Symbol('authorized peer mutation');
+const replacementMutationContext = Symbol('authorized replacement mutation');
 const trustedPeerMutationContexts = new WeakSet();
+const trustedReplacementMutationContexts = new WeakSet();
 
 function mutationContextFor(orchestrationId, peerId, actor, path, registry) {
   const context = Object.freeze({
@@ -50,10 +52,24 @@ function mutationContextFor(orchestrationId, peerId, actor, path, registry) {
   return context;
 }
 
+function replacementContextFor(orchestrationId, peerId, path, registry) {
+  const context = Object.freeze({
+    registry,
+    orchestrationId,
+    peerId,
+    actor: 'orchestrator',
+    path,
+    [replacementMutationContext]: true,
+  });
+  trustedReplacementMutationContexts.add(context);
+  return context;
+}
+
 function allowsUnreasonedDone(path, actor, context) {
   return (
-    trustedPeerMutationContexts.has(context) &&
-    context?.[peerMutationContext] === true &&
+    ((trustedPeerMutationContexts.has(context) && context?.[peerMutationContext] === true) ||
+      (trustedReplacementMutationContexts.has(context) &&
+        context?.[replacementMutationContext] === true)) &&
     context.orchestrationId === path.split('/').at(-2) &&
     context.peerId !== undefined &&
     context.actor === actor &&
@@ -332,8 +348,11 @@ export async function replaceSubagent(
     const registry = await authorized(orchestrationId, capabilityToken);
     const predecessor = peerFor(registry, predecessorPeerId);
     if (!predecessor) throw new Error('unknown predecessor peer');
-    const content = await readFile(subagentPath(orchestrationId, predecessorPeerId), 'utf8');
-    if (completion(content).complete) throw new Error('predecessor peer is already complete');
+    const predecessorPath = subagentPath(orchestrationId, predecessorPeerId);
+    const content = await readFile(predecessorPath, 'utf8');
+    const predecessorCompletion = completion(content);
+    if (predecessorCompletion.complete) throw new Error('predecessor peer is already complete');
+
     const peerId = id();
     const peerToken = token();
     const createdAt = new Date().toISOString();
@@ -360,6 +379,21 @@ export async function replaceSubagent(
       '',
     ].join('\n');
     await writeFile(path, header, { flag: 'wx' });
+
+    const replacementContext = replacementContextFor(
+      orchestrationId,
+      predecessorPeerId,
+      predecessorPath,
+      registry,
+    );
+    const completionEntries = predecessorCompletion.openItems.map((item) => ({
+      item,
+      tag: 'done',
+      message: `continuation moved to peer ${peerId} at ${path}; predecessor replaced by ${actor}: ${continuationReason}`,
+    }));
+    if (completionEntries.length > 0)
+      await appendEntries(predecessorPath, 'orchestrator', completionEntries, replacementContext);
+
     registry.peers.push({
       id: peerId,
       actor,

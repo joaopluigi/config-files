@@ -140,6 +140,39 @@ export function createServer() {
     },
   );
   server.registerTool(
+    'worklog_peer_replace',
+    {
+      description: 'Replace an incomplete peer with isolated credentials and preserved lineage.',
+      inputSchema: z.object({
+        ...common,
+        predecessorPeerId: z.string(),
+        actor: z.string(),
+        goal: z.string(),
+        done: z.string(),
+        steps: z.array(z.string()).min(1),
+        continuationReason: z.string(),
+      }),
+    },
+    async (args) => {
+      try {
+        return text(
+          await replaceSubagent(
+            args.orchestrationId,
+            args.capabilityToken,
+            args.predecessorPeerId,
+            args.actor,
+            args.goal,
+            args.done,
+            args.steps,
+            args.continuationReason,
+          ),
+        );
+      } catch (e) {
+        return fail(e.message);
+      }
+    },
+  );
+  server.registerTool(
     'worklog_append',
     {
       description:
