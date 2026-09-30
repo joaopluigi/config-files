@@ -6,10 +6,7 @@ The self-contained server in `llm/mcp/worklog/server.mjs` registers these tools:
   returns `orchestrationId`, `capabilityToken`, and `path`.
 - `worklog_peer_create(orchestrationId, capabilityToken, actor, goal, done,
   steps)` creates a peer log and returns its `peerId`, token, and path.
-- `worklog_append(..., peerId?, item, actor, tag, message)` appends an entry. A
-  `tag=done` append terminally completes that addressed plan item; do not call
-  `worklog_close` afterward for the same item.
-- `worklog_append_batch(orchestrationId, capabilityToken, peerId?, actor,
+- `worklog_append(orchestrationId, capabilityToken, peerId?, actor,
   entries)` appends a non-empty ordered array of `{item, tag, message}` entries
   using one shared actor. The session capability authorizes the main log and the
   peer capability authorizes that peer log; actor ownership is checked for peer

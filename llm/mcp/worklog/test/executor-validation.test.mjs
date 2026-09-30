@@ -52,7 +52,17 @@ async function startClient(dir) {
   return { child, request };
 }
 async function call(client, name, args) {
-  return client.request('tools/call', { name, arguments: args });
+  const arguments_ =
+    name === 'worklog_append' && args.item !== undefined
+      ? {
+          orchestrationId: args.orchestrationId,
+          capabilityToken: args.capabilityToken,
+          peerId: args.peerId,
+          actor: args.actor,
+          entries: [{ item: args.item, tag: args.tag, message: args.message }],
+        }
+      : args;
+  return client.request('tools/call', { name, arguments: arguments_ });
 }
 
 test('MCP session creation reports available actors for non-orchestrators', async () => {
@@ -940,7 +950,7 @@ test('MCP replacement creates isolated linked peers and preserves predecessor hi
     });
     assert.equal(history.result.isError, undefined, JSON.stringify(history));
     const replacement = resultText(
-      await call(client, 'worklog_subagent_replace', {
+      await call(client, 'worklog_peer_replace', {
         orchestrationId: session.orchestrationId,
         capabilityToken: session.capabilityToken,
         predecessorPeerId: predecessor.peerId,
