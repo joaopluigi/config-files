@@ -481,14 +481,14 @@ export async function closeWorklog(
       const result = await sessionCompletion(orchestrationId, peerId, after);
       if (!result.complete) return { closed: false, completion: result };
       await appendFile(path, after.slice(before.length));
+      const registry = await readRegistry(orchestrationId);
       if (peerId !== undefined) {
-        const registry = await readRegistry(orchestrationId);
         const peer = peerFor(registry, peerId);
-        if (peer) {
-          peer.completedAt = new Date().toISOString();
-          await writeFile(registryPath(orchestrationId), JSON.stringify(registry, null, 2));
-        }
+        if (peer) peer.completedAt = new Date().toISOString();
+      } else {
+        registry.completedAt = new Date().toISOString();
       }
+      await writeFile(registryPath(orchestrationId), JSON.stringify(registry, null, 2));
       return { entry: after.slice(before.length).trim(), closed: true, completion: result };
     });
   });
