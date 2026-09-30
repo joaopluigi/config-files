@@ -70,7 +70,7 @@ export function SessionDetail({ session }) {
           <li key={`${step}-${index}`}>{step}</li>
         ))}
       </ol>
-      <h3 className="mt-6 text-lg font-semibold">Peers</h3>
+      <h3 className="mt-6 text-lg font-semibold">Peers {session.peers.length}</h3>
       <ul className="mt-2 space-y-2">
         {session.peers.map((peer) => {
           const panelId = `peer-entries-${session.orchestrationId}-${peer.id}`;
