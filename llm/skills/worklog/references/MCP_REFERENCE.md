@@ -4,11 +4,23 @@ The self-contained server in `llm/mcp/worklog/server.mjs` registers these tools:
 
 - `worklog_session_create(actor, goal, done, steps)` creates the main log and
   returns `orchestrationId`, `capabilityToken`, and `path`.
-- `worklog_subagent_create(orchestrationId, capabilityToken, actor, goal, done,
+- `worklog_peer_create(orchestrationId, capabilityToken, actor, goal, done,
   steps)` creates a peer log and returns its `peerId`, token, and path.
 - `worklog_append(..., peerId?, item, actor, tag, message)` appends an entry. A
   `tag=done` append terminally completes that addressed plan item; do not call
   `worklog_close` afterward for the same item.
+- `worklog_append_batch(orchestrationId, capabilityToken, peerId?, actor,
+  entries)` appends a non-empty ordered array of `{item, tag, message}` entries
+  using one shared actor. The session capability authorizes the main log and the
+  peer capability authorizes that peer log; actor ownership is checked for peer
+  operations. The request is authorized and the full batch is validated before a
+  single locked write. Validation proceeds in supplied array order against the
+  progressively accumulated content, and any validation failure leaves the log
+  unchanged. The response is the rendered array in the same caller-supplied
+  order; item numbers are not automatically sorted. It follows the same
+  validation and error conventions as `worklog_append`, including positive
+  planned items, supported tags, non-empty messages, and `src:` for `find`
+  entries. This does not promise crash-durable transactionality.
 - `worklog_read(..., peerId?, since?)` reads a log from a byte offset.
 - `worklog_ask(..., sourcePeerId?, targetPeerId, item, actor, question)` creates
   a linked question; `worklog_answer(..., peerId, questionId, item, actor,

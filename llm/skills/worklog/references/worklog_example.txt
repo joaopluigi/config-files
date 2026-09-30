@@ -22,8 +22,3 @@ plan items
 14:16:40 #4 note assuming migrate! is the only step that touches the DB; upload! and restart! only hit the filesystem and network
 14:19:00 #4 done migrate! no-DB-call assertion added and passing
 14:19:40 #3 done deploy_test.clj added: dry-run writes nothing and makes no network call; the normal path is unchanged; bb test green
-
-── follow-up: also guard the config-reload step under --dry-run ──
-15:40:00 #5 plan guard the config-reload step under --dry-run (adds plan item 5)
-15:41:20 #5 find reload! writes the merged config to disk and is not yet guarded — src: src/deploy.clj:80
-15:43:05 #5 done reload! guarded to log-and-return under :dry-run?; deploy_test.clj covers it; bb test green
