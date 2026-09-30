@@ -47,12 +47,7 @@ describe('read model', () => {
   });
   it('stops closed duration at the recorded completion time', () => {
     expect(
-      durationValue(
-        '2026-09-30T10:00:00Z',
-        [{ time: '10:30:00' }],
-        [],
-        '2026-09-30T10:12:05Z',
-      ),
+      durationValue('2026-09-30T10:00:00Z', [{ time: '10:30:00' }], [], '2026-09-30T10:12:05Z'),
     ).toBe('0h 12m 5s');
   });
   it('ignores invalid entries before the latest valid main or peer entry', () => {
