@@ -14,6 +14,25 @@ const session = {
 };
 
 describe('SessionDetail', () => {
+  it('shows the number of spawned peers in the Peers heading', () => {
+    render(
+      <SessionDetail
+        session={{
+          ...session,
+          peers: [{ id: 'peer-a' }, { id: 'peer-b' }],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Peers 2' })).toBeInTheDocument();
+  });
+
+  it('shows zero when no peers were spawned', () => {
+    render(<SessionDetail session={session} />);
+
+    expect(screen.getByRole('heading', { name: 'Peers 0' })).toBeInTheDocument();
+  });
+
   it('formats Started in the browser timezone without the source label', () => {
     const started = new Date(session.createdAt);
     const pad = (value) => String(value).padStart(2, '0');
