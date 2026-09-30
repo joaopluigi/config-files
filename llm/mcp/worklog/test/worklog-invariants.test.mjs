@@ -130,6 +130,68 @@ test('concurrent replacement and peer creation remain serialized', async () => {
   );
 });
 
+test('replacement completes predecessor open items and leaves replacement usable', async () => {
+  const session = await prepared();
+  const predecessor = await createSubagent(
+    session.orchestrationId,
+    session.capabilityToken,
+    'executor',
+    'old',
+    'done',
+    ['first', 'second'],
+  );
+  await appendEntry(predecessor.path, 1, 'executor', 'think', 'reason about the interrupted work');
+
+  const replacement = await replaceSubagent(
+    session.orchestrationId,
+    session.capabilityToken,
+    predecessor.peerId,
+    'tester',
+    'new',
+    'done',
+    ['continue'],
+    'executor unavailable',
+  );
+  const predecessorContent = await readFile(predecessor.path, 'utf8');
+  assert.equal(
+    (await sessionCompletion(session.orchestrationId, predecessor.peerId, predecessorContent))
+      .complete,
+    true,
+  );
+  assert.match(
+    predecessorContent,
+    new RegExp(`orchestrator done continuation moved to peer ${replacement.peerId}`),
+  );
+  assert.match(predecessorContent, /#2 orchestrator done/);
+  await assert.rejects(
+    () =>
+      replaceSubagent(
+        session.orchestrationId,
+        session.capabilityToken,
+        predecessor.peerId,
+        'reviewer',
+        'duplicate',
+        'done',
+        ['continue'],
+        'duplicate replacement',
+      ),
+    /already complete/,
+  );
+
+  await appendEntry(replacement.path, 1, 'tester', 'think', 'continue the work');
+  await appendEntry(replacement.path, 1, 'tester', 'done', 'continued');
+  assert.equal(
+    (
+      await sessionCompletion(
+        session.orchestrationId,
+        replacement.peerId,
+        await readFile(replacement.path, 'utf8'),
+      )
+    ).complete,
+    true,
+  );
+});
+
 test('append enforces closed items, ordered completion, and prior reasoning', async () => {
   const session = await prepared(['one', 'two']);
   await assert.rejects(

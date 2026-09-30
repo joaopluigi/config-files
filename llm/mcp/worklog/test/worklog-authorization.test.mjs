@@ -185,7 +185,6 @@ test('replacement creates isolated linked credentials and preserves predecessor'
     'done',
     ['step'],
   );
-  const before = await readFile(predecessor.path, 'utf8');
   const replacement = await replaceSubagent(
     session.orchestrationId,
     session.capabilityToken,
@@ -200,7 +199,8 @@ test('replacement creates isolated linked credentials and preserves predecessor'
   assert.notEqual(replacement.capabilityToken, predecessor.capabilityToken);
   assert.equal(replacement.actor, 'tester');
   assert.equal(replacement.predecessorPeerId, predecessor.peerId);
-  assert.equal(await readFile(predecessor.path, 'utf8'), before);
+  const predecessorContent = await readFile(predecessor.path, 'utf8');
+  assert.match(predecessorContent, /#1 orchestrator done continuation moved to peer/);
   const registry = await authorized(
     session.orchestrationId,
     session.capabilityToken,
