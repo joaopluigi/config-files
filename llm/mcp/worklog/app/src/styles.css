@@ -1,0 +1,35 @@
+@import 'tailwindcss';
+
+:root {
+  font: 16px system-ui;
+  color: #172033;
+  background: #f5f7fb;
+}
+
+body {
+  margin: 0;
+}
+
+button {
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .worklog-card-enter {
+    animation: worklog-card-enter 180ms ease-out both;
+  }
+
+  .worklog-card-reorder {
+    transition: transform 180ms ease-out;
+  }
+}
+
+@keyframes worklog-card-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
