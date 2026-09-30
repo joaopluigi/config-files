@@ -54,6 +54,8 @@ export function SessionDetail({ session }) {
     return () => clearInterval(timer);
   }, [session]);
   if (!session) return <p>Select a session.</p>;
+  const peers = session.peers ?? [];
+  const closedPeers = peers.filter((peer) => peer.complete).length;
   return (
     <article className="rounded-lg bg-white p-6 shadow-sm">
       <h2 className="text-2xl font-semibold">{session.goal}</h2>
@@ -70,9 +72,11 @@ export function SessionDetail({ session }) {
           <li key={`${step}-${index}`}>{step}</li>
         ))}
       </ol>
-      <h3 className="mt-6 text-lg font-semibold">Peers {session.peers.length}</h3>
+      <h3 className="mt-6 text-lg font-semibold">
+        Peers ({closedPeers}/{peers.length})
+      </h3>
       <ul className="mt-2 space-y-2">
-        {session.peers.map((peer) => {
+        {peers.map((peer) => {
           const panelId = `peer-entries-${session.orchestrationId}-${peer.id}`;
           return (
             <li key={peer.id} className="min-w-0">
