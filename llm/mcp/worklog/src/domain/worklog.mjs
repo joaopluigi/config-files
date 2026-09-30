@@ -26,6 +26,14 @@ export function validateActor(actor) {
   if (!actors.has(actor))
     throw new Error(`invalid actor "${actor}"; available actors: ${availableActors()}`);
 }
+export function validateMainActor(actor, message = 'only orchestrator may act as the main actor') {
+  validateActor(actor);
+  if (actor !== 'orchestrator') throw new Error(message);
+}
+export function validatePeerActor(actor) {
+  validateActor(actor);
+  if (actor === 'orchestrator') throw new Error('orchestrator may not act as a peer');
+}
 export function validateTag(tag) {
   if (!tags.has(tag)) throw new Error(`invalid tag: ${tag}; available tags: ${availableTags()}`);
 }
@@ -71,7 +79,7 @@ export function completion(content, linkedQuestions = {}) {
     openQuestions,
   };
 }
-export function validateAppend(content, item, tag) {
+export function validateAppend(content, item, tag, allowUnreasonedDone = false) {
   const planned = planItems(content);
   const done = entryItems(content, 'done');
   if (tag === 'plan')
@@ -82,6 +90,7 @@ export function validateAppend(content, item, tag) {
     const earlierOpen = planned.some((plannedItem) => plannedItem < item && !done.has(plannedItem));
     if (earlierOpen) throw new Error(`cannot close plan item out of order: ${item}`);
     const reasoned = new Set([...entryItems(content, 'think'), ...entryItems(content, 'decide')]);
-    if (!reasoned.has(item)) throw new Error(`plan item requires prior reasoning: ${item}`);
+    if (!allowUnreasonedDone && !reasoned.has(item))
+      throw new Error(`plan item requires prior reasoning: ${item}`);
   }
 }

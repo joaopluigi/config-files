@@ -11,7 +11,9 @@ const {
   createSubagent,
   replaceSubagent,
   authorized,
+  authorizedPeerMutation,
   appendEntry,
+  appendEntries,
   closeWorklog,
   withLock,
 } = await import('../server.mjs');
@@ -322,4 +324,204 @@ test('empty stale lock is recovered and old owner cannot remove a replacement', 
   );
   const stillThere = await readFile(join(lock, 'owner'), 'utf8');
   assert.equal(stillThere, 'replacement');
+});
+
+test('peer mutation contexts cannot be reused across peer or main logs', async () => {
+  const session = await createSession('orchestrator', 'goal', 'done', ['one']);
+  const peerA = await createSubagent(
+    session.orchestrationId,
+    session.capabilityToken,
+    'executor',
+    'peer a',
+    'done',
+    ['one'],
+  );
+  const peerB = await createSubagent(
+    session.orchestrationId,
+    session.capabilityToken,
+    'tester',
+    'peer b',
+    'done',
+    ['one'],
+  );
+  const contextA = await authorizedPeerMutation(
+    session.orchestrationId,
+    peerA.capabilityToken,
+    peerA.peerId,
+    'executor',
+  );
+
+  await assert.rejects(
+    () => appendEntry(peerB.path, 1, 'tester', 'done', 'cross-peer', contextA),
+    /requires prior reasoning/,
+  );
+  await assert.rejects(
+    () =>
+      appendEntries(
+        peerB.path,
+        'tester',
+        [{ item: 1, tag: 'done', message: 'cross-peer batch' }],
+        contextA,
+      ),
+    /requires prior reasoning/,
+  );
+  await assert.rejects(
+    () =>
+      closeWorklog(
+        session.orchestrationId,
+        peerB.capabilityToken,
+        peerB.peerId,
+        1,
+        'tester',
+        'cross-peer close',
+        contextA,
+      ),
+    /requires prior reasoning/,
+  );
+  await assert.rejects(
+    () => appendEntry(session.path, 1, 'orchestrator', 'done', 'peer-to-main', contextA),
+    /requires prior reasoning/,
+  );
+  assert.doesNotMatch(await readFile(peerB.path, 'utf8'), /cross-peer/);
+  assert.doesNotMatch(await readFile(session.path, 'utf8'), /peer-to-main/);
+});
+
+test('peer mutation contexts resist retargeting and preserve default deny', async () => {
+  const session = await createSession('orchestrator', 'goal', 'done', ['one']);
+  const peerA = await createSubagent(
+    session.orchestrationId,
+    session.capabilityToken,
+    'executor',
+    'peer a',
+    'done',
+    ['one'],
+  );
+  const peerB = await createSubagent(
+    session.orchestrationId,
+    session.capabilityToken,
+    'tester',
+    'peer b',
+    'done',
+    ['one'],
+  );
+  const context = await authorizedPeerMutation(
+    session.orchestrationId,
+    peerA.capabilityToken,
+    peerA.peerId,
+    'executor',
+  );
+
+  for (const [field, value] of [
+    ['orchestrationId', 'retargeted'],
+    ['peerId', peerB.peerId],
+    ['actor', 'tester'],
+    ['path', peerB.path],
+  ]) {
+    assert.throws(() => {
+      context[field] = value;
+    }, TypeError);
+  }
+
+  await assert.rejects(
+    () => appendEntry(session.path, 1, 'orchestrator', 'done', 'tampered main', context),
+    /requires prior reasoning/,
+  );
+  await assert.rejects(
+    () => appendEntry(peerB.path, 1, 'tester', 'done', 'tampered peer', context),
+    /requires prior reasoning/,
+  );
+  assert.doesNotMatch(await readFile(session.path, 'utf8'), /tampered main/);
+  assert.doesNotMatch(await readFile(peerB.path, 'utf8'), /tampered peer/);
+});
+
+test('forged peer mutation contexts cannot bypass reasoning for append, batch, or close', async () => {
+  const session = await createSession('orchestrator', 'goal', 'done', ['one']);
+  const peer = await createSubagent(
+    session.orchestrationId,
+    session.capabilityToken,
+    'executor',
+    'peer',
+    'done',
+    ['one'],
+  );
+  const trusted = await authorizedPeerMutation(
+    session.orchestrationId,
+    peer.capabilityToken,
+    peer.peerId,
+    'executor',
+  );
+  const forged = { ...trusted };
+  assert.notEqual(forged, trusted);
+  assert.deepEqual(Object.keys(forged).sort(), Object.keys(trusted).sort());
+  const peerBefore = await readFile(peer.path, 'utf8');
+  const mainBefore = await readFile(session.path, 'utf8');
+
+  await assert.rejects(
+    () => appendEntry(peer.path, 1, 'executor', 'done', 'forged append', forged),
+    /requires prior reasoning/,
+  );
+  await assert.rejects(
+    () =>
+      appendEntries(
+        peer.path,
+        'executor',
+        [{ item: 1, tag: 'done', message: 'forged batch' }],
+        forged,
+      ),
+    /requires prior reasoning/,
+  );
+  await assert.rejects(
+    () =>
+      closeWorklog(
+        session.orchestrationId,
+        peer.capabilityToken,
+        peer.peerId,
+        1,
+        'executor',
+        'forged close',
+        forged,
+      ),
+    /requires prior reasoning/,
+  );
+  await assert.rejects(
+    () => appendEntry(session.path, 1, 'orchestrator', 'done', 'forged main', forged),
+    /requires prior reasoning/,
+  );
+  assert.equal(await readFile(peer.path, 'utf8'), peerBefore);
+  assert.equal(await readFile(session.path, 'utf8'), mainBefore);
+});
+
+test('authorized peers may complete without reasoning while main and direct calls remain gated', async () => {
+  const session = await createSession('orchestrator', 'goal', 'done', ['one', 'two']);
+  const peer = await createSubagent(
+    session.orchestrationId,
+    session.capabilityToken,
+    'executor',
+    'peer',
+    'done',
+    ['one', 'two'],
+  );
+  const context = await authorizedPeerMutation(
+    session.orchestrationId,
+    peer.capabilityToken,
+    peer.peerId,
+    'executor',
+  );
+  await appendEntry(peer.path, 1, 'executor', 'done', 'first', context);
+  await appendEntries(
+    peer.path,
+    'executor',
+    [{ item: 2, tag: 'done', message: 'second' }],
+    context,
+  );
+  assert.match(await readFile(peer.path, 'utf8'), /executor done first[\s\S]*executor done second/);
+  await assert.rejects(
+    () => appendEntry(session.path, 1, 'orchestrator', 'done', 'without reasoning'),
+    /requires prior reasoning/,
+  );
+  await assert.rejects(
+    () =>
+      authorizedPeerMutation(session.orchestrationId, peer.capabilityToken, peer.peerId, 'tester'),
+    /actor does not own peer/,
+  );
 });

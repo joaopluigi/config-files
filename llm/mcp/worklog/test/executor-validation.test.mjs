@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { actors } from '../src/domain/worklog.mjs';
 
 const project = fileURLToPath(new URL('..', import.meta.url));
 const server = join(project, 'server.mjs');
@@ -69,6 +70,34 @@ test('MCP session creation reports available actors for non-orchestrators', asyn
       response.result.content[0].text,
       'only orchestrator may create a session; available actors: orchestrator, investigator, ideator, executor, tester, reviewer, critic, maintainer, researcher',
     );
+  } finally {
+    client.child.kill('SIGTERM');
+  }
+});
+
+test('MCP session creation reports available tags on success', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'worklog-mcp-'));
+  const client = await startClient(dir);
+  try {
+    const session = resultText(
+      await call(client, 'worklog_session_create', {
+        actor: 'orchestrator',
+        goal: 'test',
+        done: 'done',
+        steps: ['create'],
+      }),
+    );
+    assert.deepEqual(session.available_tags, [
+      'think',
+      'find',
+      'decide',
+      'done',
+      'plan',
+      'question',
+      'answer',
+      'note',
+    ]);
+    assert.deepEqual(session.available_actors, [...actors]);
   } finally {
     client.child.kill('SIGTERM');
   }
@@ -147,7 +176,7 @@ test('MCP peer creation reports invalid actors and available actors', async () =
         steps: ['peer'],
       }),
     );
-    const response = await call(client, 'worklog_subagent_create', {
+    const response = await call(client, 'worklog_peer_create', {
       orchestrationId: session.orchestrationId,
       capabilityToken: session.capabilityToken,
       actor: 'unknown',
@@ -254,7 +283,7 @@ test('MCP registers peers, authenticates sessions, and links one answer to one q
       }),
     );
     const peer = resultText(
-      await call(a, 'worklog_subagent_create', {
+      await call(a, 'worklog_peer_create', {
         orchestrationId: session.orchestrationId,
         capabilityToken: session.capabilityToken,
         actor: 'executor',
@@ -340,7 +369,7 @@ test('MCP child ownership covers append, answer, and close', async () => {
       }),
     );
     const peer = resultText(
-      await call(client, 'worklog_subagent_create', {
+      await call(client, 'worklog_peer_create', {
         orchestrationId: session.orchestrationId,
         capabilityToken: session.capabilityToken,
         actor: 'executor',
@@ -452,7 +481,7 @@ test('concurrent peer creation keeps every peer registered and readable', async 
     );
     const peers = await Promise.all(
       Array.from({ length: 20 }, () =>
-        call(client, 'worklog_subagent_create', {
+        call(client, 'worklog_peer_create', {
           orchestrationId: session.orchestrationId,
           capabilityToken: session.capabilityToken,
           actor: 'executor',
@@ -489,7 +518,7 @@ test('status rejects random peer tokens and accepts only session or matching pee
       }),
     );
     const peer = resultText(
-      await call(client, 'worklog_subagent_create', {
+      await call(client, 'worklog_peer_create', {
         orchestrationId: session.orchestrationId,
         capabilityToken: session.capabilityToken,
         actor: 'executor',
@@ -606,7 +635,7 @@ test('MCP session discovery reports main and peer completion shapes', async () =
       }),
     );
     const incomplete = resultText(
-      await call(client, 'worklog_subagent_create', {
+      await call(client, 'worklog_peer_create', {
         orchestrationId: session.orchestrationId,
         capabilityToken: session.capabilityToken,
         actor: 'executor',
@@ -616,7 +645,7 @@ test('MCP session discovery reports main and peer completion shapes', async () =
       }),
     );
     const complete = resultText(
-      await call(client, 'worklog_subagent_create', {
+      await call(client, 'worklog_peer_create', {
         orchestrationId: session.orchestrationId,
         capabilityToken: session.capabilityToken,
         actor: 'tester',
@@ -653,6 +682,11 @@ test('MCP session discovery reports main and peer completion shapes', async () =
       undefined,
     );
 
+    const registryFile = join(dir, session.orchestrationId, 'session.json');
+    const registry = JSON.parse(await readFile(registryFile, 'utf8'));
+    delete registry.peers.find(({ id }) => id === incomplete.peerId).createdAt;
+    await writeFile(registryFile, JSON.stringify(registry, null, 2));
+
     const status = resultText(
       await call(client, 'worklog_session_status', { actor: 'orchestrator' }),
     );
@@ -662,6 +696,12 @@ test('MCP session discovery reports main and peer completion shapes', async () =
     assert.equal(discovered.goal, 'discover main');
     assert.equal(discovered.complete, false);
     assert.equal(discovered.completion, undefined);
+    const legacyPeer = discovered.peers.find(({ id }) => id === incomplete.peerId);
+    const persistedPeer = discovered.peers.find(({ id }) => id === complete.peerId);
+    assert.equal(legacyPeer.birthtimeSource, 'filesystem birthtime fallback');
+    assert.match(legacyPeer.birthtime, /^2026-|^20/);
+    assert.equal(persistedPeer.birthtime, undefined);
+    assert.equal(persistedPeer.birthtimeSource, undefined);
     assert.deepEqual(
       discovered.peers.map(({ id, actor, goal, complete: isComplete }) => ({
         id,
@@ -704,6 +744,7 @@ test('MCP explicit session token reuses an incomplete session after discovery', 
       done: 'done',
       steps: ['continue'],
       plan: ['continue'],
+      actor: 'orchestrator',
       complete: false,
       createdAt: candidate.createdAt,
       peers: [],
@@ -879,7 +920,7 @@ test('MCP replacement creates isolated linked peers and preserves predecessor hi
       }),
     );
     const predecessor = resultText(
-      await call(client, 'worklog_subagent_create', {
+      await call(client, 'worklog_peer_create', {
         orchestrationId: session.orchestrationId,
         capabilityToken: session.capabilityToken,
         actor: 'executor',
@@ -1107,7 +1148,7 @@ test('peer tokens are bound and read cursors use UTF-8 byte offsets', async () =
       }),
     );
     const one = resultText(
-      await call(client, 'worklog_subagent_create', {
+      await call(client, 'worklog_peer_create', {
         orchestrationId: session.orchestrationId,
         capabilityToken: session.capabilityToken,
         actor: 'executor',
@@ -1117,7 +1158,7 @@ test('peer tokens are bound and read cursors use UTF-8 byte offsets', async () =
       }),
     );
     const two = resultText(
-      await call(client, 'worklog_subagent_create', {
+      await call(client, 'worklog_peer_create', {
         orchestrationId: session.orchestrationId,
         capabilityToken: session.capabilityToken,
         actor: 'executor',
