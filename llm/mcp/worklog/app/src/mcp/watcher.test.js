@@ -1,3 +1,5 @@
+/* global clearTimeout, process, setTimeout */
+
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,11 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest'
 const worklogRoot = await mkdtemp(join(tmpdir(), 'worklog-watcher-'));
 process.env.WORKLOG_DIR = worklogRoot;
 
-const {
-  currentRevision,
-  disposeWorklogWatcher,
-  subscribeRevision,
-} = await import('./watcher.js');
+const { currentRevision, disposeWorklogWatcher, subscribeRevision } = await import('./watcher.js');
 
 const sessionId = 'a1b2c3d4';
 const sessionDir = join(worklogRoot, sessionId);
@@ -104,7 +102,10 @@ describe('worklog watcher reconciliation', () => {
     const uppercaseSessionId = sessionId.toUpperCase();
     const uppercaseSessionDir = join(worklogRoot, uppercaseSessionId);
     await mkdir(uppercaseSessionDir, { recursive: true });
-    const uppercaseMainPath = join(uppercaseSessionDir, `${uppercaseSessionId}-subagent-unique.txt`);
+    const uppercaseMainPath = join(
+      uppercaseSessionDir,
+      `${uppercaseSessionId}-subagent-unique.txt`,
+    );
     await writeFile(uppercaseMainPath, 'uppercase revision 1\\n');
     await writeFile(uppercaseMainPath, 'uppercase revision 2\\n');
     await sleep(260);

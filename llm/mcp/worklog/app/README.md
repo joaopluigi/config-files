@@ -2,20 +2,21 @@
 
 ## Start the supported viewer
 
-From this directory, install dependencies and start Vite:
+The supported runtime is Electron. From the repository root, install dependencies and build the renderer, then launch Electron:
 
 ```sh
 npm install
-npm run viewer
+npm --prefix app run build
+npm --prefix app run electron
 ```
 
-Open <http://127.0.0.1:4173/>. The viewer and its read-only API are served by the same Vite process. The API endpoint is `GET /api/worklogs`; individual worklogs use `GET /api/worklogs/<orchestration-id>`.
+Electron starts a loopback HTTP server for the renderer and read-only worklog API, then opens the viewer window. The API endpoint is `GET /api/worklogs`; individual worklogs use `GET /api/worklogs/<orchestration-id>`.
 
-The API is development-only Vite middleware. A static build does not include the API, so `npm run build` is a build check and does not produce a standalone API-backed viewer. Do not open the HTML from a static file server or another host and expect `/api/worklogs` to be available.
+Do not open the renderer HTML from a static file server or expect a separate browser/Vite server to provide the API. Vite remains the renderer build tool; `npm --prefix app run build` produces the assets consumed by Electron.
 
 ## Troubleshooting “failed to fetch”
 
-Run `npm run viewer` from this `app` directory and use the exact loopback URL above. The API is bound to `127.0.0.1`, not a separate static preview server or an IPv6-only `localhost` address. The viewer now includes the HTTP status and API error in its message when the same-origin request reaches a server but fails.
+Start the app with the Electron command above. The bundled server binds to `127.0.0.1` and serves both the renderer and API. The viewer includes the HTTP status and API error in its message when the request reaches a server but fails.
 
 ## Development checks
 
@@ -34,4 +35,4 @@ The viewer uses Tailwind CSS v4 through the official Vite integration (`tailwind
 
 Log messages keep their raw text and render `src:` values as links. HTTP and HTTPS values remain web links. POSIX, Windows, and UNC paths are normalized to canonical `file:` URLs. Relative paths resolve from the session working directory; `~/...` paths resolve from a macOS, Unix, or Windows user-home prefix derived from that directory. If no home context is available, the source stays visible but is not linked. Values that escape the working directory or use an unsafe scheme are not linked. Source parsing accepts semicolons, em dashes, literal `\\n`, and actual newlines as delimiters.
 
-Browsers may block or restrict navigation to local `file:` URLs, especially when the viewer is served from HTTP. The viewer can display the canonical target, but opening it depends on browser security settings and local file access.
+In Electron, opening a `file:` source link is handled by the main process: only local file URLs without a remote host are considered, the target must exist and be readable, and Electron opens it with the native file handler. The renderer denies the navigation instead of loading `file:` content. HTTP and HTTPS links still open externally; unsupported schemes and invalid or unavailable local files are denied. In a browser, the viewer can display the canonical target, but local-file opening remains subject to browser security settings.

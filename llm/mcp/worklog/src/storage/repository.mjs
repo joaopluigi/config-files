@@ -129,7 +129,7 @@ function validateEntryInput(item, actor, tag, message) {
 }
 
 function renderEntry(item, actor, tag, message) {
-  return `${new Date().toTimeString().slice(0, 8)} #${item} ${actor} ${tag} ${message.trim()}\n`;
+  return `${new Date().toISOString()} #${item} ${actor} ${tag} ${message.trim()}\n`;
 }
 
 export async function appendEntry(path, item, actor, tag, message, context) {
@@ -559,7 +559,7 @@ export async function closeWorklog(
         return { closed: result.complete, completion: result };
       }
       validateAppend(before, item, 'done', allowsUnreasonedDone(path, actor, context));
-      const after = `${before}${new Date().toTimeString().slice(0, 8)} #${item} ${actor} done ${message.trim()}\n`;
+      const after = `${before}${new Date().toISOString()} #${item} ${actor} done ${message.trim()}\n`;
       const result = await sessionCompletion(orchestrationId, peerId, after);
       if (!result.complete) return { closed: false, completion: result };
       await appendFile(path, after.slice(before.length));

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { elapsed, elapsedBetween } from './elapsed.js';
+import { elapsed } from './elapsed.js';
 import { LogEntry } from './LogEntry.jsx';
 
 function formatStarted(createdAt) {
@@ -25,10 +25,8 @@ function orderedEntries(entries = []) {
 }
 
 function peerDuration(peer) {
-  if (peer.createdAt)
-    return peer.completedAt
-      ? elapsedBetween(peer.createdAt, peer.completedAt)
-      : elapsed(peer.createdAt);
+  if (peer.complete) return peer.duration ?? 'unavailable';
+  if (peer.createdAt) return elapsed(peer.createdAt);
   return peer.duration ?? 'unavailable';
 }
 
@@ -38,14 +36,21 @@ function peerStatus(peer) {
 
 function peerSubtitle(peer) {
   const started = peer.createdAt ? formatStarted(peer.createdAt) : 'unavailable';
-  return `${peerStatus(peer)} - Started ${started} - Duration ${peerDuration(peer)}`;
+  return `${peerStatus(peer)} - Started ${started}`;
+}
+
+function sessionDuration(session) {
+  if (session.duration != null) return session.duration;
+  if (session.complete) return 'unavailable';
+  return Number.isFinite(Date.parse(session.createdAt))
+    ? elapsed(session.createdAt)
+    : 'unavailable';
 }
 
 const PLAN_ITEM_COLORS = [
-  'bg-emerald-100 text-emerald-700',
+  'bg-blue-100 text-blue-700',
   'bg-violet-100 text-violet-700',
   'bg-amber-100 text-amber-700',
-  'bg-rose-100 text-rose-700',
   'bg-cyan-100 text-cyan-700',
   'bg-orange-100 text-orange-700',
 ];
@@ -76,11 +81,7 @@ export function SessionDetail({ session }) {
     <article className="rounded-lg bg-white p-6 shadow-sm">
       <h2 className="text-2xl font-semibold">{session.goal}</h2>
       <p className="mt-2 text-sm text-slate-600">
-        {session.complete ? 'Closed' : 'Open'} · Started {formatStarted(session.createdAt)} ·
-        Duration{' '}
-        {session.createdAtSource && !session.complete
-          ? elapsed(session.createdAt)
-          : session.duration}
+        {session.complete ? 'Closed' : 'Open'} · Started {formatStarted(session.createdAt)}
       </p>
       <h3 className="mt-6 text-lg font-semibold">Plan</h3>
       <ol className="mt-2 list-decimal space-y-1 pl-5">
@@ -122,7 +123,7 @@ export function SessionDetail({ session }) {
                   <span aria-hidden="true">·</span>
                   <span>{peer.id}</span>
                   <span aria-hidden="true">·</span>
-                  <span>{peerDuration(peer)}</span>
+                  <span title="Duration">{peerDuration(peer)}</span>
                 </span>
               </button>
               {expandedPeers[peer.id] && (

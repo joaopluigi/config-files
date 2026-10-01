@@ -105,12 +105,29 @@ test('concurrent continuations publish one successor and one continuation reason
   const before = await readdir(root);
   const predecessor = await createSession('orchestrator', 'first', 'done', ['one', 'two']);
   const results = await Promise.allSettled([
-    createSession('orchestrator', 'winner', 'done', ['step'], predecessor.orchestrationId, 'winner reason'),
-    createSession('orchestrator', 'loser', 'done', ['step'], predecessor.orchestrationId, 'loser reason'),
+    createSession(
+      'orchestrator',
+      'winner',
+      'done',
+      ['step'],
+      predecessor.orchestrationId,
+      'winner reason',
+    ),
+    createSession(
+      'orchestrator',
+      'loser',
+      'done',
+      ['step'],
+      predecessor.orchestrationId,
+      'loser reason',
+    ),
   ]);
   assert.equal(results.filter(({ status }) => status === 'fulfilled').length, 1);
   assert.equal(results.filter(({ status }) => status === 'rejected').length, 1);
-  assert.match(results.find(({ status }) => status === 'rejected').reason.message, /already in progress/);
+  assert.match(
+    results.find(({ status }) => status === 'rejected').reason.message,
+    /already in progress/,
+  );
   const successors = (await readdir(root)).filter(
     (entry) => !before.includes(entry) && entry !== predecessor.orchestrationId,
   );
@@ -144,10 +161,14 @@ test('separate processes publish one continuation successor and cleanly reject t
   const results = await Promise.all(
     ['first process', 'second process'].map(async (goal) => {
       try {
-        const { stdout } = await execFile(process.execPath, args.map((arg) => (arg === 'winner-or-loser' ? goal : arg)), {
-          cwd: new URL('..', import.meta.url),
-          env: { ...process.env, WORKLOG_DIR: root },
-        });
+        const { stdout } = await execFile(
+          process.execPath,
+          args.map((arg) => (arg === 'winner-or-loser' ? goal : arg)),
+          {
+            cwd: new URL('..', import.meta.url),
+            env: { ...process.env, WORKLOG_DIR: root },
+          },
+        );
         return JSON.parse(stdout.trim());
       } catch (error) {
         return JSON.parse(error.stdout.trim());
