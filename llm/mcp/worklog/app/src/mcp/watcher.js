@@ -9,21 +9,36 @@ let watcher;
 let reconcileTimer;
 let debounceTimer;
 let listeners = new Set();
-let snapshot = '';
+let snapshot;
+
+const sessionDirectoryPattern = /^[a-f0-9]{8}$/;
+const sessionFilePattern = /^[a-f0-9]{8}-(?:main|subagent-[^/]+)\.txt$/;
 
 async function fingerprint() {
-  let names = [];
+  const values = [];
+  let sessions;
   try {
-    names = await readdir(root, { withFileTypes: true });
+    sessions = await readdir(root, { withFileTypes: true });
   } catch {
     return '';
   }
-  const values = [];
-  for (const entry of names) {
-    if (!entry.isDirectory() || !/^[a-f0-9]{8}$/.test(entry.name)) continue;
+  for (const session of sessions) {
+    if (!session.isDirectory() || !sessionDirectoryPattern.test(session.name)) continue;
+    const sessionPath = `${root}/${session.name}`;
     try {
-      const info = await stat(`${root}/${entry.name}`);
-      values.push(`${entry.name}:${info.mtimeMs}:${info.size}`);
+      await stat(sessionPath);
+      values.push(`${session.name}:d`);
+      const entries = await readdir(sessionPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory() || (entry.name !== 'session.json' && !sessionFilePattern.test(entry.name))) continue;
+        const path = `${sessionPath}/${entry.name}`;
+        try {
+          const info = await stat(path);
+          values.push(`${session.name}/${entry.name}:f:${info.mtimeMs}:${info.ctimeMs}:${info.size}`);
+        } catch {
+          // A concurrent file creation/removal is reconciled on the next pass.
+        }
+      }
     } catch {
       // A concurrent session creation/removal is reconciled on the next pass.
     }
@@ -36,7 +51,7 @@ function notify() {
 }
 async function reconcile() {
   const next = await fingerprint();
-  if (snapshot && next !== snapshot) notify();
+  if (snapshot !== undefined && next !== snapshot) notify();
   snapshot = next;
 }
 function schedule() {
@@ -69,6 +84,6 @@ export function disposeWorklogWatcher() {
   reconcileTimer = undefined;
   debounceTimer = undefined;
   listeners.clear();
-  snapshot = '';
+  snapshot = undefined;
   revision = 0;
 }
