@@ -41,11 +41,18 @@ function peerSubtitle(peer) {
   return `${peerStatus(peer)} - Started ${started} - Duration ${peerDuration(peer)}`;
 }
 
+function sessionDuration(session) {
+  if (session.duration != null) return session.duration;
+  if (session.complete) return 'unavailable';
+  return Number.isFinite(Date.parse(session.createdAt))
+    ? elapsed(session.createdAt)
+    : 'unavailable';
+}
+
 const PLAN_ITEM_COLORS = [
-  'bg-emerald-100 text-emerald-700',
+  'bg-blue-100 text-blue-700',
   'bg-violet-100 text-violet-700',
   'bg-amber-100 text-amber-700',
-  'bg-rose-100 text-rose-700',
   'bg-cyan-100 text-cyan-700',
   'bg-orange-100 text-orange-700',
 ];
@@ -77,10 +84,7 @@ export function SessionDetail({ session }) {
       <h2 className="text-2xl font-semibold">{session.goal}</h2>
       <p className="mt-2 text-sm text-slate-600">
         {session.complete ? 'Closed' : 'Open'} · Started {formatStarted(session.createdAt)} ·
-        Duration{' '}
-        {session.createdAtSource && !session.complete
-          ? elapsed(session.createdAt)
-          : session.duration}
+        Duration {sessionDuration(session)}
       </p>
       <h3 className="mt-6 text-lg font-semibold">Plan</h3>
       <ol className="mt-2 list-decimal space-y-1 pl-5">

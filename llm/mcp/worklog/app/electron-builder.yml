@@ -1,0 +1,23 @@
+appId: com.configfiles.worklog
+productName: Worklog Viewer
+electronVersion: 44.5.1
+directories:
+  app: .
+  output: release
+files:
+  - app/dist/**
+  - app/src/mcp/**
+  - electron/**
+  - src/**
+  - package.json
+mac:
+  target:
+    - dmg
+    - zip
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  category: Utility
+  artifactName: ${productName}-${version}-${arch}.${ext}

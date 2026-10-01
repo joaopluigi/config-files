@@ -221,15 +221,18 @@ describe('WorklogViewerScreen', () => {
   });
 
   it('loads and renders a session', async () => {
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-30T17:00:00Z'));
     render(<WorklogViewerScreen fetcher={vi.fn().mockResolvedValue(data)} />);
     expect(screen.getByRole('status')).toHaveTextContent('Loading');
     await waitFor(() => expect(screen.getAllByText('Inspect')).not.toHaveLength(0));
+    nowSpy.mockRestore();
   });
   it('shows errors', async () => {
     render(<WorklogViewerScreen fetcher={vi.fn().mockRejectedValue(new Error('offline'))} />);
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('offline'));
   });
   it('does not repeatedly fetch on the production default path', async () => {
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-30T17:00:00Z'));
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify(data), {
         status: 200,
@@ -246,6 +249,7 @@ describe('WorklogViewerScreen', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     vi.unstubAllGlobals();
+    nowSpy.mockRestore();
   });
   it('matches the open session view snapshot', async () => {
     const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-30T17:25:22Z'));
@@ -271,9 +275,11 @@ describe('WorklogViewerScreen', () => {
     );
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
     expect(source.addEventListener).toHaveBeenCalledWith('revision', expect.any(Function));
-    source.listeners.revision({ data: JSON.stringify({ revision: 2 }) });
-    source.listeners.revision({ data: JSON.stringify({ revision: 2 }) });
-    source.listeners.revision({ data: JSON.stringify({ revision: 1 }) });
+    await act(async () => {
+      source.listeners.revision({ data: JSON.stringify({ revision: 2 }) });
+      source.listeners.revision({ data: JSON.stringify({ revision: 2 }) });
+      source.listeners.revision({ data: JSON.stringify({ revision: 1 }) });
+    });
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
   });
 
@@ -295,10 +301,14 @@ describe('WorklogViewerScreen', () => {
       />,
     );
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
-    source.listeners.revision({ data: JSON.stringify({ revision: 1 }) });
+    await act(async () => {
+      source.listeners.revision({ data: JSON.stringify({ revision: 1 }) });
+    });
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
-    source.listeners.revision({ data: JSON.stringify({ revision: 2 }) });
-    source.listeners.revision({ data: JSON.stringify({ revision: 3 }) });
+    await act(async () => {
+      source.listeners.revision({ data: JSON.stringify({ revision: 2 }) });
+      source.listeners.revision({ data: JSON.stringify({ revision: 3 }) });
+    });
     expect(fetcher).toHaveBeenCalledTimes(2);
     await act(async () => resolveSecond(data));
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(3));
@@ -330,6 +340,7 @@ describe('WorklogViewerScreen', () => {
   });
 
   it('preserves a selected session when refreshed data still contains it', async () => {
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-30T17:00:00Z'));
     const first = {
       sessions: [
         data.sessions[0],
@@ -354,6 +365,7 @@ describe('WorklogViewerScreen', () => {
     });
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
     expect(screen.getByRole('button', { name: /Second/ })).toHaveAttribute('aria-pressed', 'true');
+    nowSpy.mockRestore();
   });
 
   it('removes an expired mounted session and falls back without refreshing data', async () => {

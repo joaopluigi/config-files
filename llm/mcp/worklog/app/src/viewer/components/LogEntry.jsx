@@ -41,7 +41,12 @@ function fileUrl(value, workingDirectory) {
   const homeRelative = normalized === '~' || normalized.startsWith('~/');
   const home = homeRelative ? deriveHome(workingDirectory) : null;
   if (homeRelative && !home) return null;
-  if (!homeRelative && !workingDirectory && !normalized.startsWith('/') && !/^[a-z]:\//i.test(normalized))
+  if (
+    !homeRelative &&
+    !workingDirectory &&
+    !normalized.startsWith('/') &&
+    !/^[a-z]:\//i.test(normalized)
+  )
     return null;
   const base = homeRelative
     ? `${home}${normalized.slice(1)}`
@@ -66,24 +71,59 @@ function fileUrl(value, workingDirectory) {
 
 function sourceUrls(message, workingDirectory) {
   const sources = [];
-  const pattern = /(?:^|[\s;—]|\\n)src:\s*([^\s;—]+?)(?=\\n|[\s;—]|$)/g;
+  const removals = [];
+  const pattern = /(?:^|[\s—]|\\n)src:\s*/g;
   for (const match of message.matchAll(pattern)) {
-    const raw = match[1].replace(/[.,!?;:]+$/, '');
-    let href = null;
-    try {
-      const url = new URL(raw);
-      if ((url.protocol === 'http:' || url.protocol === 'https:') && url.hostname) href = url.href;
-    } catch {
-      href = fileUrl(raw, workingDirectory);
+    if (message.slice(0, match.index).match(/;\s*$/)) continue;
+    const declarationStart = match.index + match[0].indexOf('src:');
+    const remainder = message.slice(declarationStart + 4);
+    const boundaries = ['\n', '\\n', '—']
+      .map((delimiter) => remainder.indexOf(delimiter))
+      .filter((index) => index !== -1);
+    const boundary = boundaries.length > 0 ? Math.min(...boundaries) : -1;
+    const declaration = boundary === -1 ? remainder : remainder.slice(0, boundary);
+    const hasList = declaration.includes(';');
+    const candidates = hasList ? declaration.split(';') : [declaration.trim().split(/\s+/, 1)[0]];
+    const parsed = [];
+    for (const candidate of candidates) {
+      const raw = candidate
+        .trim()
+        .replace(/^src:\s*/i, '')
+        .replace(/[.,!?;:]+$/, '');
+      if (!raw) continue;
+      let href = null;
+      if (!/\s/.test(raw)) {
+        try {
+          const url = new URL(raw);
+          if ((url.protocol === 'http:' || url.protocol === 'https:') && url.hostname)
+            href = url.href;
+        } catch {
+          href = fileUrl(raw, workingDirectory);
+        }
+        if (!href) href = fileUrl(raw, workingDirectory);
+      }
+      if (href || (hasList && /\s/.test(raw))) parsed.push({ label: raw, href });
     }
-    if (!href) href = fileUrl(raw, workingDirectory);
-    if (href) sources.push({ label: raw, href });
+    if (parsed.length > 0) {
+      sources.push(...parsed);
+      const token = declaration.trim().split(/\s+/, 1)[0];
+      let removalEnd = hasList
+        ? declarationStart + 4 + declaration.length
+        : declarationStart + 4 + declaration.indexOf(token) + token.length;
+      removals.push([match.index, removalEnd]);
+    }
   }
-  return sources;
+  return { sources, removals };
 }
 
 export function LogEntry({ entry, color, workingDirectory }) {
-  const sources = sourceUrls(entry.message, workingDirectory);
+  const { sources, removals } = sourceUrls(entry.message, workingDirectory);
+  let displayMessage = entry.message;
+  if (sources.length > 0) {
+    for (const [start, end] of removals.toReversed()) {
+      displayMessage = `${displayMessage.slice(0, start)}${displayMessage.slice(end)}`.trim();
+    }
+  }
   return (
     <li className="rounded-md border border-slate-200 bg-slate-50 p-4">
       <div className="metadata-grid grid grid-cols-1 gap-2 sm:grid-cols-[auto_minmax(0,auto)_auto_minmax(0,1fr)] sm:items-center">
@@ -103,23 +143,29 @@ export function LogEntry({ entry, color, workingDirectory }) {
         </span>
       </div>
       <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-slate-800">
-        {entry.message}
+        {displayMessage}
       </p>
       {sources.length > 0 && (
         <div className="mt-3 border-t border-slate-200 pt-3 text-sm">
           <span className="font-medium text-slate-700">Sources:</span>{' '}
           <span className="flex flex-wrap gap-x-3 gap-y-1">
-            {sources.map(({ label, href }) => (
-              <a
-                className="break-all text-blue-700 underline"
-                href={href}
-                key={`${label}-${href}`}
-                rel="noreferrer noopener"
-                target="_blank"
-              >
-                {label}
-              </a>
-            ))}
+            {sources.map(({ label, href }) =>
+              href ? (
+                <a
+                  className="break-all text-blue-700 underline"
+                  href={href}
+                  key={`${label}-${href}`}
+                  rel="noreferrer noopener"
+                  target="_blank"
+                >
+                  {label}
+                </a>
+              ) : (
+                <span className="break-all" key={label}>
+                  {label}
+                </span>
+              ),
+            )}
           </span>
         </div>
       )}

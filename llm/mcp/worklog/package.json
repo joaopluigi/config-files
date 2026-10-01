@@ -1,13 +1,37 @@
 {
   "name": "config-files-worklog-mcp",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "electron/main.mjs",
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run format:check && npm run lint && npm test"
+    "check": "npm run format:check && npm run lint && npm test",
+    "electron:build": "npm --prefix app run build",
+    "electron:dist": "npm --prefix app run dist:electron"
+  },
+  "build": {
+    "appId": "com.configfiles.worklog",
+    "productName": "Worklog Viewer",
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",

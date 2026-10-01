@@ -68,7 +68,7 @@ describe('SessionDetail', () => {
 
   it('shows a live elapsed snapshot for an open session', () => {
     vi.setSystemTime(new Date('2026-09-30T11:01:02Z'));
-    render(<SessionDetail session={session} />);
+    render(<SessionDetail session={{ ...session, duration: undefined }} />);
     expect(screen.getByText(/Duration 1h 1m 2s/)).toBeInTheDocument();
     vi.useRealTimers();
   });
@@ -169,7 +169,7 @@ describe('SessionDetail', () => {
       time: '14:26:32',
       actor: 'orchestrator',
       tag: 'progress',
-      message: 'See src: https://example.com/a and src:http://example.test/b',
+      message: 'See src: https://example.com/a; src:http://example.test/b',
     };
     render(<SessionDetail session={{ ...session, entries: [entry] }} />);
 
@@ -462,7 +462,13 @@ describe('SessionDetail', () => {
         session={{
           ...session,
           entries: [
-            { time: 'now', actor: 'a', tag: 'find', item: 1, message: 'src: file:///tmp/%2e%2e/etc/passwd' },
+            {
+              time: 'now',
+              actor: 'a',
+              tag: 'find',
+              item: 1,
+              message: 'src: file:///tmp/%2e%2e/etc/passwd',
+            },
           ],
         }}
       />,
@@ -482,7 +488,7 @@ describe('SessionDetail', () => {
         }}
       />,
     );
-    expect(screen.getByRole('listitem').querySelector('p')).toHaveTextContent(/src: C:/);
+    expect(screen.getByRole('listitem').querySelector('p')).not.toHaveTextContent(/src: C:/);
     expect(screen.getByRole('link', { name: /C:\\\\work/ })).toHaveAttribute(
       'href',
       'file:///C:/work/file.txt',

@@ -13,7 +13,7 @@ A worklog is the agent's incremental working notebook or execution diary for a t
 
 Create one session with a goal, done condition, and plan steps. Use the agent that happens to call the tool as `actor` . The server creates the session, IDs, paths, capability tokens, and peer logs. Never invent any of them.
 
-> When working in the same session, check its status before deciding whether to reuse it or create a new session.
+> When working in the same session, check its status before deciding whether to reuse it or create a new session. If you create a new one, ensure the previous is closed or replaced. This keeps the worklog history clean.
 
 The session token is for the main log and authorized session-owner inspection. Preserve the returned IDs and tokens exactly.
 
@@ -38,7 +38,7 @@ Every entry must be associated with a tag that describes its purpose:
 
 ## When working with subagents (peers)
 
-Whenever a session coordinates delegated participants, the session owner creates one peer log per participant, records the participant's actor explicitly, passes the exact server-returned payload and the `actor` is the subagent being spwaned. The owner must instruct the participant to read its supplied peer worklog and load the worklog skill before executing any substantive step, then use all five values verbatim for every operation, must not use a parent token, and must not create or recreate another worklog or invent any identifier or path. The delegated prompt must identify these values as the server-created peer worklog context.
+Whenever a session coordinates delegated participants, the session owner creates one peer log per participant, records the participant's actor explicitly, passes the exact server-returned payload and the `actor` is the subagent being spwaned. The owner must instruct the participant to read its supplied peer worklog and load the worklog skill before executing any substantive step, then use all five values verbatim for every operation, must not use a parent token, and must not create or recreate another worklog or invent any identifier or path. The delegated prompt must identify these values as the server-created peer worklog context. Instruct the peer to stop immediately if they are unable to access or update their worklog.
 
 > For an interrupted participant, replace the worklog peer with a new authorized peer linked to the predecessor, never reuse the predecessor token, pass the new peer context and continuation reason to the replacement, and preserve old peer history.
 
