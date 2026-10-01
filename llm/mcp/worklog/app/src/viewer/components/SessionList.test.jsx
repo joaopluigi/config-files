@@ -33,6 +33,24 @@ describe('SessionList', () => {
     expect(openCard).not.toHaveTextContent('unavailable (log timestamps are time-only)');
   });
 
+  it('uses browser-local calendar semantics for ISO-backed dates', () => {
+    vi.stubEnv('TZ', 'America/Los_Angeles');
+    const createdAt = '2026-10-01T00:30:00.000Z';
+    const localDate = new Date(createdAt);
+    const expected = `${localDate.getDate()} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][localDate.getMonth()]} ${localDate.getFullYear()}`;
+
+    render(
+      <SessionList
+        sessions={[{ ...sessions[0], createdAt }]}
+        selectedId="open-id"
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /Primary goal/ })).toHaveTextContent(expected);
+    vi.unstubAllEnvs();
+  });
+
   it('renders the compact working-directory label on the left and date on the right above the goal', () => {
     render(
       <SessionList

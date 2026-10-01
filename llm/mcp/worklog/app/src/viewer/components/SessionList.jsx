@@ -4,10 +4,21 @@ import { elapsed, hasValidCreatedAt } from './elapsed.js';
 function formatSessionDate(createdAt) {
   if (!hasValidCreatedAt(createdAt)) return null;
   const date = new Date(createdAt);
-  const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][
-    date.getUTCMonth()
-  ];
-  return `${date.getUTCDate()} ${month} ${date.getUTCFullYear()}`;
+  const month = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ][date.getMonth()];
+  return `${date.getDate()} ${month} ${date.getFullYear()}`;
 }
 
 function compactWorkingDirectory(directory) {

@@ -355,4 +355,146 @@ describe('WorklogViewerScreen', () => {
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
     expect(screen.getByRole('button', { name: /Second/ })).toHaveAttribute('aria-pressed', 'true');
   });
+
+  it('removes an expired mounted session and falls back without refreshing data', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-01T12:00:00.000Z'));
+    const expiring = {
+      ...data.sessions[0],
+      orchestrationId: 'expiring',
+      goal: 'Expiring',
+      createdAt: '2026-09-30T12:00:01.000Z',
+    };
+    const remaining = {
+      ...data.sessions[0],
+      orchestrationId: 'remaining',
+      goal: 'Remaining',
+      createdAt: '2026-10-01T11:59:00.000Z',
+    };
+    const fetcher = vi.fn().mockResolvedValue({ sessions: [expiring, remaining] });
+    render(
+      <WorklogViewerScreen fetcher={fetcher} eventSourceFactory={() => createEventSource()} />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('button', { name: /Expiring/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1001);
+    });
+
+    expect(screen.queryByRole('button', { name: /Expiring/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Remaining/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it('keeps the inclusive cutoff, reschedules on filter changes, and avoids a cutoff timer for all-time', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-01T12:00:00.000Z'));
+    const fetcher = vi.fn().mockResolvedValue({
+      sessions: [
+        {
+          ...data.sessions[0],
+          orchestrationId: 'at-cutoff',
+          goal: 'At cutoff',
+          createdAt: '2026-09-30T12:00:00.000Z',
+        },
+        {
+          ...data.sessions[0],
+          orchestrationId: 'before-cutoff',
+          goal: 'Before cutoff',
+          createdAt: '2026-09-30T11:59:59.999Z',
+        },
+      ],
+    });
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    render(
+      <WorklogViewerScreen fetcher={fetcher} eventSourceFactory={() => createEventSource()} />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('button', { name: /At cutoff/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Before cutoff/ })).not.toBeInTheDocument();
+    setTimeoutSpy.mockClear();
+
+    await chooseOption('Date', 'All-time');
+    expect(screen.getByRole('button', { name: /Before cutoff/ })).toBeInTheDocument();
+    expect(setTimeoutSpy).not.toHaveBeenCalled();
+    setTimeoutSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it('cleans up the cutoff timer on unmount', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-30T12:00:00.000Z'));
+    const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
+    const fetcher = vi.fn().mockResolvedValue({
+      sessions: [{ ...data.sessions[0], createdAt: '2026-09-30T10:00:00.000Z' }],
+    });
+    const { unmount } = render(
+      <WorklogViewerScreen fetcher={fetcher} eventSourceFactory={() => createEventSource()} />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    unmount();
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    clearTimeoutSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it('resyncs session visibility when the window regains focus', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-30T12:00:00.000Z'));
+    const fetcher = vi.fn().mockResolvedValue({
+      sessions: [{ ...data.sessions[0], createdAt: '2026-09-30T10:00:00.000Z' }],
+    });
+    render(
+      <WorklogViewerScreen fetcher={fetcher} eventSourceFactory={() => createEventSource()} />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('button', { name: /Inspect/ })).toBeInTheDocument();
+
+    vi.setSystemTime(new Date('2026-10-01T12:00:00.000Z'));
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+    });
+
+    expect(screen.queryByRole('button', { name: /Inspect/ })).not.toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it('resyncs session visibility when the document becomes visible', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-30T12:00:00.000Z'));
+    const fetcher = vi.fn().mockResolvedValue({
+      sessions: [{ ...data.sessions[0], createdAt: '2026-09-30T10:00:00.000Z' }],
+    });
+    render(
+      <WorklogViewerScreen fetcher={fetcher} eventSourceFactory={() => createEventSource()} />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('button', { name: /Inspect/ })).toBeInTheDocument();
+
+    vi.setSystemTime(new Date('2026-10-01T12:00:00.000Z'));
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    expect(screen.queryByRole('button', { name: /Inspect/ })).not.toBeInTheDocument();
+    vi.useRealTimers();
+  });
 });
