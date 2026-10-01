@@ -1,15 +1,17 @@
 {
   "name": "worklog-viewer",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "../electron/main.mjs",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "viewer": "vite --host 127.0.0.1 --port 4173",
     "build": "vite build",
     "test": "vitest run",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "electron": "electron ../electron/main.mjs",
+    "dist:electron": "npm run build && electron-builder --config \"$PWD/electron-builder.yml\" --projectDir \"$PWD/..\""
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
@@ -18,6 +20,8 @@
     "vite": "latest"
   },
   "devDependencies": {
+    "electron": "latest",
+    "electron-builder": "latest",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/jest-dom": "latest",
     "@testing-library/react": "latest",

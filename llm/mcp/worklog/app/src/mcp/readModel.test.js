@@ -15,6 +15,21 @@ describe('read model', () => {
     expect(parseEntries('12:00:01 #1 executor progress hello')).toEqual([
       { time: '12:00:01', item: 1, actor: 'executor', tag: 'progress', message: 'hello' },
     ]));
+  it('parses ISO-8601 entries and preserves mixed-format input order', () =>
+    expect(
+      parseEntries(
+        '2026-09-30T23:59:59.900Z #1 executor progress legacy-compatible\n00:00:01 #2 executor progress time-only',
+      ),
+    ).toEqual([
+      {
+        time: '2026-09-30T23:59:59.900Z',
+        item: 1,
+        actor: 'executor',
+        tag: 'progress',
+        message: 'legacy-compatible',
+      },
+      { time: '00:00:01', item: 2, actor: 'executor', tag: 'progress', message: 'time-only' },
+    ]));
   it('parses persisted peer plan and log entries', () => {
     expect(
       parsePeerWorklog(
@@ -63,13 +78,10 @@ describe('read model', () => {
   });
   it('does not let a close or lifecycle marker extend closed duration', () => {
     expect(
-      durationValue(
-        '2026-09-30T11:20:00Z',
-        [
-          { time: '11:28:04', tag: 'progress' },
-          { time: '11:40:00', tag: 'done' },
-        ],
-      ),
+      durationValue('2026-09-30T11:20:00Z', [
+        { time: '11:28:04', tag: 'progress' },
+        { time: '11:40:00', tag: 'done' },
+      ]),
     ).toBe('0h 8m 4s');
   });
   it('ignores invalid entries before the latest valid main or peer entry', () => {
@@ -92,6 +104,11 @@ describe('read model', () => {
   });
   it('anchors earlier time-only entries to the next date across midnight', () => {
     expect(durationValue('2026-09-30T23:59:00Z', [{ time: '00:01:00' }])).toBe('0h 2m 0s');
+  });
+  it('calculates exact duration from ISO timestamps across timezone and midnight boundaries', () => {
+    expect(
+      durationValue('2026-09-30T23:59:30.000Z', [{ time: '2026-10-01T01:00:00.250+01:00' }]),
+    ).toBe('0h 0m 30s');
   });
   it('does not infer legacy peer duration from birthtime and time-only entries', () => {
     expect(

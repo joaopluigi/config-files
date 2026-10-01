@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { worklogApiHandler } from '../../vite.config.js';
+import { worklogApiHandler } from './api.js';
 
 function responseFor(url, method = 'GET') {
   const headers = {};

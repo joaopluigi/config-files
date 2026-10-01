@@ -30,11 +30,17 @@ async function fingerprint() {
       values.push(`${session.name}:d`);
       const entries = await readdir(sessionPath, { withFileTypes: true });
       for (const entry of entries) {
-        if (entry.isDirectory() || (entry.name !== 'session.json' && !sessionFilePattern.test(entry.name))) continue;
+        if (
+          entry.isDirectory() ||
+          (entry.name !== 'session.json' && !sessionFilePattern.test(entry.name))
+        )
+          continue;
         const path = `${sessionPath}/${entry.name}`;
         try {
           const info = await stat(path);
-          values.push(`${session.name}/${entry.name}:f:${info.mtimeMs}:${info.ctimeMs}:${info.size}`);
+          values.push(
+            `${session.name}/${entry.name}:f:${info.mtimeMs}:${info.ctimeMs}:${info.size}`,
+          );
         } catch {
           // A concurrent file creation/removal is reconciled on the next pass.
         }
