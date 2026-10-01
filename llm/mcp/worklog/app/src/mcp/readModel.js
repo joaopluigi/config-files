@@ -90,20 +90,22 @@ function entryTimeValue(time, createdAt) {
 export function durationValue(createdAt, entries = [], peers = [], completedAt) {
   const started = Date.parse(createdAt);
   if (!Number.isFinite(started)) return 'unavailable (log timestamps are time-only)';
-  const completed = Date.parse(completedAt);
-  const allEntries = [
-    ...(Array.isArray(entries) ? entries : []),
+  const logs = [
+    Array.isArray(entries) ? entries : [],
     ...(Array.isArray(peers)
-      ? peers.flatMap((peer) => (Array.isArray(peer.entries) ? peer.entries : []))
+      ? peers.map((peer) => (Array.isArray(peer.entries) ? peer.entries : []))
       : []),
   ];
+  const allEntries = logs.flatMap((log) => {
+    const lastIndex = log.length - 1;
+    return log.filter((entry, index) => !(index === lastIndex && entry?.tag === 'done'));
+  });
   const latest = allEntries
     .map((entry) => entryTimeValue(entry?.time, createdAt))
     .filter(Number.isFinite)
     .reduce((latestTime, entryTime) => Math.max(latestTime, entryTime), -Infinity);
-  const end = Number.isFinite(completed) ? completed : latest;
-  if (!Number.isFinite(end)) return 'unavailable (log timestamps are time-only)';
-  const seconds = Math.max(0, Math.floor((end - started) / 1000));
+  if (!Number.isFinite(latest)) return 'unavailable (log timestamps are time-only)';
+  const seconds = Math.max(0, Math.floor((latest - started) / 1000));
   return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m ${seconds % 60}s`;
 }
 
