@@ -1,8 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFile as execFileCallback } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, readdir, utimes } from 'node:fs/promises';
+import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+const execFile = promisify(execFileCallback);
 
 const root = await mkdtemp(join(tmpdir(), 'worklog-auth-'));
 process.env.WORKLOG_DIR = root;
@@ -44,6 +48,143 @@ test('session lineage rejects incomplete metadata before creating artifacts', as
   assert.equal(followup.predecessorOrchestrationId, predecessor.orchestrationId);
   assert.equal(followup.continuationReason, 'continue open work');
   assert.doesNotMatch(JSON.stringify(followup), new RegExp(predecessor.capabilityToken));
+});
+
+test('continuation successor creation failure leaves predecessor open and creates no partial successor', async () => {
+  const predecessor = await createSession('orchestrator', 'first', 'done', ['step']);
+  const beforeEntries = await readdir(root);
+  const before = await readFile(predecessor.path, 'utf8');
+  const failingSteps = ['step'];
+  failingSteps.map = () => {
+    throw new Error('successor artifact construction failed');
+  };
+  await assert.rejects(
+    () =>
+      createSession(
+        'orchestrator',
+        'follow-up',
+        'done',
+        failingSteps,
+        predecessor.orchestrationId,
+        'continue after failure',
+      ),
+    /successor artifact construction failed/,
+  );
+  assert.equal(await readFile(predecessor.path, 'utf8'), before);
+  assert.deepEqual(await readdir(root), beforeEntries);
+});
+
+test('continuation closes each open predecessor item once with the exact reason', async () => {
+  const predecessor = await createSession('orchestrator', 'first', 'done', ['one', 'two']);
+  const followup = await createSession(
+    'orchestrator',
+    'follow-up',
+    'done',
+    ['step'],
+    predecessor.orchestrationId,
+    'continue exactly as stated',
+  );
+  const content = await readFile(predecessor.path, 'utf8');
+  assert.equal((content.match(/ done continue exactly as stated/g) || []).length, 2);
+  assert.match(content, /#1 orchestrator done continue exactly as stated/);
+  assert.match(content, /#2 orchestrator done continue exactly as stated/);
+  const second = await createSession(
+    'orchestrator',
+    'second follow-up',
+    'done',
+    ['step'],
+    predecessor.orchestrationId,
+    'do not duplicate',
+  );
+  assert.equal(second.predecessorOrchestrationId, predecessor.orchestrationId);
+  assert.equal((await readFile(predecessor.path, 'utf8')).match(/do not duplicate/g), null);
+  assert.notEqual(followup.orchestrationId, second.orchestrationId);
+});
+
+test('concurrent continuations publish one successor and one continuation reason', async () => {
+  const before = await readdir(root);
+  const predecessor = await createSession('orchestrator', 'first', 'done', ['one', 'two']);
+  const results = await Promise.allSettled([
+    createSession('orchestrator', 'winner', 'done', ['step'], predecessor.orchestrationId, 'winner reason'),
+    createSession('orchestrator', 'loser', 'done', ['step'], predecessor.orchestrationId, 'loser reason'),
+  ]);
+  assert.equal(results.filter(({ status }) => status === 'fulfilled').length, 1);
+  assert.equal(results.filter(({ status }) => status === 'rejected').length, 1);
+  assert.match(results.find(({ status }) => status === 'rejected').reason.message, /already in progress/);
+  const successors = (await readdir(root)).filter(
+    (entry) => !before.includes(entry) && entry !== predecessor.orchestrationId,
+  );
+  assert.equal(successors.length, 1);
+  const content = await readFile(predecessor.path, 'utf8');
+  assert.equal((content.match(/winner reason/g) || []).length, 2);
+  assert.equal((content.match(/loser reason/g) || []).length, 0);
+});
+
+test('separate processes publish one continuation successor and cleanly reject the loser', async () => {
+  const before = await readdir(root);
+  const predecessor = await createSession('orchestrator', 'first', 'done', ['one', 'two']);
+  const script = `
+    import { createSession } from './src/storage/repository.mjs';
+    try {
+      const result = await createSession('orchestrator', process.argv[1], 'done', ['step'], process.argv[2], process.argv[3]);
+      console.log(JSON.stringify({ ok: true, result }));
+    } catch (error) {
+      console.log(JSON.stringify({ ok: false, error: error.message }));
+      process.exitCode = 1;
+    }
+  `;
+  const args = [
+    '--input-type=module',
+    '-e',
+    script,
+    'winner-or-loser',
+    predecessor.orchestrationId,
+    'cross-process reason',
+  ];
+  const results = await Promise.all(
+    ['first process', 'second process'].map(async (goal) => {
+      try {
+        const { stdout } = await execFile(process.execPath, args.map((arg) => (arg === 'winner-or-loser' ? goal : arg)), {
+          cwd: new URL('..', import.meta.url),
+          env: { ...process.env, WORKLOG_DIR: root },
+        });
+        return JSON.parse(stdout.trim());
+      } catch (error) {
+        return JSON.parse(error.stdout.trim());
+      }
+    }),
+  );
+  assert.equal(results.filter(({ ok }) => ok).length, 1);
+  assert.equal(results.filter(({ ok }) => !ok).length, 1);
+  assert.match(results.find(({ ok }) => !ok).error, /already in progress/);
+  const successors = (await readdir(root)).filter(
+    (entry) => !before.includes(entry) && entry !== predecessor.orchestrationId,
+  );
+  assert.equal(successors.length, 1);
+  const content = await readFile(predecessor.path, 'utf8');
+  assert.equal((content.match(/cross-process reason/g) || []).length, 2);
+});
+
+test('continuation rejects unresolved linked predecessor questions', async () => {
+  const predecessor = await createSession('orchestrator', 'first', 'done', ['step']);
+  const registryPath = join(root, predecessor.orchestrationId, 'session.json');
+  const registry = JSON.parse(await readFile(registryPath, 'utf8'));
+  registry.questions.question1 = { answered: false };
+  await import('node:fs/promises').then(({ writeFile }) =>
+    writeFile(registryPath, JSON.stringify(registry, null, 2)),
+  );
+  await assert.rejects(
+    () =>
+      createSession(
+        'orchestrator',
+        'follow-up',
+        'done',
+        ['step'],
+        predecessor.orchestrationId,
+        'blocked by question',
+      ),
+    /unresolved linked questions/,
+  );
 });
 
 test('session and peer capabilities enforce ownership and registered peers', async () => {
