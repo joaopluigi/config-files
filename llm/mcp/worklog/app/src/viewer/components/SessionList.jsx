@@ -1,6 +1,22 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { elapsed, hasValidCreatedAt } from './elapsed.js';
 
+function formatSessionDate(createdAt) {
+  if (!hasValidCreatedAt(createdAt)) return null;
+  const date = new Date(createdAt);
+  const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][
+    date.getUTCMonth()
+  ];
+  return `${date.getUTCDate()} ${month} ${date.getUTCFullYear()}`;
+}
+
+function compactWorkingDirectory(directory) {
+  if (typeof directory !== 'string' || !directory.trim()) return null;
+  const segments = directory.split(/[\\/]+/).filter(Boolean);
+  if (!segments.length) return null;
+  return segments.slice(-2).join('/');
+}
+
 export function SessionList({ sessions, selectedId, onSelect }) {
   const [, tick] = useState(0);
   const [enteringIds, setEnteringIds] = useState(new Set());
@@ -103,9 +119,19 @@ export function SessionList({ sessions, selectedId, onSelect }) {
             aria-pressed={selectedId === session.orchestrationId}
             onClick={() => onSelect(session.orchestrationId)}
           >
-            <strong className="block text-base font-semibold text-slate-800">{session.goal}</strong>
+            <span className="flex items-start justify-between gap-3 text-xs font-medium text-slate-500">
+              <span className="min-w-0 truncate">
+                {compactWorkingDirectory(session.workingDirectory) ?? null}
+              </span>
+              {formatSessionDate(session.createdAt) ? (
+                <span className="shrink-0">{formatSessionDate(session.createdAt)}</span>
+              ) : null}
+            </span>
+            <strong className="mt-1 block min-w-0 text-center text-base font-semibold text-slate-800">
+              {session.goal}
+            </strong>
             <span className="sr-only">{session.complete ? 'Closed session' : 'Open session'}</span>
-            <span className="mt-1 flex items-center gap-2 text-sm text-slate-600">
+            <span className="mt-1 flex items-center justify-center gap-2 text-center text-sm text-slate-600">
               <span
                 aria-hidden="true"
                 className={`h-2 w-2 shrink-0 rounded-full ${

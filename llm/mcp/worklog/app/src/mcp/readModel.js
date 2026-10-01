@@ -8,6 +8,12 @@ import {
 } from '../../../src/storage/repository.mjs';
 import { validateId } from '../../../src/domain/worklog.mjs';
 
+export function parseWorkingDirectory(content) {
+  const match = content.match(/^working directory: (.+)$/m);
+  const directory = match?.[1]?.trim();
+  return directory || undefined;
+}
+
 export function parseEntries(content) {
   return content
     .split('\n')
@@ -150,9 +156,11 @@ export async function readWorklogs() {
           };
         }),
       );
-      const entries = parseEntries(await readFile(mainPath(session.orchestrationId), 'utf8'));
+      const mainContent = await readFile(mainPath(session.orchestrationId), 'utf8');
+      const entries = parseEntries(mainContent);
       return {
         orchestrationId: session.orchestrationId,
+        workingDirectory: parseWorkingDirectory(mainContent),
         actor: session.actor,
         goal: session.goal,
         done: session.done,

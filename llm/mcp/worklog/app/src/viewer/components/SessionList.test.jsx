@@ -22,6 +22,57 @@ const sessions = [
 ];
 
 describe('SessionList', () => {
+  it('renders the deterministic date-only label for valid createdAt values', () => {
+    render(<SessionList sessions={sessions} selectedId="open-id" onSelect={vi.fn()} />);
+
+    const openCard = screen.getByRole('button', { name: /Primary goal/ });
+    const closedCard = screen.getByRole('button', { name: /Secondary goal/ });
+
+    expect(openCard).toHaveTextContent('30 Sep 2026');
+    expect(closedCard).toHaveTextContent('30 Sep 2026');
+    expect(openCard).not.toHaveTextContent('unavailable (log timestamps are time-only)');
+  });
+
+  it('renders the compact working-directory label on the left and date on the right above the goal', () => {
+    render(
+      <SessionList
+        sessions={[{ ...sessions[0], workingDirectory: '/Users/example/project' }]}
+        selectedId="open-id"
+        onSelect={vi.fn()}
+      />,
+    );
+
+    const card = screen.getByRole('button', { name: /Primary goal/ });
+    const topRow = card.querySelector('.flex.items-start.justify-between');
+
+    expect(topRow).toBeTruthy();
+    expect(topRow).toHaveTextContent('example/project');
+    expect(topRow).toHaveTextContent('30 Sep 2026');
+    expect(topRow.firstElementChild).toHaveTextContent('example/project');
+    expect(topRow.lastElementChild).toHaveTextContent('30 Sep 2026');
+    expect(topRow.nextElementSibling).toHaveTextContent('Primary goal');
+  });
+
+  it('centers the goal title and status metadata without changing top-row positioning', () => {
+    render(
+      <SessionList
+        sessions={[{ ...sessions[0], workingDirectory: '/Users/example/project' }]}
+        selectedId="open-id"
+        onSelect={vi.fn()}
+      />,
+    );
+
+    const card = screen.getByRole('button', { name: /Primary goal/ });
+    const topRow = card.querySelector('.flex.items-start.justify-between');
+    const goal = topRow.nextElementSibling;
+    const metadataRow = card.querySelector('.mt-1.flex');
+
+    expect(goal).toHaveClass('text-center');
+    expect(metadataRow).toHaveClass('text-center');
+    expect(topRow.firstElementChild).toHaveTextContent('example/project');
+    expect(topRow.lastElementChild).toHaveTextContent('30 Sep 2026');
+  });
+
   it('renders initial live duration and preserves card details', () => {
     vi.setSystemTime(new Date('2026-09-30T11:01:02Z'));
     const onSelect = vi.fn();
