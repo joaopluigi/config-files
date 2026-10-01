@@ -5,28 +5,25 @@ description: "Maintain an append-only worklog for any task."
 
 # Worklog
 
-A worklog is the agent's incremental working notebook or execution diary for a task.
-
-Use the worklog MCP tools for the full lifecycle. The server creates the session, IDs, paths, capability tokens, and peer logs. Never invent any of them.
+A worklog is the agent's incremental working notebook or execution diary for a task. Use the worklog MCP tools.
 
 ## Lifecycle
 
-1. Create one session with a goal, done condition, and plan steps.
-2. Append short entries with a positive plan item, valid actor, and valid tag.
-3. Close only after every plan item is done and every question is answered.
+### 1. Create
 
-The session must ALWAYS be closed!
+Create one session with a goal, done condition, and plan steps. Use the agent that happens to call the tool as `actor` . The server creates the session, IDs, paths, capability tokens, and peer logs. Never invent any of them.
 
 > When working in the same session, check its status before deciding whether to reuse it or create a new session.
 
-The server is append-only and rejects invalid actors, tags, items, unsourced `find` entries, unauthorized peers, duplicate answers, and invalid capability tokens. The session token is for the main log and authorized session-owner inspection. Preserve the returned IDs and tokens exactly.
+The session token is for the main log and authorized session-owner inspection. Preserve the returned IDs and tokens exactly.
 
-Other things to keep in mind:
+### 2. Record
 
-- Plan items are creation-time-only;
-- Closed items reject later entries; and
-- `actor` is the agent that happens to call the tool.
-- Completion does not change until all items are closed (must be closed in order #1, #2, ...).
+Append short entries with a positive plan item, valid actor, and valid tag. Entries must be logged in real time rather than batched. Tasks must be handled strictly in sequential order (e.g., complete all entries for #1 before proceeding to #2).
+
+### 3. Close
+
+Close only after every plan item is done and every question is answered. The session must always be closed.
 
 ## Entry tags
 
