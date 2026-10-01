@@ -11,16 +11,16 @@ test('appendEntries preserves input order and validates against progressive cont
   await writeFile(path, 'plan\n  1. first\n  2. second\n\n');
 
   const result = await appendEntries(path, 'executor', [
-    { item: 1, tag: 'note', message: 'first' },
-    { item: 2, tag: 'note', message: 'second' },
+    { item: 1, tag: 'progress', message: 'first' },
+    { item: 2, tag: 'progress', message: 'second' },
   ]);
 
   assert.equal(result.length, 2);
-  assert.match(result[0], /#1 executor note first$/);
-  assert.match(result[1], /#2 executor note second$/);
+  assert.match(result[0], /#1 executor progress first$/);
+  assert.match(result[1], /#2 executor progress second$/);
   assert.match(
     await readFile(path, 'utf8'),
-    /\n\d{2}:\d{2}:\d{2} #1 executor note first\n\d{2}:\d{2}:\d{2} #2 executor note second\n$/,
+    /\n\d{2}:\d{2}:\d{2} #1 executor progress first\n\d{2}:\d{2}:\d{2} #2 executor progress second\n$/,
   );
 });
 
@@ -32,8 +32,8 @@ test('appendEntries rejects a later invalid entry without changing the file', as
 
   await assert.rejects(
     appendEntries(path, 'executor', [
-      { item: 1, tag: 'note', message: 'valid first' },
-      { item: 99, tag: 'note', message: 'invalid second' },
+      { item: 1, tag: 'progress', message: 'valid first' },
+      { item: 99, tag: 'progress', message: 'invalid second' },
     ]),
     /unknown plan item: 99/,
   );
@@ -47,7 +47,7 @@ test('appendEntries requires one shared actor and a non-empty batch', async () =
 
   await assert.rejects(appendEntries(path, 'executor', []), /entries must not be empty/);
   await assert.rejects(
-    appendEntries(path, 'not-an-actor', [{ item: 1, tag: 'note', message: 'x' }]),
+    appendEntries(path, 'not-an-actor', [{ item: 1, tag: 'progress', message: 'x' }]),
     /invalid actor/,
   );
 });

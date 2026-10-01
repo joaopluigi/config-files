@@ -296,8 +296,8 @@ export function createServer() {
             pathFor(args.orchestrationId, args.peerId),
             args.item,
             args.actor,
-            'answer',
-            `[answer:${args.questionId} source=${question.targetPeerId ?? 'main'} target=${question.sourcePeerId ?? 'main'}] ${args.answer}`,
+            'progress',
+            `[response:${args.questionId} source=${question.targetPeerId ?? 'main'} target=${question.sourcePeerId ?? 'main'}] ${args.answer}`,
           );
           question.answered = true;
           await writeFile(registryPath(args.orchestrationId), JSON.stringify(registry, null, 2));

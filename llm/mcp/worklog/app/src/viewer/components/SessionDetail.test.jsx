@@ -110,7 +110,7 @@ describe('SessionDetail', () => {
           ...session,
           entries: [
             { time: '2026-09-30T10:02:00Z', actor: 'two', tag: 'done', message: 'second' },
-            { time: '2026-09-30T10:01:00Z', actor: 'one', tag: 'note', message: 'first' },
+            { time: '2026-09-30T10:01:00Z', actor: 'one', tag: 'progress', message: 'first' },
           ],
         }}
       />,
@@ -123,8 +123,8 @@ describe('SessionDetail', () => {
 
   it('keeps equal and invalid timestamps stable without mutating source entries', () => {
     const entries = [
-      { time: 'invalid', actor: 'first', tag: 'note', message: 'first' },
-      { time: 'invalid', actor: 'second', tag: 'note', message: 'second' },
+      { time: 'invalid', actor: 'first', tag: 'progress', message: 'first' },
+      { time: 'invalid', actor: 'second', tag: 'progress', message: 'second' },
     ];
     render(<SessionDetail session={{ ...session, entries }} />);
     const rendered = screen.getByRole('heading', { name: 'Log entries' }).nextElementSibling;
@@ -168,7 +168,7 @@ describe('SessionDetail', () => {
       item: 8,
       time: '14:26:32',
       actor: 'orchestrator',
-      tag: 'note',
+      tag: 'progress',
       message: 'See src: https://example.com/a and src:http://example.test/b',
     };
     render(<SessionDetail session={{ ...session, entries: [entry] }} />);
@@ -188,7 +188,7 @@ describe('SessionDetail', () => {
     const entry = {
       time: '14:26:32',
       actor: 'orchestrator',
-      tag: 'note',
+      tag: 'progress',
       message: 'See src: https://example.com/a.',
     };
     render(<SessionDetail session={{ ...session, entries: [entry] }} />);
@@ -203,7 +203,7 @@ describe('SessionDetail', () => {
     const entry = {
       time: '14:26:32',
       actor: 'orchestrator',
-      tag: 'note',
+      tag: 'progress',
       message:
         'src: https:// src: http:// src: javascript:alert(1) src: //example.com src: not-a-url <script>alert(1)</script>',
     };
@@ -216,7 +216,13 @@ describe('SessionDetail', () => {
 
   it('shows peer identity and goal in a clickable card and reveals the full worklog', () => {
     const peerEntries = [
-      { item: 3, time: '2026-09-30T10:03:00Z', actor: 'peer', tag: 'note', message: 'peer entry' },
+      {
+        item: 3,
+        time: '2026-09-30T10:03:00Z',
+        actor: 'peer',
+        tag: 'progress',
+        message: 'peer entry',
+      },
     ];
     render(
       <SessionDetail
@@ -264,7 +270,7 @@ describe('SessionDetail', () => {
       '2026-09-30T10:03:00Z',
       'peer',
       '#3',
-      'note',
+      'progress',
     ]);
     expect(panel.querySelector('.metadata-item')).toHaveTextContent('#3');
     expect(panel).toHaveTextContent('peer entry');

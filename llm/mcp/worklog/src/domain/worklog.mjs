@@ -10,16 +10,7 @@ export const actors = new Set([
   'researcher',
 ]);
 export const availableActors = () => [...actors].join(', ');
-export const tags = new Set([
-  'think',
-  'find',
-  'decide',
-  'done',
-  'plan',
-  'question',
-  'answer',
-  'note',
-]);
+export const tags = new Set(['think', 'find', 'decision', 'done', 'question', 'progress']);
 export const availableTags = () => [...tags].join(', ');
 
 export function validateActor(actor) {
@@ -63,7 +54,7 @@ export function completion(content, linkedQuestions = {}) {
     ),
   );
   const localAnswers = new Set(
-    [...content.matchAll(/^\S+ #\d+ \S+ answer \[answer:([^ ]+)/gm)].map(
+    [...content.matchAll(/^\S+ #\d+ \S+ progress \[response:([^ ]+)/gm)].map(
       ([, questionId]) => questionId,
     ),
   );
@@ -89,7 +80,7 @@ export function validateAppend(content, item, tag, allowUnreasonedDone = false) 
   if (tag === 'done') {
     const earlierOpen = planned.some((plannedItem) => plannedItem < item && !done.has(plannedItem));
     if (earlierOpen) throw new Error(`cannot close plan item out of order: ${item}`);
-    const reasoned = new Set([...entryItems(content, 'think'), ...entryItems(content, 'decide')]);
+    const reasoned = new Set([...entryItems(content, 'think'), ...entryItems(content, 'decision')]);
     if (!allowUnreasonedDone && !reasoned.has(item))
       throw new Error(`plan item requires prior reasoning: ${item}`);
   }
