@@ -81,7 +81,8 @@ export function SessionDetail({ session }) {
     <article className="rounded-lg bg-white p-6 shadow-sm">
       <h2 className="text-2xl font-semibold">{session.goal}</h2>
       <p className="mt-2 text-sm text-slate-600">
-        {session.complete ? 'Closed' : 'Open'} · Started {formatStarted(session.createdAt)}
+        {session.complete ? 'Closed' : 'Open'} · Started {formatStarted(session.createdAt)} ·
+        Duration {sessionDuration(session)}
       </p>
       <h3 className="mt-6 text-lg font-semibold">Plan</h3>
       <ol className="mt-2 list-decimal space-y-1 pl-5">

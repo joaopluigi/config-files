@@ -69,6 +69,7 @@ describe('SessionDetail', () => {
   it('shows a live elapsed snapshot for an open session', () => {
     vi.setSystemTime(new Date('2026-09-30T11:01:02Z'));
     render(<SessionDetail session={{ ...session, duration: undefined }} />);
+    expect(screen.getByText(/Duration 1h 1m 2s/)).toBeInTheDocument();
     vi.useRealTimers();
   });
 
