@@ -51,10 +51,26 @@ describe('read model', () => {
       ),
     ).toBe('0h 12m 5s');
   });
-  it('stops closed duration at the recorded completion time', () => {
+  it('ends closed duration at the latest meaningful entry, not later completedAt', () => {
     expect(
-      durationValue('2026-09-30T10:00:00Z', [{ time: '10:30:00' }], [], '2026-09-30T10:12:05Z'),
-    ).toBe('0h 12m 5s');
+      durationValue(
+        '2026-09-30T11:20:00Z',
+        [{ time: '11:28:04', tag: 'progress' }],
+        [],
+        '2026-09-30T11:40:00Z',
+      ),
+    ).toBe('0h 8m 4s');
+  });
+  it('does not let a close or lifecycle marker extend closed duration', () => {
+    expect(
+      durationValue(
+        '2026-09-30T11:20:00Z',
+        [
+          { time: '11:28:04', tag: 'progress' },
+          { time: '11:40:00', tag: 'done' },
+        ],
+      ),
+    ).toBe('0h 8m 4s');
   });
   it('ignores invalid entries before the latest valid main or peer entry', () => {
     expect(
