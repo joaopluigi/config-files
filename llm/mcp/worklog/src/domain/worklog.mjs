@@ -6,7 +6,6 @@ export const actors = new Set([
   'tester',
   'reviewer',
   'critic',
-  'maintainer',
   'researcher',
 ]);
 export const availableActors = () => [...actors].join(', ');
@@ -73,8 +72,6 @@ export function completion(content, linkedQuestions = {}) {
 export function validateAppend(content, item, tag, allowUnreasonedDone = false) {
   const planned = planItems(content);
   const done = entryItems(content, 'done');
-  if (tag === 'plan')
-    throw new Error('plan entries are only allowed during session or subagent creation');
   if (!planned.includes(item)) throw new Error(`unknown plan item: ${item}`);
   if (done.has(item)) throw new Error(`plan item already closed: ${item}`);
   if (tag === 'done') {

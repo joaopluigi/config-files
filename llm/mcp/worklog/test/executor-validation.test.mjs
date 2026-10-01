@@ -78,7 +78,7 @@ test('MCP session creation reports available actors for non-orchestrators', asyn
     assert.equal(response.result.isError, true);
     assert.equal(
       response.result.content[0].text,
-      'only orchestrator may create a session; available actors: orchestrator, investigator, ideator, executor, tester, reviewer, critic, maintainer, researcher',
+      'only orchestrator may create a session; available actors: orchestrator, investigator, ideator, executor, tester, reviewer, critic, researcher',
     );
   } finally {
     client.child.kill('SIGTERM');
@@ -134,7 +134,7 @@ test('MCP append reports invalid actors and available actors', async () => {
     assert.equal(response.result.isError, true);
     assert.equal(
       response.result.content[0].text,
-      'invalid actor "unknown"; available actors: orchestrator, investigator, ideator, executor, tester, reviewer, critic, maintainer, researcher',
+      'invalid actor "unknown"; available actors: orchestrator, investigator, ideator, executor, tester, reviewer, critic, researcher',
     );
   } finally {
     client.child.kill('SIGTERM');
@@ -195,7 +195,7 @@ test('MCP peer creation reports invalid actors and available actors', async () =
     assert.equal(response.result.isError, true);
     assert.equal(
       response.result.content[0].text,
-      'invalid actor "unknown"; available actors: orchestrator, investigator, ideator, executor, tester, reviewer, critic, maintainer, researcher',
+      'invalid actor "unknown"; available actors: orchestrator, investigator, ideator, executor, tester, reviewer, critic, researcher',
     );
   } finally {
     client.child.kill('SIGTERM');
@@ -781,7 +781,10 @@ test('MCP explicit session token reuses an incomplete session after discovery', 
     });
     assert.equal(reused.result.isError, undefined, JSON.stringify(reused));
     assert.equal(session.orchestrationId, candidate.orchestrationId);
-    assert.match(await readFile(session.path, 'utf8'), /orchestrator note reused after discovery/);
+    assert.match(
+      await readFile(session.path, 'utf8'),
+      /orchestrator progress reused after discovery/,
+    );
   } finally {
     client.child.kill('SIGTERM');
   }
