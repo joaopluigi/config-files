@@ -20,7 +20,7 @@ test('appendEntries preserves input order and validates against progressive cont
   assert.match(result[1], /#2 executor progress second$/);
   assert.match(
     await readFile(path, 'utf8'),
-    /\n\d{2}:\d{2}:\d{2} #1 executor progress first\n\d{2}:\d{2}:\d{2} #2 executor progress second\n$/,
+    /\n\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z #1 executor progress first\n\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z #2 executor progress second\n$/,
   );
 });
 

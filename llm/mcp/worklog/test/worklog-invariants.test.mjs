@@ -22,6 +22,10 @@ async function prepared(steps = ['step']) {
   return session;
 }
 
+function assertUtcIsoEntry(entry) {
+  assert.match(entry, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z #\d+ \w+ \w+ .+\n?$/);
+}
+
 test('main close waits for registry serialization', async () => {
   const session = await prepared();
   await appendEntry(session.path, 1, 'orchestrator', 'decision', 'ready');
@@ -44,7 +48,9 @@ test('main close waits for registry serialization', async () => {
     assert.equal(settled, false);
   });
 
-  assert.equal((await closing).closed, true);
+  const closed = await closing;
+  assert.equal(closed.closed, true);
+  assertUtcIsoEntry(closed.entry);
 });
 
 test('orchestrator is rejected as a peer without mutation', async () => {
@@ -140,7 +146,14 @@ test('replacement completes predecessor open items and leaves replacement usable
     'done',
     ['first', 'second'],
   );
-  await appendEntry(predecessor.path, 1, 'executor', 'think', 'reason about the interrupted work');
+  const predecessorEntry = await appendEntry(
+    predecessor.path,
+    1,
+    'executor',
+    'think',
+    'reason about the interrupted work',
+  );
+  assertUtcIsoEntry(predecessorEntry);
 
   const replacement = await replaceSubagent(
     session.orchestrationId,
@@ -160,7 +173,9 @@ test('replacement completes predecessor open items and leaves replacement usable
   );
   assert.match(
     predecessorContent,
-    new RegExp(`orchestrator done continuation moved to peer ${replacement.peerId}`),
+    new RegExp(
+      `\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z #2 orchestrator done continuation moved to peer ${replacement.peerId}`,
+    ),
   );
   assert.match(predecessorContent, /#2 orchestrator done/);
   await assert.rejects(
@@ -178,8 +193,22 @@ test('replacement completes predecessor open items and leaves replacement usable
     /already complete/,
   );
 
-  await appendEntry(replacement.path, 1, 'tester', 'think', 'continue the work');
-  await appendEntry(replacement.path, 1, 'tester', 'done', 'continued');
+  const replacementEntry = await appendEntry(
+    replacement.path,
+    1,
+    'tester',
+    'think',
+    'continue the work',
+  );
+  assertUtcIsoEntry(replacementEntry);
+  const replacementDoneEntry = await appendEntry(
+    replacement.path,
+    1,
+    'tester',
+    'done',
+    'continued',
+  );
+  assertUtcIsoEntry(replacementDoneEntry);
   assert.equal(
     (
       await sessionCompletion(

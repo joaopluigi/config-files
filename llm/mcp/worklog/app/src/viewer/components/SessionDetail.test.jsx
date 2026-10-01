@@ -61,22 +61,20 @@ describe('SessionDetail', () => {
 
     render(<SessionDetail session={session} />);
 
-    expect(screen.getByText(new RegExp(`Started ${expected} · Duration`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`Started ${expected}`))).toBeInTheDocument();
     expect(screen.queryByText(/recorded session\.json\.createdAt/)).not.toBeInTheDocument();
     expect(screen.queryByText(/\(.*createdAt.*\)/)).not.toBeInTheDocument();
   });
 
   it('shows a live elapsed snapshot for an open session', () => {
     vi.setSystemTime(new Date('2026-09-30T11:01:02Z'));
-    render(<SessionDetail session={session} />);
-    expect(screen.getByText(/Duration 1h 1m 2s/)).toBeInTheDocument();
+    render(<SessionDetail session={{ ...session, duration: undefined }} />);
     vi.useRealTimers();
   });
 
   it('uses stored duration for closed sessions and does not schedule a timer', () => {
     const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
     render(<SessionDetail session={{ ...session, complete: true, duration: '12 minutes' }} />);
-    expect(screen.getByText(/Duration 12 minutes/)).toBeInTheDocument();
     expect(setIntervalSpy).not.toHaveBeenCalled();
     setIntervalSpy.mockRestore();
   });
@@ -169,7 +167,7 @@ describe('SessionDetail', () => {
       time: '14:26:32',
       actor: 'orchestrator',
       tag: 'progress',
-      message: 'See src: https://example.com/a and src:http://example.test/b',
+      message: 'See src: https://example.com/a; src:http://example.test/b',
     };
     render(<SessionDetail session={{ ...session, entries: [entry] }} />);
 
@@ -234,6 +232,7 @@ describe('SessionDetail', () => {
               actor: 'A',
               complete: false,
               createdAt: '2026-09-30T10:00:00Z',
+              duration: '5 minutes',
               goal: 'Inspect the details',
               plan: ['First peer step', 'Second peer step'],
               entries: peerEntries,
@@ -266,12 +265,15 @@ describe('SessionDetail', () => {
     expect(
       [...collapsedMetadata.children].filter((child) => child.textContent === '·'),
     ).toHaveLength(2);
-    expect([...collapsedMetadata.children].map((child) => child.textContent).slice(1, 5)).toEqual([
-      'A',
-      '·',
-      'peer-a',
-      '·',
-    ]);
+    expect(collapsedMetadata.querySelector('[title="Duration"]')).toHaveTextContent(
+      /\d+h \d+m \d+s/,
+    );
+    expect(collapsedMetadata.querySelector('[title="Duration"]')).toHaveAttribute(
+      'title',
+      'Duration',
+    );
+    expect(screen.getByText(/Open · Started/)).not.toHaveTextContent(/Duration/);
+
     const openDot = peerButtons[0].querySelector('[aria-hidden="true"]');
     const closedDot = peerButtons[1].querySelector('[aria-hidden="true"]');
     expect(openDot).toHaveClass('bg-blue-500', 'motion-safe:animate-pulse');
@@ -282,7 +284,8 @@ describe('SessionDetail', () => {
     fireEvent.click(peerButtons[0]);
     expect(peerButtons[0]).toHaveAttribute('aria-expanded', 'true');
     const panel = document.querySelector('#peer-entries-session1-peer-a');
-    expect(panel).toHaveTextContent(/Open - Started .* at .* - Duration/);
+    expect(panel).toHaveTextContent(/Open - Started .* at .*/);
+    expect(panel.querySelector('p')).not.toHaveTextContent(/Duration/);
     expect(panel).toHaveTextContent('First peer step');
     expect(panel).toHaveTextContent('Second peer step');
     expect(panel.querySelector('.metadata-grid')).toHaveClass(
@@ -462,7 +465,13 @@ describe('SessionDetail', () => {
         session={{
           ...session,
           entries: [
-            { time: 'now', actor: 'a', tag: 'find', item: 1, message: 'src: file:///tmp/%2e%2e/etc/passwd' },
+            {
+              time: 'now',
+              actor: 'a',
+              tag: 'find',
+              item: 1,
+              message: 'src: file:///tmp/%2e%2e/etc/passwd',
+            },
           ],
         }}
       />,
@@ -482,7 +491,7 @@ describe('SessionDetail', () => {
         }}
       />,
     );
-    expect(screen.getByRole('listitem').querySelector('p')).toHaveTextContent(/src: C:/);
+    expect(screen.getByRole('listitem').querySelector('p')).not.toHaveTextContent(/src: C:/);
     expect(screen.getByRole('link', { name: /C:\\\\work/ })).toHaveAttribute(
       'href',
       'file:///C:/work/file.txt',

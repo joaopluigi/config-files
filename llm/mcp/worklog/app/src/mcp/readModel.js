@@ -4,7 +4,6 @@ import {
   mainPath,
   subagentPath,
   registryPath,
-  sessionDir,
 } from '../../../src/storage/repository.mjs';
 import { validateId } from '../../../src/domain/worklog.mjs';
 
@@ -60,13 +59,15 @@ export function sortSessions(sessions) {
   });
 }
 
-export function updatedAtValue(directoryMtime) {
-  const value = directoryMtime instanceof Date ? directoryMtime : new Date(directoryMtime);
+export function updatedAtValue(mainLogMtime) {
+  const value = mainLogMtime instanceof Date ? mainLogMtime : new Date(mainLogMtime);
   return Number.isFinite(value.getTime()) ? value.toISOString() : '';
 }
 
 function entryTimeValue(time, createdAt) {
   if (typeof time !== 'string' || typeof createdAt !== 'string') return NaN;
+  const absoluteTime = Date.parse(time);
+  if (Number.isFinite(absoluteTime) && !/^\d{2}:\d{2}:\d{2}$/.test(time)) return absoluteTime;
   const match = time.match(/^(\d{2}):(\d{2}):(\d{2})$/);
   if (!match) return NaN;
   const [, hours, minutes, seconds] = match;
@@ -87,7 +88,7 @@ function entryTimeValue(time, createdAt) {
   );
 }
 
-export function durationValue(createdAt, entries = [], peers = [], completedAt) {
+export function durationValue(createdAt, entries = [], peers = []) {
   const started = Date.parse(createdAt);
   if (!Number.isFinite(started)) return 'unavailable (log timestamps are time-only)';
   const logs = [
@@ -110,7 +111,10 @@ export function durationValue(createdAt, entries = [], peers = [], completedAt) 
 }
 
 export function peerDuration(peer) {
-  if (typeof peer.createdAt === 'string' && Number.isFinite(Date.parse(peer.createdAt))) {
+  if (peer.complete && typeof peer.createdAt === 'string' && Number.isFinite(Date.parse(peer.createdAt))) {
+    return { duration: durationValue(peer.createdAt, peer.entries) };
+  }
+  if (!peer.complete && typeof peer.createdAt === 'string' && Number.isFinite(Date.parse(peer.createdAt))) {
     return {};
   }
   return {
@@ -124,12 +128,6 @@ export async function readWorklogs() {
   const enriched = await Promise.all(
     sessions.map(async (session) => {
       let birthtime;
-      let directoryMtime;
-      try {
-        directoryMtime = (await stat(sessionDir(session.orchestrationId))).mtime;
-      } catch {
-        directoryMtime = undefined;
-      }
       try {
         const registryFile = registryPath(session.orchestrationId);
         const registry = JSON.parse(await readFile(registryFile, 'utf8'));
@@ -158,7 +156,9 @@ export async function readWorklogs() {
           };
         }),
       );
-      const mainContent = await readFile(mainPath(session.orchestrationId), 'utf8');
+      const mainLog = mainPath(session.orchestrationId);
+      const mainContent = await readFile(mainLog, 'utf8');
+      const mainLogMtime = (await stat(mainLog)).mtime;
       const entries = parseEntries(mainContent);
       return {
         orchestrationId: session.orchestrationId,
@@ -170,7 +170,7 @@ export async function readWorklogs() {
         complete: session.complete,
         createdAt,
         createdAtSource,
-        updatedAt: updatedAtValue(directoryMtime),
+        updatedAt: updatedAtValue(mainLogMtime),
         duration: session.complete
           ? durationValue(createdAt, entries, peers, session.completedAt)
           : 'unavailable (log timestamps are time-only)',
