@@ -39,3 +39,5 @@ Whenever a session coordinates delegated participants, the session owner creates
 > For an interrupted participant, use `worklog_peer_replace` to create a new authorized peer linked to the predecessor, never reuse the predecessor token, pass the new peer context and continuation reason to the replacement, and preserve old peer history.
 
 Before closing a session, the owner must also close all worklogs of subagents, if the subagent did not close them itself.
+
+Every append must use exactly one supported server tag: `think`, `find`, `decide`, `done`, `plan`, `question`, `answer`, or `note`. These tags are the server vocabulary; recording purposes describe why an entry is made and do not form a one-to-one tag mapping. For example, evidence/findings may use `find` with a source, question/answer use `question` and `answer`, and completion commonly uses `done`; other purposes may use the supported tag that best fits the entry.
