@@ -7,11 +7,7 @@ description: "Maintain an append-only worklog for any task."
 
 A worklog is the agent's incremental working notebook or execution diary for a task.
 
-Use the worklog MCP tools for the full lifecycle. The server creates the session, IDs,
-paths, capability tokens, and peer logs. Never invent any of them.
-
-Reference index: [`references/REFERENCE.md`](references/REFERENCE.md). Read it before
-using the detailed MCP reference or worklog example.
+Use the worklog MCP tools for the full lifecycle. The server creates the session, IDs, paths, capability tokens, and peer logs. Never invent any of them.
 
 ## Lifecycle
 
@@ -21,7 +17,7 @@ using the detailed MCP reference or worklog example.
 
 The session must ALWAYS be closed!
 
-> When working in the same session, call `worklog_session_status` before deciding whether to reuse it or create a new session.
+> When working in the same session, check its status before deciding whether to reuse it or create a new session.
 
 The server is append-only and rejects invalid actors, tags, items, unsourced `find` entries, unauthorized peers, duplicate answers, and invalid capability tokens. The session token is for the main log and authorized session-owner inspection. Preserve the returned IDs and tokens exactly.
 
@@ -43,14 +39,10 @@ Every entry must be associated with a tag that describes its purpose:
 - `question`: Records a blocking question that must be answered before work can continue, such as “Should I apply the changes while preserving the other changes that are already in place?”
 - `done`: Completes a plan item. Every worklog must contain a `done` entry for each plan item.
 
-Plans are supplied as session or peer creation metadata, and linked-question answers are recorded as `progress` entries by the MCP answer tool; neither `plan` nor `answer` is an entry tag.
-
 ## When working with subagents (peers)
 
-Whenever a session coordinates delegated participants, the session owner creates one peer log per participant with `worklog_peer_create`, records the participant's actor explicitly, and passes the exact server-returned `orchestrationId`, `peerId`, peer `capabilityToken`, peer log `path`, and the `actor` is the subagent being spwaned. The owner must instruct the participant to read its supplied peer worklog before executing any substantive step, then use all five values verbatim for every operation, must not use a parent token, and must not create or recreate another worklog or invent any identifier or path. The delegated prompt must identify these values as the server-created peer worklog context.
+Whenever a session coordinates delegated participants, the session owner creates one peer log per participant, records the participant's actor explicitly, passes the exact server-returned payload and the `actor` is the subagent being spwaned. The owner must instruct the participant to read its supplied peer worklog and load the worklog skill before executing any substantive step, then use all five values verbatim for every operation, must not use a parent token, and must not create or recreate another worklog or invent any identifier or path. The delegated prompt must identify these values as the server-created peer worklog context.
 
-> For an interrupted participant, use `worklog_peer_replace` to create a new authorized peer linked to the predecessor, never reuse the predecessor token, pass the new peer context and continuation reason to the replacement, and preserve old peer history.
+> For an interrupted participant, replace the worklog peer with a new authorized peer linked to the predecessor, never reuse the predecessor token, pass the new peer context and continuation reason to the replacement, and preserve old peer history.
 
 Before closing a session, the owner must also close all worklogs of subagents, if the subagent did not close them itself.
-
-Every append must use exactly one supported server tag: `think`, `find`, `decision`, `done`, `question`, or `progress`. These tags are the server vocabulary; recording purposes describe why they are used and do not form a one-to-one tag mapping. For example, evidence/findings may use `find` with a source, linked questions use `question`, responses use `progress`, and completion commonly uses `done`; other purposes may use the supported tag that best fits the entry.
