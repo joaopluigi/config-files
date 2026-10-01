@@ -21,4 +21,5 @@
 /.lsp/*
 /node_modules/
 **/node_modules/
+llm/mcp/worklog/release/
 .DS_Store
