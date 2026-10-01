@@ -273,7 +273,7 @@ describe('SessionDetail', () => {
       'title',
       'Duration',
     );
-    expect(screen.getByText(/Open · Started/)).not.toHaveTextContent(/Duration/);
+    expect(screen.getByText(/Open · Started/)).toHaveTextContent(/Duration unavailable/);
 
     const openDot = peerButtons[0].querySelector('[aria-hidden="true"]');
     const closedDot = peerButtons[1].querySelector('[aria-hidden="true"]');
