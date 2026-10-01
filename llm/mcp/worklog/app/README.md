@@ -29,3 +29,9 @@ npm run build
 ## Styling
 
 The viewer uses Tailwind CSS v4 through the official Vite integration (`tailwindcss` and `@tailwindcss/vite`). The CSS entrypoint imports Tailwind with `@import "tailwindcss";`; no Tailwind v3 configuration or PostCSS setup is used.
+
+## Source links
+
+Log messages keep their raw text and render `src:` values as links. HTTP and HTTPS values remain web links. POSIX, Windows, and UNC paths are normalized to canonical `file:` URLs. Relative paths resolve from the session working directory; `~/...` paths resolve from a macOS, Unix, or Windows user-home prefix derived from that directory. If no home context is available, the source stays visible but is not linked. Values that escape the working directory or use an unsafe scheme are not linked. Source parsing accepts semicolons, em dashes, literal `\\n`, and actual newlines as delimiters.
+
+Browsers may block or restrict navigation to local `file:` URLs, especially when the viewer is served from HTTP. The viewer can display the canonical target, but opening it depends on browser security settings and local file access.

@@ -244,10 +244,34 @@ describe('SessionDetail', () => {
       />,
     );
     const peerButtons = screen.getAllByRole('button');
-    expect(peerButtons[0]).toHaveTextContent(/Inspect the detailsA · peer-a · /);
+    expect(peerButtons[0]).toHaveTextContent(/Inspect the detailsA·peer-a·/);
     expect(peerButtons[0]).not.toHaveTextContent(/Open|Closed/);
     expect(peerButtons[0]).toHaveClass('rounded-lg', 'border', 'hover:border-slate-500', 'min-w-0');
     expect(peerButtons[0].querySelector('strong')).toHaveClass('break-words', 'whitespace-normal');
+    const collapsedMetadata = peerButtons[0].querySelector('.peer-metadata');
+    expect(collapsedMetadata).toHaveClass(
+      'grid',
+      'grid-cols-1',
+      'sm:grid-cols-[auto_minmax(0,auto)_auto_minmax(0,auto)_auto_minmax(0,1fr)]',
+      'break-words',
+    );
+    expect([...collapsedMetadata.children].map((child) => child.textContent)).toEqual([
+      '',
+      'A',
+      '·',
+      'peer-a',
+      '·',
+      expect.any(String),
+    ]);
+    expect(
+      [...collapsedMetadata.children].filter((child) => child.textContent === '·'),
+    ).toHaveLength(2);
+    expect([...collapsedMetadata.children].map((child) => child.textContent).slice(1, 5)).toEqual([
+      'A',
+      '·',
+      'peer-a',
+      '·',
+    ]);
     const openDot = peerButtons[0].querySelector('[aria-hidden="true"]');
     const closedDot = peerButtons[1].querySelector('[aria-hidden="true"]');
     expect(openDot).toHaveClass('bg-blue-500', 'motion-safe:animate-pulse');
@@ -278,6 +302,36 @@ describe('SessionDetail', () => {
     expect(peerButtons[1]).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('keeps long peer metadata values in a wrapping, ordered grid', () => {
+    render(
+      <SessionDetail
+        session={{
+          ...session,
+          peers: [
+            {
+              id: 'peer-with-a-deliberately-long-identifier',
+              actor: 'actor-with-a-deliberately-long-name',
+              complete: true,
+              duration: 'duration-with-a-deliberately-long-value',
+            },
+          ],
+        }}
+      />,
+    );
+
+    const metadata = screen.getAllByRole('button')[0].querySelector('.peer-metadata');
+    expect(metadata).toHaveClass('min-w-0', 'break-words', 'grid-cols-1');
+    expect(metadata.querySelectorAll(':scope > *')).toHaveLength(6);
+    expect([...metadata.children].map((child) => child.textContent)).toEqual([
+      '',
+      'actor-with-a-deliberately-long-name',
+      '·',
+      'peer-with-a-deliberately-long-identifier',
+      '·',
+      'duration-with-a-deliberately-long-value',
+    ]);
+  });
+
   it('shows unavailable for legacy peer timing without exposing its source', () => {
     render(
       <SessionDetail
@@ -295,7 +349,7 @@ describe('SessionDetail', () => {
         }}
       />,
     );
-    expect(screen.getByRole('button')).toHaveTextContent('A · peer-legacy · unavailable');
+    expect(screen.getByRole('button')).toHaveTextContent('A·peer-legacy·unavailable');
     expect(screen.getByRole('button')).not.toHaveTextContent(/Open|Closed/);
     expect(screen.queryByText(/birthtime fallback/i)).not.toBeInTheDocument();
   });
@@ -327,5 +381,116 @@ describe('SessionDetail', () => {
       <SessionDetail session={{ ...session, orchestrationId: 'session2', peers: [peer] }} />,
     );
     expect(screen.getByRole('button')).toHaveAttribute('aria-expanded', 'false');
+  });
+  it('parses raw sources with delimiters and resolves local paths from the session directory', () => {
+    render(
+      <SessionDetail
+        session={{
+          ...session,
+          workingDirectory: '/Users/me/project',
+          entries: [
+            {
+              time: 'now',
+              actor: 'a',
+              tag: 'find',
+              item: 1,
+              message: 'src: ./README.md; src: /tmp/a—src: ../escape',
+            },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByRole('link', { name: './README.md' })).toHaveAttribute(
+      'href',
+      'file:///Users/me/project/README.md',
+    );
+    expect(screen.getByRole('link', { name: '/tmp/a' })).toHaveAttribute('href', 'file:///tmp/a');
+    expect(screen.queryByRole('link', { name: '../escape' })).not.toBeInTheDocument();
+  });
+
+  it('parses literal and actual newline delimiters without consuming source markers', () => {
+    render(
+      <SessionDetail
+        session={{
+          ...session,
+          workingDirectory: '/Users/me/project',
+          entries: [
+            {
+              time: 'now',
+              actor: 'a',
+              tag: 'find',
+              item: 1,
+              message: 'src: ./one.js\\nsrc: ./two.js\nsrc: ./three.js',
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: './one.js' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: './two.js' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: './three.js' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['/Users/tester/project', 'file:///Users/tester/notes.md'],
+    ['/home/tester/project', 'file:///home/tester/notes.md'],
+    ['C:/Users/tester/project', 'file:///C:/Users/tester/notes.md'],
+  ])('resolves home-relative paths from workingDirectory %s', (workingDirectory, href) => {
+    render(
+      <SessionDetail
+        session={{
+          ...session,
+          workingDirectory,
+          entries: [{ time: 'now', actor: 'a', tag: 'find', item: 1, message: 'src: ~/notes.md' }],
+        }}
+      />,
+    );
+    expect(screen.getByRole('link', { name: '~/notes.md' })).toHaveAttribute('href', href);
+  });
+
+  it('keeps home-relative paths visible but non-linkable without derivable context', () => {
+    const entry = { time: 'now', actor: 'a', tag: 'find', item: 1, message: 'src: ~/notes.md' };
+    render(<SessionDetail session={{ ...session, entries: [entry] }} />);
+    expect(screen.queryByRole('link', { name: '~/notes.md' })).not.toBeInTheDocument();
+    expect(screen.getByText(entry.message)).toBeInTheDocument();
+  });
+
+  it('rejects explicit file URLs with encoded traversal segments', () => {
+    render(
+      <SessionDetail
+        session={{
+          ...session,
+          entries: [
+            { time: 'now', actor: 'a', tag: 'find', item: 1, message: 'src: file:///tmp/%2e%2e/etc/passwd' },
+          ],
+        }}
+      />,
+    );
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('preserves raw messages and rejects unsafe schemes while resolving windows and unc paths', () => {
+    const message =
+      'src: C:\\\\work\\file.txt\nsrc: \\\\server\\share\\file.txt\nsrc: javascript:alert(1)';
+    render(
+      <SessionDetail
+        session={{
+          ...session,
+          workingDirectory: 'C:/project',
+          entries: [{ time: 'now', actor: 'a', tag: 'find', item: 1, message }],
+        }}
+      />,
+    );
+    expect(screen.getByRole('listitem').querySelector('p')).toHaveTextContent(/src: C:/);
+    expect(screen.getByRole('link', { name: /C:\\\\work/ })).toHaveAttribute(
+      'href',
+      'file:///C:/work/file.txt',
+    );
+    expect(screen.getByRole('link', { name: /server/ })).toHaveAttribute(
+      'href',
+      'file://server/share/file.txt',
+    );
+    expect(screen.queryByRole('link', { name: /javascript/ })).not.toBeInTheDocument();
   });
 });
