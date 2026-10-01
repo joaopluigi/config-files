@@ -115,6 +115,7 @@ export function WorklogViewerScreen({
   const [dateFilter, setDateFilter] = useState('24h');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortFilter, setSortFilter] = useState('created');
+  const [now, setNow] = useState(() => Date.now());
   const inFlight = useRef(false);
   const queuedRefresh = useRef(false);
   const revisionRef = useRef(-1);
@@ -190,9 +191,38 @@ export function WorklogViewerScreen({
       eventSource?.close?.();
     };
   }, [eventSourceFactory, refresh, refreshInterval, revisionFetcher]);
+  useEffect(() => {
+    if (dateFilter === 'all') return undefined;
+    const cutoffWindow = DATE_FILTERS.find((filter) => filter.key === dateFilter)?.hours;
+    if (!cutoffWindow) return undefined;
+    const nowValue = Date.now();
+    const expirationTimes = state.data.sessions
+      .map((session) => Date.parse(session.createdAt))
+      .filter((createdAt) => Number.isFinite(createdAt))
+      .map((createdAt) => createdAt + cutoffWindow * 60 * 60 * 1000);
+    if (!expirationTimes.length) return undefined;
+    const nextExpiration = expirationTimes
+      .filter((expirationTime) => expirationTime > nowValue)
+      .sort((a, b) => a - b)[0];
+    if (!nextExpiration) return undefined;
+    const timer = setTimeout(() => setNow(Date.now()), nextExpiration - nowValue + 1);
+    return () => clearTimeout(timer);
+  }, [state.data.sessions, dateFilter, statusFilter, now]);
+
+  useEffect(() => {
+    const resync = () => setNow(Date.now());
+    window.addEventListener('focus', resync);
+    document.addEventListener('visibilitychange', resync);
+    return () => {
+      window.removeEventListener('focus', resync);
+      document.removeEventListener('visibilitychange', resync);
+    };
+  }, []);
+
   const visibleSessions = useMemo(
-    () => sortSessions(filterSessions(state.data.sessions, dateFilter, statusFilter), sortFilter),
-    [state.data.sessions, dateFilter, statusFilter, sortFilter],
+    () =>
+      sortSessions(filterSessions(state.data.sessions, dateFilter, statusFilter, now), sortFilter),
+    [state.data.sessions, dateFilter, statusFilter, sortFilter, now],
   );
   const selectedVisible = visibleSessions.some(
     (session) => session.orchestrationId === state.selectedId,
