@@ -32,6 +32,19 @@ Other things to keep in mind:
 - `actor` is the agent that happens to call the tool.
 - Completion does not change until all items are closed (must be closed in order #1, #2, ...).
 
+## Entry tags
+
+Every entry must be associated with a tag that describes its purpose:
+
+- `progress`: Records a simple progress update, such as “I’ll start by looking at the component files.”
+- `think`: Records reasoning or a hypothesis, such as “I need to understand the current state of the repository and the latest commit.”
+- `find`: Records an observed finding and must include a source, such as “React lets you build user interfaces out of individual pieces called components. src: https://react.dev/”.
+- `decision`: Records a decision between alternatives, such as “I will style the date red because it aligns with the provided example.”
+- `question`: Records a blocking question that must be answered before work can continue, such as “Should I apply the changes while preserving the other changes that are already in place?”
+- `done`: Completes a plan item. Every worklog must contain a `done` entry for each plan item.
+
+Plans are supplied as session or peer creation metadata, and linked-question answers are recorded as `progress` entries by the MCP answer tool; neither `plan` nor `answer` is an entry tag.
+
 ## When working with subagents (peers)
 
 Whenever a session coordinates delegated participants, the session owner creates one peer log per participant with `worklog_peer_create`, records the participant's actor explicitly, and passes the exact server-returned `orchestrationId`, `peerId`, peer `capabilityToken`, peer log `path`, and the `actor` is the subagent being spwaned. The owner must instruct the participant to read its supplied peer worklog before executing any substantive step, then use all five values verbatim for every operation, must not use a parent token, and must not create or recreate another worklog or invent any identifier or path. The delegated prompt must identify these values as the server-created peer worklog context.
@@ -40,4 +53,4 @@ Whenever a session coordinates delegated participants, the session owner creates
 
 Before closing a session, the owner must also close all worklogs of subagents, if the subagent did not close them itself.
 
-Every append must use exactly one supported server tag: `think`, `find`, `decide`, `done`, `plan`, `question`, `answer`, or `note`. These tags are the server vocabulary; recording purposes describe why an entry is made and do not form a one-to-one tag mapping. For example, evidence/findings may use `find` with a source, question/answer use `question` and `answer`, and completion commonly uses `done`; other purposes may use the supported tag that best fits the entry.
+Every append must use exactly one supported server tag: `think`, `find`, `decision`, `done`, `question`, or `progress`. These tags are the server vocabulary; recording purposes describe why they are used and do not form a one-to-one tag mapping. For example, evidence/findings may use `find` with a source, linked questions use `question`, responses use `progress`, and completion commonly uses `done`; other purposes may use the supported tag that best fits the entry.

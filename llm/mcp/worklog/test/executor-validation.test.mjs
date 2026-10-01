@@ -100,12 +100,10 @@ test('MCP session creation reports available tags on success', async () => {
     assert.deepEqual(session.available_tags, [
       'think',
       'find',
-      'decide',
+      'decision',
       'done',
-      'plan',
       'question',
-      'answer',
-      'note',
+      'progress',
     ]);
     assert.deepEqual(session.available_actors, [...actors]);
   } finally {
@@ -130,7 +128,7 @@ test('MCP append reports invalid actors and available actors', async () => {
       capabilityToken: session.capabilityToken,
       item: 1,
       actor: 'unknown',
-      tag: 'note',
+      tag: 'progress',
       message: 'invalid',
     });
     assert.equal(response.result.isError, true);
@@ -166,7 +164,7 @@ test('MCP append reports invalid tags and available tags without appending', asy
     assert.equal(response.result.isError, true);
     assert.equal(
       response.result.content[0].text,
-      'invalid tag: invalid; available tags: think, find, decide, done, plan, question, answer, note',
+      'invalid tag: invalid; available tags: think, find, decision, done, question, progress',
     );
     assert.doesNotMatch(await readFile(session.path, 'utf8'), /invalid/);
   } finally {
@@ -225,7 +223,7 @@ test('MCP recovers a stale file lock', async () => {
       capabilityToken: session.capabilityToken,
       item: 1,
       actor: 'orchestrator',
-      tag: 'note',
+      tag: 'progress',
       message: 'recovered',
     });
     assert.equal(appended.result.isError, undefined, JSON.stringify(appended));
@@ -258,7 +256,7 @@ test('stale recovery does not let an old owner remove a replacement lock', async
         capabilityToken: session.capabilityToken,
         item: 1,
         actor: 'orchestrator',
-        tag: 'note',
+        tag: 'progress',
         message: 'first',
       }),
       call(b, 'worklog_append', {
@@ -266,7 +264,7 @@ test('stale recovery does not let an old owner remove a replacement lock', async
         capabilityToken: session.capabilityToken,
         item: 2,
         actor: 'orchestrator',
-        tag: 'note',
+        tag: 'progress',
         message: 'second',
       }),
     ]);
@@ -297,9 +295,9 @@ test('MCP registers peers, authenticates sessions, and links one answer to one q
         orchestrationId: session.orchestrationId,
         capabilityToken: session.capabilityToken,
         actor: 'executor',
-        goal: 'answer',
+        goal: 'progress',
         done: 'done',
-        steps: ['answer'],
+        steps: ['progress'],
       }),
     );
     const unknown = await call(a, 'worklog_read', {
@@ -347,7 +345,7 @@ test('MCP registers peers, authenticates sessions, and links one answer to one q
     assert.equal(race.filter((response) => response.result?.isError !== true).length, 1);
     assert.equal(race.filter((response) => response.result?.isError === true).length, 1);
     const child = await readFile(peer.path, 'utf8');
-    assert.equal((child.match(new RegExp(`answer:${asked.questionId}`, 'g')) || []).length, 1);
+    assert.equal((child.match(new RegExp(`response:${asked.questionId}`, 'g')) || []).length, 1);
     assert.equal((child.match(/First\.|Second\./g) || []).length, 1);
     const duplicate = await call(a, 'worklog_answer', {
       orchestrationId: session.orchestrationId,
@@ -385,7 +383,7 @@ test('MCP child ownership covers append, answer, and close', async () => {
         actor: 'executor',
         goal: 'peer',
         done: 'done',
-        steps: ['answer'],
+        steps: ['progress'],
       }),
     );
     const beforeAppend = await readFile(peer.path, 'utf8');
@@ -469,9 +467,9 @@ test('MCP child ownership covers append, answer, and close', async () => {
     const content = await readFile(peer.path, 'utf8');
     assert.match(content, /actor: executor/);
     assert.match(content, /executor think ready/);
-    assert.match(content, /executor answer \[answer:/);
+    assert.match(content, /executor progress \[response:/);
     assert.match(content, /executor done complete/);
-    assert.doesNotMatch(content, /orchestrator (think|answer|done) wrong/);
+    assert.doesNotMatch(content, /orchestrator (think|progress|done) wrong/);
   } finally {
     client.child.kill('SIGTERM');
   }
@@ -619,7 +617,7 @@ test('MCP session discovery returns metadata without secrets and cannot mutate',
       orchestrationId: session.orchestrationId,
       item: 1,
       actor: 'orchestrator',
-      tag: 'note',
+      tag: 'progress',
       message: 'no token',
     });
     assert.equal(unauthorized.result.isError, true);
@@ -769,7 +767,7 @@ test('MCP explicit session token reuses an incomplete session after discovery', 
       orchestrationId: candidate.orchestrationId,
       item: 1,
       actor: 'orchestrator',
-      tag: 'note',
+      tag: 'progress',
       message: 'missing token',
     });
     assert.equal(withoutToken.result.isError, true);
@@ -778,7 +776,7 @@ test('MCP explicit session token reuses an incomplete session after discovery', 
       capabilityToken: session.capabilityToken,
       item: 1,
       actor: 'orchestrator',
-      tag: 'note',
+      tag: 'progress',
       message: 'reused after discovery',
     });
     assert.equal(reused.result.isError, undefined, JSON.stringify(reused));
@@ -872,7 +870,7 @@ test('MCP follow-up appends remain open until done and reject new plans or close
             capabilityToken: session.capabilityToken,
             item: 1,
             actor: 'orchestrator',
-            tag: 'note',
+            tag: 'progress',
             message,
           })
         ).result.isError,
@@ -1137,7 +1135,7 @@ test('MCP replacement creates isolated linked peers and preserves predecessor hi
         peerId: replacement.peerId,
       }),
     );
-    assert.match(replacementContent.content, /tester answer/);
+    assert.match(replacementContent.content, /tester progress/);
     assert.match(replacementContent.content, /tester think replacement history/);
     assert.match(replacementContent.content, /tester done complete/);
   } finally {
@@ -1183,7 +1181,7 @@ test('peer tokens are bound and read cursors use UTF-8 byte offsets', async () =
       peerId: two.peerId,
       item: 1,
       actor: 'executor',
-      tag: 'note',
+      tag: 'progress',
       message: 'wrong',
     });
     assert.equal(wrong.result.isError, true);
@@ -1193,7 +1191,7 @@ test('peer tokens are bound and read cursors use UTF-8 byte offsets', async () =
       peerId: one.peerId,
       item: 1,
       actor: 'executor',
-      tag: 'note',
+      tag: 'progress',
       message: 'héllo 🌍',
     });
     const first = resultText(

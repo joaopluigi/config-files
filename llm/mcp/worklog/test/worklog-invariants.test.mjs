@@ -24,7 +24,7 @@ async function prepared(steps = ['step']) {
 
 test('main close waits for registry serialization', async () => {
   const session = await prepared();
-  await appendEntry(session.path, 1, 'orchestrator', 'decide', 'ready');
+  await appendEntry(session.path, 1, 'orchestrator', 'decision', 'ready');
   const registry = join(root, session.orchestrationId, 'session.json');
   let settled = false;
   const closing = closeWorklog(
@@ -205,23 +205,23 @@ test('append enforces closed items, ordered completion, and prior reasoning', as
   );
   await appendEntry(session.path, 1, 'orchestrator', 'done', 'closed');
   await assert.rejects(
-    () => appendEntry(session.path, 1, 'orchestrator', 'note', 'too late'),
+    () => appendEntry(session.path, 1, 'orchestrator', 'progress', 'too late'),
     /already closed/,
   );
 });
 
-test('rejects plan entries because plan items are creation-time only', async () => {
+test('rejects removed plan tags', async () => {
   const session = await prepared();
   await assert.rejects(
     () => appendEntry(session.path, 2, 'orchestrator', 'plan', 'untracked plan item'),
-    /plan entries are only allowed during session or subagent creation/,
+    /invalid tag: plan; available tags: think, find, decision, done, question, progress/,
   );
   assert.doesNotMatch(await readFile(session.path, 'utf8'), /untracked plan item/);
 });
 
 test('rejects every non-plan entry for an orphan item', async () => {
   const session = await prepared();
-  for (const tag of ['note', 'think', 'find', 'decide', 'question', 'answer', 'done']) {
+  for (const tag of ['progress', 'think', 'find', 'decision', 'question', 'progress', 'done']) {
     await assert.rejects(
       () =>
         appendEntry(
@@ -294,7 +294,7 @@ test('close returns false for incomplete plans and unanswered linked questions',
     'executor',
     'peer',
     'done',
-    ['answer'],
+    ['progress'],
   );
   const registry = JSON.parse(
     await readFile(join(root, session.orchestrationId, 'session.json'), 'utf8'),
@@ -325,7 +325,7 @@ test('main completion observes answers recorded in peer logs through the registr
     'executor',
     'peer',
     'done',
-    ['answer'],
+    ['progress'],
   );
   const registryPath = join(root, session.orchestrationId, 'session.json');
   const registry = JSON.parse(await readFile(registryPath, 'utf8'));
@@ -343,7 +343,7 @@ test('main completion observes answers recorded in peer logs through the registr
 
 test('rejects empty close messages before writing a done entry', async () => {
   const session = await prepared();
-  await appendEntry(session.path, 1, 'orchestrator', 'decide', 'ready');
+  await appendEntry(session.path, 1, 'orchestrator', 'decision', 'ready');
   await assert.rejects(
     () =>
       closeWorklog(
@@ -361,7 +361,7 @@ test('rejects empty close messages before writing a done entry', async () => {
 
 test('close succeeds after the final item has prior reasoning and no open questions', async () => {
   const session = await prepared();
-  await appendEntry(session.path, 1, 'orchestrator', 'decide', 'ready');
+  await appendEntry(session.path, 1, 'orchestrator', 'decision', 'ready');
   const result = await closeWorklog(
     session.orchestrationId,
     session.capabilityToken,
@@ -392,7 +392,7 @@ test('rejects newline injection in plan steps, entries, and close messages', asy
       ),
     /message must not contain carriage returns or newlines/,
   );
-  await appendEntry(session.path, 1, 'orchestrator', 'decide', 'ready');
+  await appendEntry(session.path, 1, 'orchestrator', 'decision', 'ready');
   await assert.rejects(
     () =>
       closeWorklog(
@@ -412,7 +412,7 @@ test('rejects newline injection in plan steps, entries, and close messages', asy
 
 test('authorized repeated main close is successful and persists only one done entry', async () => {
   const session = await prepared();
-  await appendEntry(session.path, 1, 'orchestrator', 'decide', 'ready');
+  await appendEntry(session.path, 1, 'orchestrator', 'decision', 'ready');
 
   const first = await closeWorklog(
     session.orchestrationId,
@@ -446,7 +446,7 @@ test('authorized repeated peer close is successful and persists only one done en
     'done',
     ['step'],
   );
-  await appendEntry(peer.path, 1, 'executor', 'decide', 'ready');
+  await appendEntry(peer.path, 1, 'executor', 'decision', 'ready');
 
   const first = await closeWorklog(
     session.orchestrationId,
@@ -490,7 +490,7 @@ test('an incomplete registered predecessor retained after replacement blocks mai
     ['step'],
     'resume safely',
   );
-  await appendEntry(session.path, 1, 'orchestrator', 'decide', 'ready');
+  await appendEntry(session.path, 1, 'orchestrator', 'decision', 'ready');
   const before = await readFile(session.path, 'utf8');
 
   const result = await closeWorklog(
@@ -516,7 +516,7 @@ test('main close succeeds after every registered peer closes', async () => {
     'done',
     ['step'],
   );
-  await appendEntry(peer.path, 1, 'executor', 'decide', 'ready');
+  await appendEntry(peer.path, 1, 'executor', 'decision', 'ready');
   const peerResult = await closeWorklog(
     session.orchestrationId,
     peer.capabilityToken,
@@ -527,7 +527,7 @@ test('main close succeeds after every registered peer closes', async () => {
   );
   assert.equal(peerResult.closed, true);
 
-  await appendEntry(session.path, 1, 'orchestrator', 'decide', 'ready');
+  await appendEntry(session.path, 1, 'orchestrator', 'decision', 'ready');
   const result = await closeWorklog(
     session.orchestrationId,
     session.capabilityToken,
@@ -541,7 +541,7 @@ test('main close succeeds after every registered peer closes', async () => {
 
 test('zero-peer session remains valid for main close', async () => {
   const session = await prepared();
-  await appendEntry(session.path, 1, 'orchestrator', 'decide', 'ready');
+  await appendEntry(session.path, 1, 'orchestrator', 'decision', 'ready');
   const result = await closeWorklog(
     session.orchestrationId,
     session.capabilityToken,
@@ -563,7 +563,7 @@ test('incomplete main close is non-mutating while a peer remains open', async ()
     'done',
     ['step'],
   );
-  await appendEntry(session.path, 1, 'orchestrator', 'decide', 'ready');
+  await appendEntry(session.path, 1, 'orchestrator', 'decision', 'ready');
   const before = await readFile(session.path, 'utf8');
 
   const result = await closeWorklog(

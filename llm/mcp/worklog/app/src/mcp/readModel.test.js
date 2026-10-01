@@ -12,18 +12,24 @@ import {
 } from './readModel.js';
 describe('read model', () => {
   it('parses safe entries', () =>
-    expect(parseEntries('12:00:01 #1 executor note hello')).toEqual([
-      { time: '12:00:01', item: 1, actor: 'executor', tag: 'note', message: 'hello' },
+    expect(parseEntries('12:00:01 #1 executor progress hello')).toEqual([
+      { time: '12:00:01', item: 1, actor: 'executor', tag: 'progress', message: 'hello' },
     ]));
   it('parses persisted peer plan and log entries', () => {
     expect(
       parsePeerWorklog(
-        'goal: inspect persisted worklog text\n\n  1. read the peer log\n  2. parse its plan and entries\n\n── log ──\n12:00:01 #1 executor note parsed peer log',
+        'goal: inspect persisted worklog text\n\n  1. read the peer log\n  2. parse its plan and entries\n\n── log ──\n12:00:01 #1 executor progress parsed peer log',
       ),
     ).toEqual({
       plan: ['read the peer log', 'parse its plan and entries'],
       entries: [
-        { time: '12:00:01', item: 1, actor: 'executor', tag: 'note', message: 'parsed peer log' },
+        {
+          time: '12:00:01',
+          item: 1,
+          actor: 'executor',
+          tag: 'progress',
+          message: 'parsed peer log',
+        },
       ],
     });
   });
