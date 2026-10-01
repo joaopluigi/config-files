@@ -69,3 +69,42 @@ export async function withLock(key, fn) {
     if (queues.get(key) === queued) queues.delete(key);
   }
 }
+
+export async function withClaim(key, fn) {
+  const lock = lockPath(key);
+  const owner = token();
+  let acquired = false;
+  try {
+    try {
+      await mkdir(lock);
+      await writeFile(join(lock, 'owner'), owner, { flag: 'wx' });
+      acquired = true;
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      let stale = false;
+      try {
+        stale = Date.now() - (await stat(lock)).mtimeMs > staleLockMs;
+      } catch (statError) {
+        if (statError.code !== 'ENOENT') throw statError;
+      }
+      if (stale) {
+        const replacement = `${lock}.stale-${token()}`;
+        try {
+          await rename(lock, replacement);
+          await rm(replacement, { recursive: true, force: true });
+        } catch (renameError) {
+          if (!['ENOENT', 'EEXIST'].includes(renameError.code)) throw renameError;
+        }
+        await mkdir(lock);
+        await writeFile(join(lock, 'owner'), owner, { flag: 'wx' });
+        acquired = true;
+      } else {
+        throw new Error(`predecessor continuation is already in progress: ${key}`);
+      }
+    }
+    return await fn();
+  } finally {
+    if (acquired && (await lockOwner(key)) === owner)
+      await rm(lock, { recursive: true, force: true });
+  }
+}

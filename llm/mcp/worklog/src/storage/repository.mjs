@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
-import { mkdir, readFile, appendFile, writeFile, readdir, stat } from 'node:fs/promises';
+import { mkdir, readFile, appendFile, writeFile, readdir, stat, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { withLock } from './locks.mjs';
+import { withLock, withClaim } from './locks.mjs';
 import {
   actors,
   validateActor,
@@ -38,6 +38,7 @@ const peerMutationContext = Symbol('authorized peer mutation');
 const replacementMutationContext = Symbol('authorized replacement mutation');
 const trustedPeerMutationContexts = new WeakSet();
 const trustedReplacementMutationContexts = new WeakSet();
+const activeContinuations = new Set();
 
 function mutationContextFor(orchestrationId, peerId, actor, path, registry) {
   const context = Object.freeze({
@@ -71,9 +72,9 @@ function allowsUnreasonedDone(path, actor, context) {
       (trustedReplacementMutationContexts.has(context) &&
         context?.[replacementMutationContext] === true)) &&
     context.orchestrationId === path.split('/').at(-2) &&
-    context.peerId !== undefined &&
     context.actor === actor &&
-    context.path === path
+    context.path === path &&
+    context.peerId !== undefined
   );
 }
 
@@ -195,73 +196,120 @@ export async function createSession(
     throw new Error('predecessor orchestration id is required with continuation reason');
   if (predecessorOrchestrationId !== undefined) {
     validateId(predecessorOrchestrationId, 'predecessor orchestration id');
-    try {
-      await readRegistry(predecessorOrchestrationId);
-    } catch {
-      throw new Error('unknown predecessor orchestration id');
-    }
     validateFreeForm(continuationReason, 'continuation reason');
   }
-  const orchestrationId = id();
-  const capabilityToken = token();
-  const createdAt = new Date().toISOString();
-  await mkdir(sessionDir(orchestrationId), { recursive: true });
-  const header = [
-    `# worklog — ${goal}`,
-    '',
-    `working directory: ${process.cwd()}`,
-    '',
-    `goal: ${goal}`,
-    `done: ${done}`,
-    '',
-    `orchestration id: ${orchestrationId}`,
-    ...(predecessorOrchestrationId === undefined
-      ? []
-      : [
-          '',
-          `predecessor orchestration id: ${predecessorOrchestrationId}`,
-          `continuation reason: ${continuationReason}`,
-        ]),
-    '',
-    'plan items',
-    ...steps.map((step, i) => `  ${i + 1}. ${step}`),
-    '',
-    '── log ──',
-    '',
-  ].join('\n');
-  await writeFile(mainPath(orchestrationId), header, { flag: 'wx' });
-  await writeFile(
-    registryPath(orchestrationId),
-    JSON.stringify(
-      {
-        token: capabilityToken,
-        peers: [],
-        questions: {},
-        orchestrationId,
-        actor,
-        goal,
-        done,
-        steps,
-        createdAt,
-        ...(predecessorOrchestrationId === undefined
-          ? {}
-          : { predecessorOrchestrationId, continuationReason }),
-      },
-      null,
-      2,
-    ),
-    { flag: 'wx' },
-  );
-  return {
-    orchestrationId,
-    capabilityToken,
-    available_tags: [...tags],
-    path: mainPath(orchestrationId),
-    ...(predecessorOrchestrationId === undefined
-      ? {}
-      : { predecessorOrchestrationId, continuationReason }),
-    available_actors: [...actors],
+
+  const publish = async (predecessor, predecessorCompletion) => {
+    const orchestrationId = id();
+    const capabilityToken = token();
+    const createdAt = new Date().toISOString();
+    const header = [
+      `# worklog — ${goal}`,
+      '',
+      `working directory: ${process.cwd()}`,
+      '',
+      `goal: ${goal}`,
+      `done: ${done}`,
+      '',
+      `orchestration id: ${orchestrationId}`,
+      ...(predecessorOrchestrationId === undefined
+        ? []
+        : [
+            '',
+            `predecessor orchestration id: ${predecessorOrchestrationId}`,
+            `continuation reason: ${continuationReason}`,
+          ]),
+      '',
+      'plan items',
+      ...steps.map((step, i) => `  ${i + 1}. ${step}`),
+      '',
+      '── log ──',
+      '',
+    ].join('\n');
+    try {
+      await mkdir(sessionDir(orchestrationId), { recursive: true });
+      await writeFile(mainPath(orchestrationId), header, { flag: 'wx' });
+      await writeFile(
+        registryPath(orchestrationId),
+        JSON.stringify(
+          {
+            token: capabilityToken,
+            peers: [],
+            questions: {},
+            orchestrationId,
+            actor,
+            goal,
+            done,
+            steps,
+            createdAt,
+            ...(predecessorOrchestrationId === undefined
+              ? {}
+              : { predecessorOrchestrationId, continuationReason }),
+          },
+          null,
+          2,
+        ),
+        { flag: 'wx' },
+      );
+      if (predecessor) {
+        const path = mainPath(predecessorOrchestrationId);
+        const entries = predecessorCompletion.openItems.map((item) => ({
+          item,
+          tag: 'done',
+          message: continuationReason,
+        }));
+        const content = await readFile(path, 'utf8');
+        let after = content;
+        for (const entry of entries) {
+          validateAppend(after, entry.item, entry.tag, true);
+          after += renderEntry(entry.item, 'orchestrator', entry.tag, entry.message);
+        }
+        if (after !== content) await appendFile(path, after.slice(content.length));
+      }
+    } catch (error) {
+      await rm(sessionDir(orchestrationId), { recursive: true, force: true });
+      throw error;
+    }
+    return {
+      orchestrationId,
+      capabilityToken,
+      available_tags: [...tags],
+      path: mainPath(orchestrationId),
+      ...(predecessorOrchestrationId === undefined
+        ? {}
+        : { predecessorOrchestrationId, continuationReason }),
+      available_actors: [...actors],
+    };
   };
+
+  if (predecessorOrchestrationId === undefined) return publish(undefined, undefined);
+  try {
+    await readRegistry(predecessorOrchestrationId);
+  } catch {
+    throw new Error('unknown predecessor orchestration id');
+  }
+  if (activeContinuations.has(predecessorOrchestrationId))
+    throw new Error('predecessor continuation is already in progress');
+  activeContinuations.add(predecessorOrchestrationId);
+  try {
+    return await withClaim(join(sessionDir(predecessorOrchestrationId), 'continuation'), async () =>
+      withLock(mainPath(predecessorOrchestrationId), async () => {
+        let predecessor;
+        try {
+          predecessor = await readRegistry(predecessorOrchestrationId);
+        } catch {
+          throw new Error('unknown predecessor orchestration id');
+        }
+        const predecessorContent = await readFile(mainPath(predecessorOrchestrationId), 'utf8');
+        const predecessorCompletion = completion(predecessorContent, predecessor.questions);
+        if (predecessorCompletion.openQuestions.length > 0)
+          throw new Error('predecessor has unresolved linked questions');
+        return publish(predecessor, predecessorCompletion);
+      }),
+    );
+  } finally {
+    activeContinuations.delete(predecessorOrchestrationId);
+  }
 }
 export async function createSubagent(
   orchestrationId,
