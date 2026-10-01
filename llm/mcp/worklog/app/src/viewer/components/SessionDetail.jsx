@@ -41,6 +41,22 @@ function peerSubtitle(peer) {
   return `${peerStatus(peer)} - Started ${started} - Duration ${peerDuration(peer)}`;
 }
 
+const PLAN_ITEM_COLORS = [
+  'bg-emerald-100 text-emerald-700',
+  'bg-violet-100 text-violet-700',
+  'bg-amber-100 text-amber-700',
+  'bg-rose-100 text-rose-700',
+  'bg-cyan-100 text-cyan-700',
+  'bg-orange-100 text-orange-700',
+];
+const INVALID_PLAN_ITEM_COLOR = 'bg-slate-100 text-slate-700';
+
+function planItemColor(plan, item) {
+  if (!Array.isArray(plan)) return undefined;
+  if (!Number.isInteger(item) || item < 1 || item > plan.length) return INVALID_PLAN_ITEM_COLOR;
+  return PLAN_ITEM_COLORS[(item - 1) % PLAN_ITEM_COLORS.length];
+}
+
 export function SessionDetail({ session }) {
   const [, tick] = useState(0);
   const [expandedPeers, setExpandedPeers] = useState({});
@@ -95,14 +111,17 @@ export function SessionDetail({ session }) {
                 >
                   {peer.goal}
                 </strong>
-                <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-2 break-words text-xs text-slate-600">
+                <span className="peer-metadata mt-0.5 grid min-w-0 grid-cols-1 items-center gap-x-2 gap-y-1 break-words text-xs text-slate-600 sm:grid-cols-[auto_minmax(0,auto)_auto_minmax(0,auto)_auto_minmax(0,1fr)]">
                   <span
                     aria-hidden="true"
                     className={`h-2 w-2 shrink-0 rounded-full ${
                       peer.complete ? 'bg-slate-400' : 'bg-blue-500 motion-safe:animate-pulse'
                     }`}
                   />
-                  <span>{peer.actor}</span> · <span>{peer.id}</span> ·{' '}
+                  <span>{peer.actor}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{peer.id}</span>
+                  <span aria-hidden="true">·</span>
                   <span>{peerDuration(peer)}</span>
                 </span>
               </button>
@@ -125,7 +144,12 @@ export function SessionDetail({ session }) {
                     <h4 className="font-semibold">Log entries</h4>
                     <ul className="mt-1 space-y-2">
                       {orderedEntries(peer.entries).map((entry, entryIndex) => (
-                        <LogEntry entry={entry} key={`${entry.time}-${entryIndex}`} />
+                        <LogEntry
+                          entry={entry}
+                          color={planItemColor(peer.plan, entry.item)}
+                          workingDirectory={session.workingDirectory}
+                          key={`${entry.time}-${entryIndex}`}
+                        />
                       ))}
                     </ul>
                   </div>
@@ -138,7 +162,12 @@ export function SessionDetail({ session }) {
       <h3 className="mt-6 text-lg font-semibold">Log entries</h3>
       <ol className="mt-2 space-y-2 pl-0">
         {orderedEntries(session.entries).map((entry, index) => (
-          <LogEntry entry={entry} key={`${entry.time}-${index}`} />
+          <LogEntry
+            entry={entry}
+            color={planItemColor(session.steps, entry.item)}
+            workingDirectory={session.workingDirectory}
+            key={`${entry.time}-${index}`}
+          />
         ))}
       </ol>
     </article>
