@@ -26,6 +26,7 @@ vim.opt.tabstop = 2                  -- tab width
 vim.opt.termguicolors = true         -- for nvim-tree colors be applied properly
 vim.opt.updatetime = 300             -- quicker update time
 vim.opt.wrap = false                 -- don't wrap lines
+vim.cmd([[ autocmd FileType markdown setlocal wrap ]])
 vim.opt.writebackup = false          -- dont write backup files
 
 vim.wo.cursorline = true             -- Enable highlighting of the current line
