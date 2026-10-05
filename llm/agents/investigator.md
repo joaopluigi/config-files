@@ -1,8 +1,8 @@
 ---
 mode: subagent
 description: Maps local project files, history, interfaces, conventions, and tests without modifying files.
-model: anthropic/claude-sonnet-5
-variant: medium
+model: openai/gpt-5.6-luna
+variant: high
 spawnableBy: orchestrator
 ---
 

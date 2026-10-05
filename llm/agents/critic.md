@@ -1,8 +1,8 @@
 ---
 mode: subagent
 description: Challenges one proposal or decision using evidence.
-model: anthropic/claude-sonnet-5
-variant: medium
+model: openai/gpt-5.6-luna
+variant: high
 spawnableBy: orchestrator
 ---
 

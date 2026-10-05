@@ -1,5 +1,5 @@
 {
-  "defaultModel": "openai/gpt-5.6-luna",
+  "defaultModel": "anthropic/claude-opus-5-5",
   "providers": {
     "openai": {
       "api": "openai-responses",
@@ -16,8 +16,8 @@
   },
   "defaultAgent": "orchestrator",
   "agent": {
-    "code": {
-      "variant": "medium"
+    "orchestrator": {
+      "variant": "high"
     }
   },
   "disabledTools": [
