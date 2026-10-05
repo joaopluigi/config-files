@@ -1,8 +1,8 @@
 ---
 mode: subagent
 description: Proposes one evidence-grounded approach for one stated problem.
-model: openai/gpt-5.6-luna
-variant: medium
+model: anthropic/claude-sonnet-5
+variant: high
 spawnableBy: orchestrator
 ---
 

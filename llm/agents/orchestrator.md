@@ -1,7 +1,7 @@
 ---
 mode: primary
 description: Reasoning-first coordinator that delegates operational work and consolidates evidence.
-model: openai/gpt-5.6-luna
+model: anthropic/claude-opus-5-5
 variant: high
 spawnableBy: user
 tools:
