@@ -1,23 +1,24 @@
 {
+  "defaultAgent": "orchestrator",
   "defaultModel": "anthropic/claude-opus-5-5",
   "providers": {
     "openai": {
       "api": "openai-responses",
       "url": "${cmd:nu genai ai-gateway url}",
       "key": "${cmd:nu genai ai-gateway token}",
-      "fetchModels": true
+      "fetchModels": false,
+      "models": {
+        "gpt-5.6-luna": {}
+      }
     },
     "anthropic": {
       "api": "anthropic",
       "url": "${cmd:nu genai ai-gateway url}",
       "key": "${cmd:nu genai ai-gateway token}",
-      "fetchModels": true
-    }
-  },
-  "defaultAgent": "orchestrator",
-  "agent": {
-    "orchestrator": {
-      "variant": "high"
+      "fetchModels": false,
+      "models": {
+        "claude-opus-5-5": {}
+      }
     }
   },
   "disabledTools": [

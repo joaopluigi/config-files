@@ -1,6 +1,6 @@
 ---
 name: worklog
-description: "Maintain an append-only worklog for any task."
+description: "Maintain an append-only worklog. Use it for every task, except for simply answering a short question."
 ---
 
 # Worklog
