@@ -5,53 +5,19 @@
       "api": "openai-responses",
       "url": "${cmd:nu genai ai-gateway url}",
       "key": "${cmd:nu genai ai-gateway token}",
-      "fetchModels": false,
-      "models": {
-        "gpt-5.3-codex": {
-          "extraPayload": {
-            "reasoning": {
-              "effort": "none"
-            }
-          },
-          "cost": {
-            "input": 1.75,
-            "output": 14,
-            "cacheRead": 0.18
-          }
-        },
-        "gpt-5.6-luna": {}
-      }
+      "fetchModels": true
     },
     "anthropic": {
       "api": "anthropic",
       "url": "${cmd:nu genai ai-gateway url}",
       "key": "${cmd:nu genai ai-gateway token}",
-      "fetchModels": false,
-      "models": {
-        "haiku-4.5": {
-          "modelName": "claude-haiku-4-5"
-        },
-        "sonnet-4.6": {
-          "modelName": "claude-sonnet-4-6"
-        },
-        "sonnet-5": {
-          "modelName": "claude-sonnet-5"
-        },
-        "opus-4.8": {
-          "modelName": "claude-opus-4-8",
-          "extraPayload": {
-            "thinking": {
-              "type": "adaptive"
-            }
-          }
-        }
-      }
+      "fetchModels": true
     }
   },
   "defaultAgent": "orchestrator",
   "agent": {
     "code": {
-      "variant": "high"
+      "variant": "medium"
     }
   },
   "disabledTools": [
@@ -60,7 +26,8 @@
     "google-workspace__drive_(create|move|trash|rename).*",
     "google-workspace__calendar_(create|update|respond|delete).*",
     "google-workspace__chat_(send|setUp).*",
-    "google-workspace__gmail_(modify|batchModify|send|create).*"
+    "google-workspace__gmail_(modify|batchModify|send|create).*",
+    "atlassian__(create|update|edit|add|transition).*"
   ],
   "toolCall": {
     "approval": {

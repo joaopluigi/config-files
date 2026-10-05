@@ -1,7 +1,7 @@
 ---
 mode: subagent
 description: Checks one question against cited external documentation, standards, and prior art.
-model: openai/gpt-5.6-luna
+model: anthropic/claude-sonnet-5
 variant: medium
 spawnableBy: orchestrator
 ---

@@ -1,7 +1,7 @@
 ---
 mode: subagent
 description: Independently checks one completed scope against its properties and evidence.
-model: openai/gpt-5.6-luna
+model: anthropic/claude-sonnet-5
 variant: medium
 spawnableBy: orchestrator
 ---
