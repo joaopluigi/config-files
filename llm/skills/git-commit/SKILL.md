@@ -32,9 +32,8 @@ that is broken.
 Commit the foundational change first, then the changes that build on it. If
 feature B depends on move A, commit A before B.
 
-For example, a directory restructure (deleting `eca/config.json`, adding `llm/`)
-must be committed before an `install.sh` that depends on the new layout —
-committing `install.sh` first would leave a broken intermediate commit.
+For example, a directory restructure must be committed before the change that depends on the new layout;
+committing the dependent change first would leave a broken intermediate commit.
 
 ## 3. Stage precisely
 
@@ -60,6 +59,8 @@ add install.sh script that creates the necessary symlinks for llm config directo
 ```
 
 ## Process
+
+Never commit while any test or check fails.
 
 1. Read `references/REFERENCE.md` for worked commit-sequence examples.
 2. Run `git status` and review the whole diff before touching the index.
