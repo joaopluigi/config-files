@@ -25,6 +25,10 @@ const text = (value) => ({
 const fail = (message) => ({ isError: true, ...text(message) });
 const id = () => randomBytes(4).toString('hex');
 const common = { orchestrationId: z.string(), capabilityToken: z.string() };
+const withDelegationContext = (response) => ({
+  ...response,
+  delegationContext: `## Server-created peer worklog context (use verbatim)\n- orchestrationId: ${response.orchestrationId}\n- peerId: ${response.peerId}\n- capabilityToken: ${response.capabilityToken}\n- path: ${response.path}\n- actor: ${response.actor}\n\nBefore any substantive step, read your peer worklog. Use these five values verbatim for every worklog operation; do not use any other token, create another worklog, or invent identifiers. Start with a progress entry, record progress as you go, add a done entry for each plan item in order, and close your worklog before finishing. If you cannot access or update your worklog, stop immediately and report that.`,
+});
 export function createServer() {
   const server = new McpServer(
     { name: 'delegation-worklog', version: '1.1.0' },
@@ -92,13 +96,15 @@ export function createServer() {
     async (args) => {
       try {
         return text(
-          await createSubagent(
-            args.orchestrationId,
-            args.capabilityToken,
-            args.actor,
-            args.goal,
-            args.done,
-            args.steps,
+          withDelegationContext(
+            await createSubagent(
+              args.orchestrationId,
+              args.capabilityToken,
+              args.actor,
+              args.goal,
+              args.done,
+              args.steps,
+            ),
           ),
         );
       } catch (e) {
@@ -123,15 +129,17 @@ export function createServer() {
     async (args) => {
       try {
         return text(
-          await replaceSubagent(
-            args.orchestrationId,
-            args.capabilityToken,
-            args.predecessorPeerId,
-            args.actor,
-            args.goal,
-            args.done,
-            args.steps,
-            args.continuationReason,
+          withDelegationContext(
+            await replaceSubagent(
+              args.orchestrationId,
+              args.capabilityToken,
+              args.predecessorPeerId,
+              args.actor,
+              args.goal,
+              args.done,
+              args.steps,
+              args.continuationReason,
+            ),
           ),
         );
       } catch (e) {
