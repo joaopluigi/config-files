@@ -2,7 +2,7 @@
 mode: subagent
 description: Implements one approved scope and verifies the result.
 model: openai/gpt-5.6-luna
-variant: low
+variant: medium
 spawnableBy: orchestrator
 ---
 
