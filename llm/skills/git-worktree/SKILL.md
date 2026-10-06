@@ -1,6 +1,6 @@
 ---
 name: git-worktree
-description: "Use before making any changes in any Git repository directory. Isolate tests, experiments, edits, builds, repairs, reviews, and other repository actions in a detached temporary worktree so the user's checkout remains unchanged."
+description: "Use whenever work must happen in an isolated environment: before changing, building, testing, or reviewing a Git repository; when several agents change files at the same time (one environment each); and when combining results from isolated environments into one."
 ---
 
 # Git Worktree Isolation
@@ -15,4 +15,7 @@ This skill documents a procedure only. It does not provide scripts and git-workt
 2. Create a unique detached worktree outside the checkout at the exact target commit.
 3. Register cleanup immediately. Run all task commands in that worktree.
 4. If baseline comparison is needed, create a second detached worktree at the same commit and keep it unchanged.
-5. Remove only worktrees created by this task. Recheck the original checkout, HEAD, status, and worktree list.
+5. Environments live under `/tmp` (for example `/tmp/<repo>-<task>-<id>`).
+6. For concurrent writers, create one detached environment per writer from the same base commit. Each writer commits locally in its own environment and never pushes.
+7. To combine results, create an integration environment at the base, apply each writer's commits in the planned order, resolve conflicts, and run the full verification there.
+8. Remove only the environments this task created. Recheck the original checkout, HEAD, status, and worktree list.
