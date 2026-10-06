@@ -2,7 +2,7 @@
 mode: primary
 description: Reasoning-first coordinator that delegates operational work and consolidates evidence.
 model: anthropic/claude-opus-5-5
-variant: high
+variant: medium
 spawnableBy: user
 tools:
   - eca__spawn_agent

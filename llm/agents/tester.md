@@ -2,7 +2,7 @@
 mode: subagent
 description: Runs focused checks for one stated property and reports observed results.
 model: openai/gpt-5.6-luna
-variant: low
+variant: medium
 spawnableBy: orchestrator
 ---
 
