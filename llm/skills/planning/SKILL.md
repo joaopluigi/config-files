@@ -26,10 +26,8 @@ approved plan that another person or process can use to implement the change.
 6. Compare the proposals and present multiple alternatives. For each alternative,
    state its benefits, costs, risks, compatibility impact, and unresolved questions.
 7. Define the intended behavior as explicit properties or invariants.
-8. Write a detailed implementation plan that names the affected behavior, scope,
-   files or boundaries, validation, and predicted consequences.
-9. Spawn a `critic` agent to critique the plan and its predicted consequences
-   independently.
+8. Write a detailed implementation plan that names the affected behavior, scope, files or boundaries, validation, and predicted consequences. Include a table mapping every specified behavior to the checks that will establish it.
+9. Spawn a `critic` agent to critique the plan and its predicted consequences independently.
 10. Resolve the critique and present the alternatives and recommended plan to the
     user.
 11. Stop until the user approves the plan.
@@ -49,14 +47,8 @@ observed facts from assumptions and predictions.
 
 ## Handoff gate
 
-Do not start planning/design until discovery is accepted. Validate the accepted
-artifact against [`../discovery/assets/discovery-result.schema.json`](../discovery/assets/discovery-result.schema.json); it must contain the lane matrix, sources and provenance, prior-art reuse decisions, gaps, contradictions, uncertainty, and stop status. This is a handoff gate, not a repeat of the discovery procedure.
+Do not start planning/design until an accepted evidence artifact exists that covers every search lane with status, sources, and reason; source provenance and claims; prior-art reuse decisions; gaps; contradictions; uncertainty; and stop status.
 
 ## Stop conditions
 
 Stop without implementation when the problem is not understood, required evidence is missing, a user decision is unresolved, or the user has not approved the plan.
-
-## Independence
-
-This skill is complete on its own. It does not require another skill, invoke another
-skill, or assume that another skill will consume its output.
