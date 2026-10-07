@@ -3,7 +3,7 @@
 !/llm/skills/worklog
 !/llm/skills/git-commit
 !/llm/skills/rewrite-text
-!/llm/skills/clj-rewrite
+!/llm/skills/writing-clojure
 !/llm/skills/planning
 !/llm/skills/discovery
 !/llm/skills/discovery/**
