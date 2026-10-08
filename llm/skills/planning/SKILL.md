@@ -24,10 +24,9 @@ approved plan that another person or process can use to implement the change.
 5. For non-trivial work, spawn at least four independent `ideator` agents. Give each
    the same problem statement and constraints without sharing the other proposals.
 6. Once all ideators have returned, spawn a `synthesizer` agent with the same problem
-   statement and constraints plus all ideator proposals. It decomposes the proposals
-   into independent dimensions, models constraints, enumerates valid combinations with
-   core.logic, and returns recommended combinations mapped to the proposals. Keep the
-   ideators isolated from one another; only the synthesizer sees all proposals.
+   statement and constraints plus all ideator proposals. It explores the design space
+   the proposals span and returns recommended combinations mapped to the proposals.
+   Keep the ideators isolated from one another; only the synthesizer sees all proposals.
 7. Compare the ideator proposals and the synthesizer's recommended combinations, and
    present multiple alternatives. For each alternative, state its benefits, costs,
    risks, compatibility impact, and unresolved questions. Say when an alternative is a
