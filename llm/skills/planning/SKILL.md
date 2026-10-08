@@ -23,15 +23,22 @@ approved plan that another person or process can use to implement the change.
 4. Identify the problem in concrete, observable terms.
 5. For non-trivial work, spawn at least four independent `ideator` agents. Give each
    the same problem statement and constraints without sharing the other proposals.
-6. Compare the proposals and present multiple alternatives. For each alternative,
-   state its benefits, costs, risks, compatibility impact, and unresolved questions.
-7. Define the intended behavior as explicit properties or invariants.
-8. Write a detailed implementation plan that names the affected behavior, scope, files or boundaries, validation, and predicted consequences. Include a table mapping every specified behavior to the checks that will establish it.
-9. Spawn a `critic` agent to critique the plan and its predicted consequences independently.
-10. Resolve the critique and present the alternatives and recommended plan to the
+6. Once all ideators have returned, spawn a `synthesizer` agent with the same problem
+   statement and constraints plus all ideator proposals. It decomposes the proposals
+   into independent dimensions, models constraints, enumerates valid combinations with
+   core.logic, and returns recommended combinations mapped to the proposals. Keep the
+   ideators isolated from one another; only the synthesizer sees all proposals.
+7. Compare the ideator proposals and the synthesizer's recommended combinations, and
+   present multiple alternatives. For each alternative, state its benefits, costs,
+   risks, compatibility impact, and unresolved questions. Say when an alternative is a
+   new combination not present in any single proposal.
+8. Define the intended behavior as explicit properties or invariants.
+9. Write a detailed implementation plan that names the affected behavior, scope, files or boundaries, validation, and predicted consequences. Include a table mapping every specified behavior to the checks that will establish it.
+10. Spawn a `critic` agent to critique the plan and its predicted consequences independently.
+11. Resolve the critique and present the alternatives and recommended plan to the
     user.
-11. Stop until the user approves the plan.
-12. Record the approval and produce an approved plan artifact containing the goal,
+12. Stop until the user approves the plan.
+13. Record the approval and produce an approved plan artifact containing the goal,
     selected alternative, scope, properties, evidence, validation, and approval.
 
 ## Outputs
