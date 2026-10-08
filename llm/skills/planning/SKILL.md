@@ -23,10 +23,16 @@ approved plan that another person or process can use to implement the change.
 4. Identify the problem in concrete, observable terms.
 5. For non-trivial work, spawn at least four independent `ideator` agents. Give each
    the same problem statement and constraints without sharing the other proposals.
-6. Once all ideators have returned, spawn a `synthesizer` agent with the same problem
-   statement and constraints plus all ideator proposals. It explores the design space
-   the proposals span and returns recommended combinations mapped to the proposals.
-   Keep the ideators isolated from one another; only the synthesizer sees all proposals.
+6. Once all ideators have returned, synthesize their proposals. Spawn a `synthesizer`
+   agent, or another agent if none is available, with the same problem statement and
+   constraints plus all ideator proposals. The synthesis must:
+   - identify the independent choices that vary across the proposals and the
+     constraints between them;
+   - find every valid combination of those choices, not only the ones the proposals
+     already contain;
+   - return recommended combinations, each mapped to the proposals it draws from.
+   Keep the ideators isolated from one another; only the synthesis step sees all
+   proposals.
 7. Compare the ideator proposals and the synthesizer's recommended combinations, and
    present multiple alternatives. For each alternative, state its benefits, costs,
    risks, compatibility impact, and unresolved questions. Say when an alternative is a
