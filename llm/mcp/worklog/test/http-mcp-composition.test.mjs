@@ -51,6 +51,38 @@ async function post(baseUrl, body, headers = {}) {
   });
 }
 
+async function rawGet(baseUrl) {
+  const url = new URL(`${baseUrl}/mcp`);
+  return new Promise((resolve, reject) => {
+    const request = httpRequest(
+      {
+        hostname: url.hostname,
+        port: url.port,
+        path: url.pathname,
+        method: 'GET',
+        headers: {
+          accept: 'application/json, text/event-stream',
+          authorization: `Bearer ${token}`,
+          host: url.host,
+          origin: baseUrl,
+        },
+      },
+      (response) => {
+        response.resume();
+        response.on('end', () => resolve({ timedOut: false, status: response.statusCode }));
+      },
+    );
+    request.setTimeout(500, () => {
+      request.destroy();
+      resolve({ timedOut: true });
+    });
+    request.on('error', (error) => {
+      if (error.code !== 'ECONNRESET') reject(error);
+    });
+    request.end();
+  });
+}
+
 async function rawPost(baseUrl, body, headers = {}) {
   const url = new URL(`${baseUrl}/mcp`);
   return new Promise((resolve, reject) => {
@@ -143,6 +175,32 @@ test('HTTP MCP rejects missing or invalid authorization and disallowed Host or O
     assert.ok([400, 403].includes(disallowedOrigin.status));
   } finally {
     await started.close();
+  }
+});
+
+test('HTTP MCP requires a supported protocol version and answers authenticated GET promptly', async () => {
+  const { started, baseUrl } = await startHttp();
+  try {
+    const unsupported = await post(
+      baseUrl,
+      mcpRequest('initialize', 1, {
+        protocolVersion: '1999-01-01',
+        capabilities: {},
+        clientInfo: { name: 'http-test', version: '1.0.0' },
+      }),
+    );
+
+    const getResponse = await rawGet(baseUrl);
+    assert.deepEqual(
+      {
+        unsupportedRejected: [400, 406].includes(unsupported.status),
+        getPrompt: getResponse.timedOut === false,
+        getStatusDefined: [200, 400, 405].includes(getResponse.status),
+      },
+      { unsupportedRejected: true, getPrompt: true, getStatusDefined: true },
+    );
+  } finally {
+    await assert.doesNotReject(started.close());
   }
 });
 

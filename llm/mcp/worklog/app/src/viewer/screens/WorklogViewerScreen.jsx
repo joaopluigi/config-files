@@ -105,7 +105,10 @@ export function WorklogViewerScreen({
   eventSourceFactory = defaultStreamFactory,
   refreshInterval = 3000,
 }) {
-  const dataFetcher = fetcher ?? (client ? () => client.listSessions() : defaultFetcher);
+  const dataFetcher = useMemo(
+    () => fetcher ?? (client ? () => client.listSessions() : defaultFetcher),
+    [fetcher, client],
+  );
   const [state, setState] = useState({
     loading: true,
     error: null,

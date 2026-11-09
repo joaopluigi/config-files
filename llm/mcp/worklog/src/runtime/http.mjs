@@ -64,11 +64,34 @@ async function writeResponse(response, reply, sanitizeInitialize = false) {
   reply.end(body);
 }
 
-function rejected(status, message) {
+function rejected(status, message, headers = {}) {
   return new globalThis.Response(message, {
     status,
-    headers: { 'content-type': 'text/plain; charset=utf-8' },
+    headers: { 'content-type': 'text/plain; charset=utf-8', ...headers },
   });
+}
+
+const SUPPORTED_PROTOCOL_VERSION = '2025-06-18';
+
+function validateProtocolVersion(body, protocolHeader) {
+  if (protocolHeader && protocolHeader !== SUPPORTED_PROTOCOL_VERSION) {
+    throw Object.assign(new Error(`unsupported MCP protocol version: ${protocolHeader}`), {
+      statusCode: 400,
+    });
+  }
+  let message;
+  try {
+    message = JSON.parse(body.toString('utf8'));
+  } catch {
+    return;
+  }
+  if (message.method !== 'initialize') return;
+  const requested = message.params?.protocolVersion;
+  if (requested !== SUPPORTED_PROTOCOL_VERSION) {
+    throw Object.assign(new Error(`unsupported MCP protocol version: ${requested ?? 'missing'}`), {
+      statusCode: 400,
+    });
+  }
 }
 
 export async function handleMcpRequest(
@@ -94,9 +117,14 @@ export async function handleMcpRequest(
     await writeResponse(rejected(404, 'not found'), reply);
     return;
   }
+  if (request.method !== 'POST') {
+    await writeResponse(rejected(405, 'method not allowed', { allow: 'POST' }), reply);
+    return;
+  }
 
   try {
     const body = await readBody(request, maxBodySize);
+    validateProtocolVersion(body, request.headers['mcp-protocol-version']);
     const headers = new globalThis.Headers(request.headers);
     const webRequest = new globalThis.Request(`http://${expectedHost}${request.url}`, {
       method: request.method,

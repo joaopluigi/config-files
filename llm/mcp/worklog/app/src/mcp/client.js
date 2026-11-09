@@ -37,31 +37,40 @@ export function createViewerClient({
 
   let nextId = 0;
   let initialized;
+  let negotiatedProtocolVersion;
   const headers = () => ({
     Accept: 'application/json, text/event-stream',
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(negotiatedProtocolVersion ? { 'MCP-Protocol-Version': negotiatedProtocolVersion } : {}),
   });
-  async function post(message) {
+  async function post(message, { captureProtocolVersion = false } = {}) {
     const response = await fetchImpl(endpoint, {
       method: 'POST',
       headers: headers(),
       body: JSON.stringify(message),
     });
     if (!response.ok) throw new Error(`MCP request failed (${response.status})`);
+    if (captureProtocolVersion) {
+      const payload = await response.clone().json();
+      negotiatedProtocolVersion = payload.result?.protocolVersion ?? '2025-06-18';
+    }
     return response;
   }
   async function initialize() {
-    await post({
-      jsonrpc: '2.0',
-      id: ++nextId,
-      method: 'initialize',
-      params: {
-        protocolVersion: '2025-06-18',
-        capabilities: {},
-        clientInfo: { name: 'worklog-viewer', version: '0.1.0' },
+    await post(
+      {
+        jsonrpc: '2.0',
+        id: ++nextId,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2025-06-18',
+          capabilities: {},
+          clientInfo: { name: 'worklog-viewer', version: '0.1.0' },
+        },
       },
-    });
+      { captureProtocolVersion: true },
+    );
     await post({ jsonrpc: '2.0', method: 'notifications/initialized' });
   }
   async function callTool(name, args) {

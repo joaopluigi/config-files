@@ -251,6 +251,13 @@ describe('WorklogViewerScreen', () => {
     vi.unstubAllGlobals();
     nowSpy.mockRestore();
   });
+  it('does not refetch solely because the client fetch callback identity changes', async () => {
+    const client = { listSessions: vi.fn().mockResolvedValue(data) };
+    render(<WorklogViewerScreen client={client} refreshInterval={60_000} />);
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(client.listSessions).toHaveBeenCalledTimes(1);
+  });
+
   it('matches the open session view snapshot', async () => {
     const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-30T17:25:22Z'));
     const view = render(<WorklogViewerScreen fetcher={vi.fn().mockResolvedValue(data)} />);
