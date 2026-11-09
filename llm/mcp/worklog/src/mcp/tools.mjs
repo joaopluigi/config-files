@@ -3,6 +3,7 @@ import * as z from 'zod/v4';
 import { readFile, writeFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { withLock } from '../storage/locks.mjs';
+import { WorklogService } from '../service/worklog.mjs';
 import {
   registryPath,
   pathFor,
@@ -14,9 +15,10 @@ import {
   createSubagent,
   closeWorklog,
   sessionCompletion,
-  discoverSessions,
   replaceSubagent,
 } from '../storage/repository.mjs';
+
+const worklogService = new WorklogService();
 const text = (value) => ({
   content: [
     { type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) },
@@ -75,7 +77,7 @@ export function createServer() {
     },
     async ({ actor }) => {
       try {
-        return text(await discoverSessions(actor));
+        return text(await worklogService.listWorklogs(actor));
       } catch (e) {
         return fail(e.message);
       }

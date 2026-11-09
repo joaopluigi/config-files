@@ -1,3 +1,4 @@
+import { WorklogService } from '../../../src/service/worklog.mjs';
 import { readWorklog, readWorklogs, redactSecrets } from './readModel.js';
 import { currentRevision, subscribeRevision } from './watcher.js';
 
@@ -7,7 +8,10 @@ function sendJson(res, statusCode, payload) {
   res.end(JSON.stringify(redactSecrets(payload)));
 }
 
-export async function worklogApiHandler(req, res) {
+export async function worklogApiHandler(req, res, options = {}) {
+  const service = options.service ?? new WorklogService({ storage: options.storage });
+  const readOptions =
+    options.service !== undefined || options.storage !== undefined ? { service } : {};
   const rawPathname = new globalThis.URL(req.url, 'http://127.0.0.1').pathname;
   if (rawPathname === '/api/worklogs/revision' || rawPathname === '/revision') {
     if (req.method !== 'GET') return sendJson(res, 405, { error: 'method not allowed' });
@@ -35,8 +39,9 @@ export async function worklogApiHandler(req, res) {
         : `/api/worklogs${rawPathname}`;
   const idMatch = pathname.match(/^\/api\/worklogs\/([^/]+)$/);
   try {
-    if (idMatch) return sendJson(res, 200, await readWorklog(decodeURIComponent(idMatch[1])));
-    if (pathname === '/api/worklogs') return sendJson(res, 200, await readWorklogs());
+    if (idMatch)
+      return sendJson(res, 200, await readWorklog(decodeURIComponent(idMatch[1]), readOptions));
+    if (pathname === '/api/worklogs') return sendJson(res, 200, await readWorklogs(readOptions));
     return sendJson(res, 404, { error: 'not found' });
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
