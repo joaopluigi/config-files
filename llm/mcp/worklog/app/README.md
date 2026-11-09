@@ -9,7 +9,15 @@ npm install
 npm run dev
 ```
 
-The viewer uses the standalone HTTP MCP endpoint at `POST /mcp`. Set `VITE_MCP_ENDPOINT` when the endpoint is not available at the browser origin, and set `VITE_MCP_TOKEN` when the server requires bearer authorization. The viewer uses the read-only MCP tools `worklog_session_status` and `worklog_read`.
+The viewer uses the standalone HTTP MCP endpoint at `POST /mcp`. Start that server from the parent directory with `npm run start:http`; it prints `WORKLOG_MCP_ENDPOINT` and `WORKLOG_MCP_TOKEN` for the browser setup. Set `VITE_MCP_ENDPOINT` and `VITE_MCP_TOKEN` when the endpoint and token are not already provided by the browser origin:
+
+```sh
+VITE_MCP_ENDPOINT=http://127.0.0.1:<port>/mcp \\
+VITE_MCP_TOKEN=<token> \\
+npm run dev
+```
+
+The frontend is served separately by Vite. The viewer uses the read-only MCP tools `worklog_session_status` and `worklog_read`.
 
 The standalone HTTP adapter uses a per-launch bearer token and binds only to `127.0.0.1`. MCP clients must send both `application/json` and `text/event-stream` in `Accept` and must initialize before calling tools. The local stdio server remains available for MCP clients that launch `server.mjs` directly.
 
