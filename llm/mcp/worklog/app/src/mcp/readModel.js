@@ -1,10 +1,6 @@
 import { readFile, stat } from 'node:fs/promises';
-import {
-  discoverSessions,
-  mainPath,
-  subagentPath,
-  registryPath,
-} from '../../../src/storage/repository.mjs';
+import { mainPath, subagentPath, registryPath } from '../../../src/storage/repository.mjs';
+import { WorklogService } from '../../../src/service/worklog.mjs';
 import { validateId } from '../../../src/domain/worklog.mjs';
 
 export function parseWorkingDirectory(content) {
@@ -111,10 +107,18 @@ export function durationValue(createdAt, entries = [], peers = []) {
 }
 
 export function peerDuration(peer) {
-  if (peer.complete && typeof peer.createdAt === 'string' && Number.isFinite(Date.parse(peer.createdAt))) {
+  if (
+    peer.complete &&
+    typeof peer.createdAt === 'string' &&
+    Number.isFinite(Date.parse(peer.createdAt))
+  ) {
     return { duration: durationValue(peer.createdAt, peer.entries) };
   }
-  if (!peer.complete && typeof peer.createdAt === 'string' && Number.isFinite(Date.parse(peer.createdAt))) {
+  if (
+    !peer.complete &&
+    typeof peer.createdAt === 'string' &&
+    Number.isFinite(Date.parse(peer.createdAt))
+  ) {
     return {};
   }
   return {
@@ -123,8 +127,11 @@ export function peerDuration(peer) {
   };
 }
 
-export async function readWorklogs() {
-  const { sessions } = await discoverSessions('orchestrator');
+export async function readWorklogs(options = {}) {
+  const service = options.service ?? new WorklogService({ storage: options.storage });
+  const result = await service.listWorklogs('orchestrator');
+  if (options.storage !== undefined || options.service !== undefined) return redactSecrets(result);
+  const { sessions } = result;
   const enriched = await Promise.all(
     sessions.map(async (session) => {
       let birthtime;
@@ -183,9 +190,9 @@ export async function readWorklogs() {
   return redactSecrets({ sessions: ordered });
 }
 
-export async function readWorklog(orchestrationId) {
+export async function readWorklog(orchestrationId, options = {}) {
   validateId(orchestrationId, 'orchestration id');
-  const model = await readWorklogs();
+  const model = await readWorklogs(options);
   const result = model.sessions.find((session) => session.orchestrationId === orchestrationId);
   if (!result) throw new Error('unknown orchestration id');
   return result;
