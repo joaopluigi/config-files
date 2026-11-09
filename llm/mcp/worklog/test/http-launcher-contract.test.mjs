@@ -80,7 +80,8 @@ test('the documented browser launcher contract names one command and its endpoin
 
   assert.equal(packageJson.scripts?.['start:http'], launcherCommand.slice('npm run '.length));
   assert.match(readme, /npm run start:http/);
-  assert.match(readme, /WORKLOG_HTTP_HOST/);
+  assert.match(readme, /always binds to loopback at `127\.0\.0\.1`/);
+  assert.doesNotMatch(readme, /WORKLOG_HTTP_HOST/);
   assert.match(readme, /WORKLOG_HTTP_PORT/);
   assert.match(readme, /WORKLOG_MCP_TOKEN/);
   assert.match(readme, /\/mcp/);

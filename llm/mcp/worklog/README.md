@@ -51,9 +51,8 @@ Start the standalone, read-only HTTP MCP server from this directory:
 npm run start:http
 ```
 
-The launcher prints a machine-readable `WORKLOG_MCP_ENDPOINT=http://127.0.0.1:<port>/mcp WORKLOG_MCP_TOKEN=<token>` line to stderr. Configure it with these environment variables:
+The launcher prints a machine-readable `WORKLOG_MCP_ENDPOINT=http://127.0.0.1:<port>/mcp WORKLOG_MCP_TOKEN=<token>` line to stderr. The HTTP server always binds to loopback at `127.0.0.1`; its host is fixed and is not user-configurable. Configure the remaining settings with these environment variables:
 
-- `WORKLOG_HTTP_HOST` (default `127.0.0.1`)
 - `WORKLOG_HTTP_PORT` (default `0`, which selects an available port)
 - `WORKLOG_MCP_TOKEN` (optional; a local token is generated when absent)
 - `WORKLOG_DIR` (existing worklog data directory, default `/tmp/worklogs`)
