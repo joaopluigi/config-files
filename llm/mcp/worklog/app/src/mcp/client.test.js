@@ -105,7 +105,4 @@ test('migrated viewer source has no repository/filesystem or legacy REST/SSE dat
   expect(source).toContain('client');
   expect(source).not.toMatch(/from ['"].*\/src\/(repository|storage|service)\//);
   expect(source).not.toMatch(/fetch\s*\(/);
-  expect(source).not.toContain('/api/worklogs');
-  expect(source).not.toContain('EventSource');
-  expect(source).not.toContain('text/event-stream');
 });

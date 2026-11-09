@@ -1,19 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { filterSessions, sortSessions, WorklogViewerScreen } from './WorklogViewerScreen.jsx';
-const createEventSource = () => {
-  const listeners = {};
-  return {
-    listeners,
-    addEventListener: vi.fn((name, handler) => {
-      listeners[name] = handler;
-    }),
-    removeEventListener: vi.fn((name, handler) => {
-      if (listeners[name] === handler) delete listeners[name];
-    }),
-    close: vi.fn(),
-  };
-};
 
 const openSelector = async (label) => {
   await act(async () => screen.getByRole('button', { name: new RegExp(`^${label}:`) }).click());
@@ -128,7 +115,7 @@ describe('sortSessions', () => {
 describe('WorklogViewerScreen', () => {
   it('loads with the default date and status filters selected', async () => {
     const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-30T12:00:00Z'));
-    render(<WorklogViewerScreen fetcher={vi.fn().mockResolvedValue(data)} />);
+    render(<WorklogViewerScreen client={{ listSessions: vi.fn().mockResolvedValue(data) }} />);
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: 'Inspect' })).toBeInTheDocument(),
     );
@@ -185,7 +172,7 @@ describe('WorklogViewerScreen', () => {
         { ...data.sessions[0], orchestrationId: 'closed', goal: 'Closed', complete: true },
       ],
     };
-    render(<WorklogViewerScreen fetcher={vi.fn().mockResolvedValue(sessions)} />);
+    render(<WorklogViewerScreen client={{ listSessions: vi.fn().mockResolvedValue(sessions) }} />);
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: 'Inspect' })).toBeInTheDocument(),
     );
@@ -204,7 +191,7 @@ describe('WorklogViewerScreen', () => {
 
   it('handles an empty filter intersection without crashing or retaining a selection', async () => {
     const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-30T12:00:00Z'));
-    render(<WorklogViewerScreen fetcher={vi.fn().mockResolvedValue(data)} />);
+    render(<WorklogViewerScreen client={{ listSessions: vi.fn().mockResolvedValue(data) }} />);
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: 'Inspect' })).toBeInTheDocument(),
     );
@@ -222,33 +209,27 @@ describe('WorklogViewerScreen', () => {
 
   it('loads and renders a session', async () => {
     const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-30T17:00:00Z'));
-    render(<WorklogViewerScreen fetcher={vi.fn().mockResolvedValue(data)} />);
+    render(<WorklogViewerScreen client={{ listSessions: vi.fn().mockResolvedValue(data) }} />);
     expect(screen.getByRole('status')).toHaveTextContent('Loading');
     await waitFor(() => expect(screen.getAllByText('Inspect')).not.toHaveLength(0));
     nowSpy.mockRestore();
   });
   it('shows errors', async () => {
-    render(<WorklogViewerScreen fetcher={vi.fn().mockRejectedValue(new Error('offline'))} />);
+    render(
+      <WorklogViewerScreen
+        client={{ listSessions: vi.fn().mockRejectedValue(new Error('offline')) }}
+      />,
+    );
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('offline'));
   });
-  it('does not repeatedly fetch on the production default path', async () => {
+  it('loads once on the production MCP client path', async () => {
     const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-30T17:00:00Z'));
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(data), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-    vi.stubGlobal('fetch', fetchMock);
-
-    render(<WorklogViewerScreen />);
+    const client = { listSessions: vi.fn().mockResolvedValue(data) };
+    render(<WorklogViewerScreen client={client} refreshInterval={60_000} />);
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: 'Inspect' })).toBeInTheDocument(),
     );
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    vi.unstubAllGlobals();
+    expect(client.listSessions).toHaveBeenCalledTimes(1);
     nowSpy.mockRestore();
   });
   it('does not refetch solely because the client fetch callback identity changes', async () => {
@@ -260,7 +241,9 @@ describe('WorklogViewerScreen', () => {
 
   it('matches the open session view snapshot', async () => {
     const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-30T17:25:22Z'));
-    const view = render(<WorklogViewerScreen fetcher={vi.fn().mockResolvedValue(data)} />);
+    const view = render(
+      <WorklogViewerScreen client={{ listSessions: vi.fn().mockResolvedValue(data) }} />,
+    );
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: 'Inspect' })).toBeInTheDocument(),
     );
@@ -268,111 +251,31 @@ describe('WorklogViewerScreen', () => {
     nowSpy.mockRestore();
   });
 
-  it('refreshes once for newer revisions and ignores duplicate or older events', async () => {
-    const fetcher = vi.fn().mockResolvedValue(data);
-    let source;
-    render(
-      <WorklogViewerScreen
-        fetcher={fetcher}
-        eventSourceFactory={() => {
-          source = createEventSource();
-          return source;
-        }}
-      />,
-    );
-    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
-    expect(source.addEventListener).toHaveBeenCalledWith('revision', expect.any(Function));
-    await act(async () => {
-      source.listeners.revision({ data: JSON.stringify({ revision: 2 }) });
-      source.listeners.revision({ data: JSON.stringify({ revision: 2 }) });
-      source.listeners.revision({ data: JSON.stringify({ revision: 1 }) });
-    });
-    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
-  });
-
-  it('coalesces a newer revision received during an in-flight refresh', async () => {
-    let resolveSecond;
-    const fetcher = vi
-      .fn()
-      .mockResolvedValueOnce(data)
-      .mockImplementationOnce(() => new Promise((resolve) => (resolveSecond = resolve)))
-      .mockResolvedValueOnce(data);
-    let source;
-    render(
-      <WorklogViewerScreen
-        fetcher={fetcher}
-        eventSourceFactory={() => {
-          source = createEventSource();
-          return source;
-        }}
-      />,
-    );
-    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
-    await act(async () => {
-      source.listeners.revision({ data: JSON.stringify({ revision: 1 }) });
-    });
-    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
-    await act(async () => {
-      source.listeners.revision({ data: JSON.stringify({ revision: 2 }) });
-      source.listeners.revision({ data: JSON.stringify({ revision: 3 }) });
-    });
-    expect(fetcher).toHaveBeenCalledTimes(2);
-    await act(async () => resolveSecond(data));
-    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(3));
-  });
-
-  it('falls back to revision polling after SSE failure and closes on unmount', async () => {
-    vi.useFakeTimers();
-    const fetcher = vi.fn().mockResolvedValue(data);
-    const revisionFetcher = vi.fn().mockResolvedValue({ revision: 1 });
-    const source = createEventSource();
-    const { unmount } = render(
-      <WorklogViewerScreen
-        fetcher={fetcher}
-        revisionFetcher={revisionFetcher}
-        eventSourceFactory={() => source}
-        refreshInterval={100}
-      />,
-    );
-    source.onerror();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(100);
-    });
-    expect(revisionFetcher).toHaveBeenCalledTimes(1);
-    expect(fetcher).toHaveBeenCalledTimes(2);
-    unmount();
-    expect(source.removeEventListener).toHaveBeenCalledWith('revision', expect.any(Function));
-    expect(source.close).toHaveBeenCalled();
-    vi.useRealTimers();
-  });
-
   it('preserves a selected session when refreshed data still contains it', async () => {
-    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-30T17:00:00Z'));
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-30T17:00:00Z'));
     const first = {
       sessions: [
         data.sessions[0],
         { ...data.sessions[0], orchestrationId: '12345678', goal: 'Second' },
       ],
     };
-    const fetcher = vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(first);
-    let source;
-    render(
-      <WorklogViewerScreen
-        fetcher={fetcher}
-        eventSourceFactory={() => {
-          source = createEventSource();
-          return source;
-        }}
-      />,
-    );
-    await waitFor(() => expect(screen.getByRole('button', { name: /Second/ })).toBeInTheDocument());
+    const client = {
+      listSessions: vi.fn().mockResolvedValue(first),
+    };
+    const { unmount } = render(<WorklogViewerScreen client={client} refreshInterval={10} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('button', { name: /Second/ })).toBeInTheDocument();
     screen.getByRole('button', { name: /Second/ }).click();
     await act(async () => {
-      source.listeners.revision({ data: JSON.stringify({ revision: 1 }) });
+      await vi.advanceTimersByTimeAsync(10);
     });
-    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    expect(client.listSessions).toHaveBeenCalledTimes(2);
     expect(screen.getByRole('button', { name: /Second/ })).toHaveAttribute('aria-pressed', 'true');
-    nowSpy.mockRestore();
+    unmount();
+    vi.useRealTimers();
   });
 
   it('removes an expired mounted session and falls back without refreshing data', async () => {
@@ -391,9 +294,7 @@ describe('WorklogViewerScreen', () => {
       createdAt: '2026-10-01T11:59:00.000Z',
     };
     const fetcher = vi.fn().mockResolvedValue({ sessions: [expiring, remaining] });
-    render(
-      <WorklogViewerScreen fetcher={fetcher} eventSourceFactory={() => createEventSource()} />,
-    );
+    render(<WorklogViewerScreen client={{ listSessions: fetcher }} />);
     await act(async () => {
       await Promise.resolve();
     });
@@ -435,9 +336,7 @@ describe('WorklogViewerScreen', () => {
       ],
     });
     const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
-    render(
-      <WorklogViewerScreen fetcher={fetcher} eventSourceFactory={() => createEventSource()} />,
-    );
+    render(<WorklogViewerScreen client={{ listSessions: fetcher }} />);
     await act(async () => {
       await Promise.resolve();
     });
@@ -459,9 +358,7 @@ describe('WorklogViewerScreen', () => {
     const fetcher = vi.fn().mockResolvedValue({
       sessions: [{ ...data.sessions[0], createdAt: '2026-09-30T10:00:00.000Z' }],
     });
-    const { unmount } = render(
-      <WorklogViewerScreen fetcher={fetcher} eventSourceFactory={() => createEventSource()} />,
-    );
+    const { unmount } = render(<WorklogViewerScreen client={{ listSessions: fetcher }} />);
     await act(async () => {
       await Promise.resolve();
     });
@@ -477,9 +374,7 @@ describe('WorklogViewerScreen', () => {
     const fetcher = vi.fn().mockResolvedValue({
       sessions: [{ ...data.sessions[0], createdAt: '2026-09-30T10:00:00.000Z' }],
     });
-    render(
-      <WorklogViewerScreen fetcher={fetcher} eventSourceFactory={() => createEventSource()} />,
-    );
+    render(<WorklogViewerScreen client={{ listSessions: fetcher }} />);
     await act(async () => {
       await Promise.resolve();
     });
@@ -500,9 +395,7 @@ describe('WorklogViewerScreen', () => {
     const fetcher = vi.fn().mockResolvedValue({
       sessions: [{ ...data.sessions[0], createdAt: '2026-09-30T10:00:00.000Z' }],
     });
-    render(
-      <WorklogViewerScreen fetcher={fetcher} eventSourceFactory={() => createEventSource()} />,
-    );
+    render(<WorklogViewerScreen client={{ listSessions: fetcher }} />);
     await act(async () => {
       await Promise.resolve();
     });
