@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SessionList } from '../components/SessionList.jsx';
 import { SessionDetail } from '../components/SessionDetail.jsx';
-import {
-  defaultStreamFactory,
-  defaultFetcher,
-  defaultRevisionFetcher,
-  startLegacyRefresh,
-} from '../../mcp/legacyClient.js';
 
 const DATE_FILTERS = [
   { key: '24h', label: 'Last 24 hours', hours: 24 },
@@ -98,17 +92,8 @@ function DisclosureSelector({ id, label, value, options, onChange }) {
   );
 }
 
-export function WorklogViewerScreen({
-  client,
-  fetcher,
-  revisionFetcher = defaultRevisionFetcher,
-  eventSourceFactory = defaultStreamFactory,
-  refreshInterval = 3000,
-}) {
-  const dataFetcher = useMemo(
-    () => fetcher ?? (client ? () => client.listSessions() : defaultFetcher),
-    [fetcher, client],
-  );
+export function WorklogViewerScreen({ client, refreshInterval = 3000 }) {
+  const dataFetcher = useMemo(() => () => client.listSessions(), [client]);
   const [state, setState] = useState({
     loading: true,
     error: null,
@@ -156,17 +141,9 @@ export function WorklogViewerScreen({
     refresh(true);
   }, [refresh]);
   useEffect(() => {
-    if (client) {
-      const timer = setInterval(() => refresh(), refreshInterval);
-      return () => clearInterval(timer);
-    }
-    return startLegacyRefresh({
-      refresh,
-      refreshInterval,
-      revisionFetcher,
-      eventSourceFactory,
-    });
-  }, [client, eventSourceFactory, refresh, refreshInterval, revisionFetcher]);
+    const timer = setInterval(() => refresh(), refreshInterval);
+    return () => clearInterval(timer);
+  }, [refresh, refreshInterval]);
   useEffect(() => {
     if (dateFilter === 'all') return undefined;
     const cutoffWindow = DATE_FILTERS.find((filter) => filter.key === dateFilter)?.hours;
