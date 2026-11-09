@@ -10,7 +10,7 @@
     "worklog": {
       "command": "node",
       "args": [
-        "$HOME/dev/config-files/llm/mcp/worklog/server.mjs"
+        "$HOME/dev/config-files/llm/mcp/worklog/supervisor.mjs"
       ],
       "env": {}
     }
