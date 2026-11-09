@@ -394,3 +394,54 @@ export function createServer() {
   );
   return server;
 }
+
+export function createViewerServer() {
+  const server = new McpServer(
+    { name: 'delegation-worklog', version: '1.1.0' },
+    {
+      instructions: 'HTTP access is read-only and exposes sanitized viewer capabilities only.',
+    },
+  );
+  server.registerTool(
+    'worklog_session_status',
+    {
+      description: 'Discover sessions as metadata.',
+      inputSchema: z.object({ actor: z.string() }),
+    },
+    async ({ actor }) => {
+      try {
+        return text(await worklogService.listWorklogs(actor));
+      } catch (e) {
+        return fail(e.message);
+      }
+    },
+  );
+  server.registerTool(
+    'worklog_read',
+    {
+      description:
+        'Read a main log with the session token, a peer log with that peer token, or a registered child log with the session token.',
+      inputSchema: z.object({
+        orchestrationId: z.string(),
+        token: z.string(),
+        peerId: z.string().optional(),
+        since: z.number().int().nonnegative().optional(),
+      }),
+    },
+    async ({ orchestrationId, token, peerId, since = 0 }) => {
+      try {
+        await authorized(
+          orchestrationId,
+          token,
+          peerId,
+          peerId === undefined ? 'session' : 'peer-or-session',
+        );
+        const bytes = Buffer.from(await readFile(pathFor(orchestrationId, peerId), 'utf8'));
+        return text({ content: bytes.subarray(since).toString('utf8'), next: bytes.length });
+      } catch (e) {
+        return fail(e.message);
+      }
+    },
+  );
+  return server;
+}
