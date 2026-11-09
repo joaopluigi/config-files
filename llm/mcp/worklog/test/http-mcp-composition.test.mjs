@@ -8,6 +8,34 @@ const httpEntrypoint = new URL('../src/runtime/http.mjs', import.meta.url);
 const serverEntrypoint = fileURLToPath(new URL('../server.mjs', import.meta.url));
 const token = 'http-viewer-test-token';
 
+function waitForStderr(child, getStderr, pattern, timeoutMs = 5_000) {
+  return new Promise((resolve, reject) => {
+    const startedAt = Date.now();
+    let timer;
+    let onExit;
+    const finish = (callback, value) => {
+      clearTimeout(timer);
+      child.off('exit', onExit);
+      callback(value);
+    };
+    const check = () => {
+      const stderr = getStderr();
+      if (pattern.test(stderr)) {
+        finish(resolve);
+      } else if (child.exitCode !== null) {
+        finish(reject, new Error(`server exited before readiness: ${stderr}`));
+      } else if (Date.now() - startedAt >= timeoutMs) {
+        finish(reject, new Error(`timed out waiting for stderr readiness: ${stderr}`));
+      } else {
+        timer = setTimeout(check, 25);
+      }
+    };
+    onExit = () => check();
+    child.once('exit', onExit);
+    check();
+  });
+}
+
 async function loadHttpEntrypoint() {
   try {
     return await import(httpEntrypoint);
@@ -216,7 +244,7 @@ test('HTTP close works and the existing stdio startup remains available', async 
   child.stderr.on('data', (chunk) => {
     stderr += chunk;
   });
-  await new Promise((resolve) => setTimeout(resolve, 150));
+  await waitForStderr(child, () => stderr, /running on stdio/);
   child.kill('SIGTERM');
   assert.match(stderr, /running on stdio/);
 });
