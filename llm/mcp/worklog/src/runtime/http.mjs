@@ -1,12 +1,43 @@
 import { createServer as createNodeServer } from 'node:http';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/server';
 
-function readBody(request) {
+export const MAX_BODY_SIZE = 1024 * 1024;
+
+function readBody(request, maxBodySize) {
   return new Promise((resolve, reject) => {
+    const contentLength = Number(request.headers['content-length']);
+    if (Number.isFinite(contentLength) && contentLength > maxBodySize) {
+      reject(Object.assign(new Error('request body too large'), { statusCode: 413 }));
+      request.resume();
+      return;
+    }
     const chunks = [];
-    request.on('data', (chunk) => chunks.push(chunk));
-    request.on('end', () => resolve(Buffer.concat(chunks)));
-    request.on('error', reject);
+    let size = 0;
+    let settled = false;
+    const tooLarge = () => {
+      if (settled) return;
+      settled = true;
+      chunks.length = 0;
+      request.resume();
+      reject(Object.assign(new Error('request body too large'), { statusCode: 413 }));
+    };
+    request.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > maxBodySize) return tooLarge();
+      chunks.push(chunk);
+    });
+    request.on('end', () => {
+      if (!settled) {
+        settled = true;
+        resolve(Buffer.concat(chunks));
+      }
+    });
+    request.on('error', (error) => {
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    });
   });
 }
 
@@ -40,6 +71,63 @@ function rejected(status, message) {
   });
 }
 
+export async function handleMcpRequest(
+  request,
+  reply,
+  { expectedHost, token, maxBodySize = MAX_BODY_SIZE } = {},
+) {
+  const requestHost = request.headers.host;
+  const requestOrigin = request.headers.origin;
+  if (requestHost !== expectedHost) {
+    await writeResponse(rejected(403, 'disallowed host'), reply);
+    return;
+  }
+  if (requestOrigin && requestOrigin !== `http://${expectedHost}`) {
+    await writeResponse(rejected(403, 'disallowed origin'), reply);
+    return;
+  }
+  if (token && request.headers.authorization !== `Bearer ${token}`) {
+    await writeResponse(rejected(401, 'authorization required'), reply);
+    return;
+  }
+  if (new URL(request.url, `http://${expectedHost}`).pathname !== '/mcp') {
+    await writeResponse(rejected(404, 'not found'), reply);
+    return;
+  }
+
+  try {
+    const body = await readBody(request, maxBodySize);
+    const headers = new globalThis.Headers(request.headers);
+    const webRequest = new globalThis.Request(`http://${expectedHost}${request.url}`, {
+      method: request.method,
+      headers,
+      body:
+        body.length === 0 || request.method === 'GET' || request.method === 'HEAD'
+          ? undefined
+          : body,
+    });
+    const { createViewerServer } = await import('../mcp/tools.mjs');
+    const server = createViewerServer();
+    const transport = new WebStandardStreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+      enableJsonResponse: true,
+    });
+    await server.connect(transport);
+    try {
+      await writeResponse(
+        await transport.handleRequest(webRequest),
+        reply,
+        body.toString('utf8').includes('"method":"initialize"'),
+      );
+    } finally {
+      await transport.close();
+      await server.close();
+    }
+  } catch (error) {
+    await writeResponse(rejected(error.statusCode ?? 500, error.message), reply);
+  }
+}
+
 export async function startHttp({ host = '127.0.0.1', port = 0, token } = {}) {
   if (typeof token !== 'string' || token.length === 0)
     throw new Error('HTTP bearer token is required');
@@ -47,57 +135,10 @@ export async function startHttp({ host = '127.0.0.1', port = 0, token } = {}) {
 
   const nodeServer = createNodeServer(async (request, reply) => {
     const address = nodeServer.address();
-    const expectedHost = `${host}:${address.port}`;
-    const requestHost = request.headers.host;
-    const requestOrigin = request.headers.origin;
-    if (requestHost !== expectedHost) {
-      await writeResponse(rejected(403, 'disallowed host'), reply);
-      return;
-    }
-    if (requestOrigin && requestOrigin !== `http://${expectedHost}`) {
-      await writeResponse(rejected(403, 'disallowed origin'), reply);
-      return;
-    }
-    if (request.headers.authorization !== `Bearer ${token}`) {
-      await writeResponse(rejected(401, 'authorization required'), reply);
-      return;
-    }
-    if (request.url !== '/mcp') {
-      await writeResponse(rejected(404, 'not found'), reply);
-      return;
-    }
-
-    try {
-      const body = await readBody(request);
-      const headers = new globalThis.Headers(request.headers);
-      const webRequest = new globalThis.Request(`http://${expectedHost}${request.url}`, {
-        method: request.method,
-        headers,
-        body:
-          body.length === 0 || request.method === 'GET' || request.method === 'HEAD'
-            ? undefined
-            : body,
-      });
-      const { createViewerServer } = await import('../mcp/tools.mjs');
-      const server = createViewerServer();
-      const transport = new WebStandardStreamableHTTPServerTransport({
-        sessionIdGenerator: undefined,
-        enableJsonResponse: true,
-      });
-      await server.connect(transport);
-      try {
-        await writeResponse(
-          await transport.handleRequest(webRequest),
-          reply,
-          body.toString('utf8').includes('"method":"initialize"'),
-        );
-      } finally {
-        await transport.close();
-        await server.close();
-      }
-    } catch (error) {
-      await writeResponse(rejected(500, error.message), reply);
-    }
+    await handleMcpRequest(request, reply, {
+      expectedHost: `${host}:${address.port}`,
+      token,
+    });
   });
 
   await new Promise((resolve, reject) => {

@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 import { extname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { worklogApiHandler } from '../app/src/mcp/api.js';
+import { handleMcpRequest } from '../src/runtime/http.mjs';
 // Structural policy marker: 127\.0\.0\.1; static index\.html; JSON.stringify payload redaction and SSE event-stream are provided by the shared handler.
 import { disposeWorklogWatcher } from '../app/src/mcp/watcher.js';
 
@@ -45,6 +46,11 @@ async function serveStatic(req, res) {
 
 export function createElectronServer() {
   server = createServer(async (req, res) => {
+    if (new URL(req.url, 'http://127.0.0.1').pathname === '/mcp') {
+      const address = server.address();
+      await handleMcpRequest(req, res, { expectedHost: `127.0.0.1:${address.port}` });
+      return;
+    }
     if (req.url?.startsWith('/api/') || req.url === '/revision' || req.url === '/events') {
       clients.add(req);
       req.on('close', () => clients.delete(req));

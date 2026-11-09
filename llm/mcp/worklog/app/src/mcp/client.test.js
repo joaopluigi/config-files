@@ -52,21 +52,26 @@ test('MCP viewer client uses HTTP JSON-RPC for list/detail and parses sanitized 
     entries: [{ item: 1, message: 'safe' }],
   });
 
-  expect(calls).toHaveLength(2);
-  expect(calls.map(({ url }) => url)).toEqual([
-    'http://127.0.0.1:43123/mcp',
-    'http://127.0.0.1:43123/mcp',
-  ]);
+  expect(calls).toHaveLength(4);
+  expect(calls.every(({ url }) => url === 'http://127.0.0.1:43123/mcp')).toBe(true);
   expect(calls.every(({ options }) => options.method === 'POST')).toBe(true);
   expect(
     calls.every(({ options }) => options.headers.Authorization === 'Bearer loopback-token'),
   ).toBe(true);
-  expect(calls.map(({ body }) => body.method)).toEqual(['tools/call', 'tools/call']);
-  expect(calls[0].body.params).toMatchObject({
+  expect(
+    calls.every(({ options }) => options.headers.Accept === 'application/json, text/event-stream'),
+  ).toBe(true);
+  expect(calls.map(({ body }) => body.method)).toEqual([
+    'initialize',
+    'notifications/initialized',
+    'tools/call',
+    'tools/call',
+  ]);
+  expect(calls[2].body.params).toMatchObject({
     name: 'worklog_session_status',
     arguments: { actor: 'viewer' },
   });
-  expect(calls[1].body.params).toMatchObject({
+  expect(calls[3].body.params).toMatchObject({
     name: 'worklog_read',
     arguments: { orchestrationId: 'session-1', token: 'session-token' },
   });
