@@ -1,16 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createViewerClient } from '../app/src/mcp/client.js';
 import { startHttp } from '../src/runtime/http.mjs';
 
 const orchestrationId = 'a1b2c3d4';
-const fixtureRoot = '/tmp/worklogs';
-const fixtureDir = join(fixtureRoot, orchestrationId);
 const capabilityToken = 'fixture-session-capability-token';
 
-async function installFixture() {
+async function installFixture(fixtureRoot) {
+  const fixtureDir = join(fixtureRoot, orchestrationId);
   await mkdir(fixtureDir, { recursive: true });
   await writeFile(
     join(fixtureDir, 'session.json'),
@@ -33,7 +33,10 @@ async function installFixture() {
 }
 
 test('real viewer client performs MCP initialize/list/detail with required Accept headers and redacted detail', async () => {
-  await installFixture();
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'worklog-viewer-fixture-'));
+  const previousRoot = process.env.WORKLOG_DIR;
+  process.env.WORKLOG_DIR = fixtureRoot;
+  await installFixture(fixtureRoot);
   const started = await startHttp({ host: '127.0.0.1', port: 0, token: 'viewer-http-token' });
   try {
     const client = createViewerClient({
@@ -49,6 +52,8 @@ test('real viewer client performs MCP initialize/list/detail with required Accep
     assert.doesNotMatch(JSON.stringify(detail), /capabilityToken|token|secret/i);
   } finally {
     await started.close();
-    await rm(fixtureDir, { recursive: true, force: true });
+    if (previousRoot === undefined) delete process.env.WORKLOG_DIR;
+    else process.env.WORKLOG_DIR = previousRoot;
+    await rm(fixtureRoot, { recursive: true, force: true });
   }
 });

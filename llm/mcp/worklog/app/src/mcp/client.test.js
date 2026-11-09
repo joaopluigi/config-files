@@ -61,6 +61,10 @@ test('MCP viewer client uses HTTP JSON-RPC for list/detail and parses sanitized 
   expect(
     calls.every(({ options }) => options.headers.Accept === 'application/json, text/event-stream'),
   ).toBe(true);
+  expect(calls[0].options.headers['MCP-Protocol-Version']).toBeUndefined();
+  expect(
+    calls.slice(1).every(({ options }) => options.headers['MCP-Protocol-Version'] === '2025-06-18'),
+  ).toBe(true);
   expect(calls.map(({ body }) => body.method)).toEqual([
     'initialize',
     'notifications/initialized',
