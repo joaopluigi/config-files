@@ -1,0 +1,7 @@
+{
+  "name": "worklog-http-launcher-bin",
+  "private": true,
+  "bin": {
+    "start:http": "start-http"
+  }
+}

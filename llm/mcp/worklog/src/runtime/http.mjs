@@ -1,4 +1,6 @@
+import { randomBytes } from 'node:crypto';
 import { createServer as createNodeServer } from 'node:http';
+import { fileURLToPath } from 'node:url';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/server';
 
 export const MAX_BODY_SIZE = 1024 * 1024;
@@ -183,4 +185,35 @@ export async function startHttp({ host = '127.0.0.1', port = 0, token } = {}) {
       );
     },
   };
+}
+
+async function startStandalone() {
+  const host = process.env.WORKLOG_HTTP_HOST || '127.0.0.1';
+  const port = Number(process.env.WORKLOG_HTTP_PORT || 0);
+  const token = process.env.WORKLOG_MCP_TOKEN || randomBytes(32).toString('hex');
+  const server = await startHttp({ host, port, token });
+  const endpoint = `http://${host}:${server.port}/mcp`;
+  process.stderr.write(`WORKLOG_MCP_ENDPOINT=${endpoint} WORKLOG_MCP_TOKEN=${token}\n`);
+
+  let closing = false;
+  const shutdown = async () => {
+    if (closing) return;
+    closing = true;
+    try {
+      await server.close();
+      process.exitCode = 0;
+    } catch (error) {
+      process.stderr.write(`${error.stack || error}\n`);
+      process.exitCode = 1;
+    }
+  };
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  startStandalone().catch((error) => {
+    process.stderr.write(`${error.stack || error}\n`);
+    process.exitCode = 1;
+  });
 }

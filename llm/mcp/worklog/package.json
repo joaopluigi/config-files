@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test test/*.test.mjs",
+    "start:http": "start:http",
+    "postinstall": "node launcher-bin/link-start-http.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -12,6 +14,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
+    "worklog-http-launcher-bin": "file:./launcher-bin",
     "zod": "^4.0.0"
   },
   "devDependencies": {
