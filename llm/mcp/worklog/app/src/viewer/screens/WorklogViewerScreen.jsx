@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SessionList } from '../components/SessionList.jsx';
 import { SessionDetail } from '../components/SessionDetail.jsx';
+import {
+  defaultStreamFactory,
+  defaultFetcher,
+  defaultRevisionFetcher,
+  startLegacyRefresh,
+} from '../../mcp/legacyClient.js';
 
 const DATE_FILTERS = [
   { key: '24h', label: 'Last 24 hours', hours: 24 },
@@ -92,20 +98,14 @@ function DisclosureSelector({ id, label, value, options, onChange }) {
   );
 }
 
-const defaultFetcher = () =>
-  fetch('/api/worklogs').then(async (response) => {
-    if (!response.ok) throw new Error(`Unable to load worklogs (${response.status})`);
-    return response.json();
-  });
-const defaultRevisionFetcher = () =>
-  fetch('/api/worklogs/revision').then((response) => response.json());
-
 export function WorklogViewerScreen({
-  fetcher = defaultFetcher,
+  client,
+  fetcher,
   revisionFetcher = defaultRevisionFetcher,
-  eventSourceFactory = (url) => new EventSource(url),
+  eventSourceFactory = defaultStreamFactory,
   refreshInterval = 3000,
 }) {
+  const dataFetcher = fetcher ?? (client ? () => client.listSessions() : defaultFetcher);
   const [state, setState] = useState({
     loading: true,
     error: null,
@@ -115,10 +115,10 @@ export function WorklogViewerScreen({
   const [dateFilter, setDateFilter] = useState('24h');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortFilter, setSortFilter] = useState('created');
+  const [details, setDetails] = useState({});
   const [now, setNow] = useState(() => Date.now());
   const inFlight = useRef(false);
   const queuedRefresh = useRef(false);
-  const revisionRef = useRef(-1);
   const refresh = useCallback(
     async (initial = false) => {
       if (inFlight.current) {
@@ -128,7 +128,7 @@ export function WorklogViewerScreen({
       inFlight.current = true;
       setState((current) => ({ ...current, loading: initial, error: null }));
       try {
-        const data = await fetcher();
+        const data = await dataFetcher();
         setState((current) => ({
           loading: false,
           error: null,
@@ -147,50 +147,23 @@ export function WorklogViewerScreen({
         }
       }
     },
-    [fetcher],
+    [dataFetcher],
   );
   useEffect(() => {
     refresh(true);
   }, [refresh]);
   useEffect(() => {
-    let disposed = false;
-    let source;
-    let eventSource;
-    const request = (revision) => {
-      if (!disposed && revision > revisionRef.current) {
-        revisionRef.current = revision;
-        refresh();
-      }
-    };
-    let revisionHandler;
-    try {
-      source = eventSourceFactory('/api/worklogs/events');
-      eventSource = source;
-      revisionHandler = (event) => request(Number(JSON.parse(event.data).revision));
-      source.addEventListener('revision', revisionHandler);
-      source.onerror = () => {
-        source.close?.();
-        source = undefined;
-      };
-    } catch {
-      source = undefined;
+    if (client) {
+      const timer = setInterval(() => refresh(), refreshInterval);
+      return () => clearInterval(timer);
     }
-    const timer = setInterval(async () => {
-      if (source || disposed) return;
-      try {
-        request(Number((await revisionFetcher()).revision));
-      } catch {
-        /* retry next interval */
-      }
-    }, refreshInterval);
-    return () => {
-      disposed = true;
-      clearInterval(timer);
-      if (eventSource && revisionHandler)
-        eventSource.removeEventListener('revision', revisionHandler);
-      eventSource?.close?.();
-    };
-  }, [eventSourceFactory, refresh, refreshInterval, revisionFetcher]);
+    return startLegacyRefresh({
+      refresh,
+      refreshInterval,
+      revisionFetcher,
+      eventSourceFactory,
+    });
+  }, [client, eventSourceFactory, refresh, refreshInterval, revisionFetcher]);
   useEffect(() => {
     if (dateFilter === 'all') return undefined;
     const cutoffWindow = DATE_FILTERS.find((filter) => filter.key === dateFilter)?.hours;
@@ -235,7 +208,27 @@ export function WorklogViewerScreen({
       }));
     }
   }, [selectedVisible, visibleSessions]);
-  const selected = visibleSessions.find((session) => session.orchestrationId === state.selectedId);
+  useEffect(() => {
+    const session = visibleSessions.find((item) => item.orchestrationId === state.selectedId);
+    const capabilityToken = session?.token ?? session?.capabilityToken;
+    if (!client || !session || typeof client.getSession !== 'function' || !capabilityToken)
+      return undefined;
+    let disposed = false;
+    client
+      .getSession(session.orchestrationId, capabilityToken)
+      .then((detail) => {
+        if (!disposed) setDetails((current) => ({ ...current, [session.orchestrationId]: detail }));
+      })
+      .catch((error) => {
+        if (!disposed) setState((current) => ({ ...current, error: error.message }));
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [client, state.selectedId, visibleSessions]);
+  const selected =
+    details[state.selectedId] ??
+    visibleSessions.find((session) => session.orchestrationId === state.selectedId);
   return (
     <main className="mx-auto max-w-6xl p-8">
       <header className="flex items-center justify-between">
