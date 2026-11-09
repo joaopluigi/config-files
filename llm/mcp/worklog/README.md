@@ -20,18 +20,19 @@ npm --prefix llm/mcp/worklog test
 
 ## Configure
 
-Add a server entry to the MCP client's configuration. Use the server launch
-command and arguments required by the local project; environment variables are
-optional:
+Add a server entry to the MCP client's configuration. The ECA-managed
+configuration launches `supervisor.mjs`, which keeps stdio MCP output clean
+while also starting the local HTTP server and browser frontend:
 
 ```json
 {
   "mcpServers": {
-    "example-server": {
+    "worklog": {
       "command": "node",
-      "args": ["/absolute/path/to/server.mjs"],
+      "args": ["/absolute/path/to/llm/mcp/worklog/supervisor.mjs"],
       "env": {
-        "WORKLOG_DIR": "/absolute/path/to/data"
+        "WORKLOG_DIR": "/absolute/path/to/data",
+        "WORKLOG_MCP_TOKEN": "a-local-token"
       }
     }
   }
@@ -39,9 +40,10 @@ optional:
 ```
 
 `command` is the executable, `args` are passed in order, and `env` supplies
-optional process variables. If `WORKLOG_DIR` is omitted, the server uses its
-default data location. Use absolute paths when the client does not guarantee a
-working directory.
+optional process variables. The supervisor uses fixed loopback host `127.0.0.1`,
+shares `WORKLOG_DIR` and `WORKLOG_MCP_TOKEN` across its children, and reports
+HTTP/Vite readiness on stderr. Use absolute paths when the client does not
+guarantee a working directory.
 
 ## Start the browser HTTP server
 
