@@ -36,22 +36,43 @@ export function createViewerClient({
   if (typeof fetchImpl !== 'function') throw new Error('fetch implementation is required');
 
   let nextId = 0;
-  async function callTool(name, args) {
+  let initialized;
+  const headers = () => ({
+    Accept: 'application/json, text/event-stream',
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  });
+  async function post(message) {
     const response = await fetchImpl(endpoint, {
       method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: ++nextId,
-        method: 'tools/call',
-        params: { name, arguments: args },
-      }),
+      headers: headers(),
+      body: JSON.stringify(message),
     });
     if (!response.ok) throw new Error(`MCP request failed (${response.status})`);
+    return response;
+  }
+  async function initialize() {
+    await post({
+      jsonrpc: '2.0',
+      id: ++nextId,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2025-06-18',
+        capabilities: {},
+        clientInfo: { name: 'worklog-viewer', version: '0.1.0' },
+      },
+    });
+    await post({ jsonrpc: '2.0', method: 'notifications/initialized' });
+  }
+  async function callTool(name, args) {
+    initialized ??= initialize();
+    await initialized;
+    const response = await post({
+      jsonrpc: '2.0',
+      id: ++nextId,
+      method: 'tools/call',
+      params: { name, arguments: args },
+    });
     return parseToolResult(await response.json());
   }
 
@@ -60,9 +81,10 @@ export function createViewerClient({
       return callTool('worklog_session_status', { actor });
     },
     getSession(orchestrationId, capabilityToken = sessionToken) {
-      if (typeof capabilityToken !== 'string' || capabilityToken.length === 0)
-        return Promise.reject(new Error('session capability token is required'));
-      return callTool('worklog_read', { orchestrationId, token: capabilityToken });
+      return callTool('worklog_read', {
+        orchestrationId,
+        ...(capabilityToken ? { token: capabilityToken } : {}),
+      });
     },
   };
 }

@@ -419,25 +419,12 @@ export function createViewerServer() {
   server.registerTool(
     'worklog_read',
     {
-      description:
-        'Read a main log with the session token, a peer log with that peer token, or a registered child log with the session token.',
-      inputSchema: z.object({
-        orchestrationId: z.string(),
-        token: z.string(),
-        peerId: z.string().optional(),
-        since: z.number().int().nonnegative().optional(),
-      }),
+      description: 'Read a structured, sanitized worklog for the viewer.',
+      inputSchema: z.object({ orchestrationId: z.string() }),
     },
-    async ({ orchestrationId, token, peerId, since = 0 }) => {
+    async ({ orchestrationId }) => {
       try {
-        await authorized(
-          orchestrationId,
-          token,
-          peerId,
-          peerId === undefined ? 'session' : 'peer-or-session',
-        );
-        const bytes = Buffer.from(await readFile(pathFor(orchestrationId, peerId), 'utf8'));
-        return text({ content: bytes.subarray(since).toString('utf8'), next: bytes.length });
+        return text(await worklogService.readWorklog(orchestrationId));
       } catch (e) {
         return fail(e.message);
       }

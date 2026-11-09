@@ -210,12 +210,10 @@ export function WorklogViewerScreen({
   }, [selectedVisible, visibleSessions]);
   useEffect(() => {
     const session = visibleSessions.find((item) => item.orchestrationId === state.selectedId);
-    const capabilityToken = session?.token ?? session?.capabilityToken;
-    if (!client || !session || typeof client.getSession !== 'function' || !capabilityToken)
-      return undefined;
+    if (!client || !session || typeof client.getSession !== 'function') return undefined;
     let disposed = false;
     client
-      .getSession(session.orchestrationId, capabilityToken)
+      .getSession(session.orchestrationId)
       .then((detail) => {
         if (!disposed) setDetails((current) => ({ ...current, [session.orchestrationId]: detail }));
       })
