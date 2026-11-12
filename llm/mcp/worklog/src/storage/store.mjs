@@ -8,4 +8,12 @@ export class WorklogStore {
   listWorklogs(actor = 'orchestrator') {
     return this.backend.discoverSessions(actor);
   }
+
+  listViewerWorklogs() {
+    return this.backend.discoverViewerSessions();
+  }
+
+  readWorklog(orchestrationId) {
+    return this.backend.readViewerWorklog(orchestrationId);
+  }
 }

@@ -406,11 +406,11 @@ export function createViewerServer() {
     'worklog_session_status',
     {
       description: 'Discover sessions as metadata.',
-      inputSchema: z.object({ actor: z.string() }),
+      inputSchema: z.object({ actor: z.string().optional() }),
     },
-    async ({ actor }) => {
+    async () => {
       try {
-        return text(await worklogService.listWorklogs(actor));
+        return text(await worklogService.listViewerWorklogs());
       } catch (e) {
         return fail(e.message);
       }
@@ -424,7 +424,7 @@ export function createViewerServer() {
     },
     async ({ orchestrationId }) => {
       try {
-        return text(await worklogService.readWorklog(orchestrationId));
+        return text(await worklogService.readViewerWorklog(orchestrationId));
       } catch (e) {
         return fail(e.message);
       }

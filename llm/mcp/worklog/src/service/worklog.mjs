@@ -26,6 +26,14 @@ export class WorklogService {
     return this.storage.listWorklogs(actor);
   }
 
+  listViewerWorklogs() {
+    return this.storage.listViewerWorklogs();
+  }
+
+  async readViewerWorklog(orchestrationId) {
+    return this.readWorklog(orchestrationId);
+  }
+
   async readWorklog(orchestrationId) {
     validateId(orchestrationId, 'orchestration id');
     if (this.storage.readWorklog) return this.storage.readWorklog(orchestrationId);
