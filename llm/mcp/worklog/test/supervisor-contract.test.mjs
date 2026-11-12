@@ -86,7 +86,6 @@ function spawnSupervisor(worklogDir, extraEnv = {}, stdio = ['ignore', 'pipe', '
       WORKLOG_HTTP_HOST: '127.0.0.1',
       WORKLOG_HTTP_PORT: '0',
       WORKLOG_VITE_HOST: '127.0.0.1',
-      WORKLOG_VITE_PORT: '0',
       WORKLOG_MCP_TOKEN: token,
       ...extraEnv,
     },
@@ -153,7 +152,7 @@ test('supervisor exposes HTTP MCP and Vite proxy readiness using one token and w
       readiness = await waitForPattern(
         child.stderr,
         child,
-        /WORKLOG_MCP_ENDPOINT=(http:\/\/127\.0\.0\.1:\d+\/mcp).*WORKLOG_MCP_TOKEN=([^\s\n]+).*WORKLOG_VITE_ENDPOINT=(http:\/\/127\.0\.0\.1:\d+)/,
+        /WORKLOG_MCP_ENDPOINT=(http:\/\/127\.0\.0\.1:\d+\/mcp).*WORKLOG_MCP_TOKEN=([^\s\n]+).*WORKLOG_VITE_ENDPOINT=(http:\/\/127\.0\.0\.1:5173)/,
       );
     } catch (error) {
       assert.fail(`supervisor did not emit HTTP and Vite readiness: ${error.message}`);

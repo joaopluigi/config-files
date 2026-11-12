@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const packageRoot = dirname(fileURLToPath(import.meta.url));
+const callerCwd = process.cwd();
 const serverEntrypoint = join(packageRoot, 'server.mjs');
 const httpEntrypoint = join(packageRoot, 'src', 'runtime', 'http.mjs');
 const appRoot = join(packageRoot, 'app');
@@ -19,7 +20,7 @@ function log(message) {
   process.stderr.write(`[worklog-supervisor] ${message}\n`);
 }
 
-function spawnChild(label, entrypoint, args, env, stdio, cwd = packageRoot) {
+function spawnChild(label, entrypoint, args, env, stdio, cwd = callerCwd) {
   const child = spawn(process.execPath, [entrypoint, ...args], {
     cwd,
     env: { ...process.env, ...env },
@@ -88,6 +89,7 @@ async function shutdown(exitCode = 0) {
       if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
     }
     await Promise.all([...children].map(waitForExit));
+    process.stdin.destroy();
     process.exitCode = exitCode;
   })();
   return shutdownPromise;
@@ -124,7 +126,7 @@ async function start() {
   const vite = spawnChild(
     'vite',
     viteEntrypoint,
-    ['--host', host, '--port', process.env.WORKLOG_VITE_PORT || '0', '--strictPort'],
+    ['--host', host],
     {
       ...sharedEnv,
       WORKLOG_MCP_PROXY_TARGET: new URL(httpEndpoint).origin,

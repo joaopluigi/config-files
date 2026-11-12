@@ -466,9 +466,66 @@ function goalFromContent(content) {
   return content.match(/^goal: (.*)$/m)?.[1];
 }
 
-export async function discoverSessions(actor) {
-  validateActor(actor);
-  if (actor !== 'orchestrator') throw new Error('only orchestrator may discover sessions');
+function workingDirectoryFromContent(content) {
+  return content.match(/^working directory: (.+)$/m)?.[1]?.trim();
+}
+
+function entriesFromContent(content) {
+  return content
+    .split('\n')
+    .filter((line) => /^\S+ #\d+ \S+ \S+ /.test(line))
+    .map((line) => {
+      const [, time, item, actor, tag, message] = line.match(/^(\S+) #(\d+) (\S+) (\S+) (.*)$/);
+      return { time, item: Number(item), actor, tag, message };
+    });
+}
+
+function planFromContent(content) {
+  return content
+    .split('\n')
+    .map((line) => line.match(/^( {2})\d+\. (.*)$/)?.[2])
+    .filter((step) => step !== undefined);
+}
+
+function entryTimeValue(time, createdAt) {
+  if (typeof time !== 'string') return NaN;
+  const absolute = Date.parse(time);
+  if (Number.isFinite(absolute)) return absolute;
+  const match = time.match(/^(\d{2}):(\d{2}):(\d{2})$/);
+  if (!match || !createdAt) return NaN;
+  const [, hours, minutes, seconds] = match;
+  if (Number(hours) > 23 || Number(minutes) > 59 || Number(seconds) > 59) return NaN;
+  const started = new Date(createdAt);
+  if (!Number.isFinite(started.getTime())) return NaN;
+  const entryClock = Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
+  const startedClock =
+    started.getUTCHours() * 3600 + started.getUTCMinutes() * 60 + started.getUTCSeconds();
+  const rollover = entryClock < startedClock ? 1 : 0;
+  return Date.UTC(
+    started.getUTCFullYear(),
+    started.getUTCMonth(),
+    started.getUTCDate() + rollover,
+    Number(hours),
+    Number(minutes),
+    Number(seconds),
+  );
+}
+
+function durationValue(createdAt, entries, completedAt) {
+  const started = Date.parse(createdAt);
+  if (!Number.isFinite(started)) return null;
+  const latestEntry = (Array.isArray(entries) ? entries : [])
+    .map((entry) => entryTimeValue(entry?.time, createdAt))
+    .filter(Number.isFinite)
+    .reduce((latest, value) => Math.max(latest, value), -Infinity);
+  const completed = Date.parse(completedAt);
+  const end = Number.isFinite(completed) ? Math.max(completed, latestEntry) : latestEntry;
+  if (!Number.isFinite(end)) return null;
+  const seconds = Math.max(0, Math.floor((end - started) / 1000));
+  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m ${seconds % 60}s`;
+}
+
+async function discoverSessionsInternal() {
   let entries = [];
   try {
     entries = await readdir(root, { withFileTypes: true });
@@ -481,43 +538,69 @@ export async function discoverSessions(actor) {
     try {
       const registry = await readRegistry(entry.name);
       const content = await readFile(mainPath(entry.name), 'utf8');
-      const plan = registry.steps;
+      const mainEntries = entriesFromContent(content);
+      const mainStat = await stat(mainPath(entry.name));
+      const createdAt = registry.createdAt || mainStat.birthtime.toISOString();
       const result = await sessionCompletion(entry.name, undefined, content);
       const peers = await Promise.all(
         registry.peers.map(
-          async ({ id, actor, createdAt, completedAt, predecessorPeerId, continuationReason }) => {
+          async ({
+            id,
+            actor,
+            createdAt: peerCreatedAt,
+            completedAt,
+            predecessorPeerId,
+            continuationReason,
+          }) => {
             const peerPath = subagentPath(entry.name, id);
             const peerContent = await readFile(peerPath, 'utf8');
             const peerBirthtime = (await stat(peerPath)).birthtime;
+            const peerEntries = entriesFromContent(peerContent);
+            const peerComplete = completion(peerContent).complete;
             return {
               id,
               actor,
-              ...(createdAt === undefined ? {} : { createdAt }),
+              ...(peerCreatedAt === undefined ? {} : { createdAt: peerCreatedAt }),
               ...(completedAt === undefined ? {} : { completedAt }),
-              ...(createdAt === undefined && Number.isFinite(peerBirthtime.getTime())
+              ...(peerCreatedAt === undefined && Number.isFinite(peerBirthtime.getTime())
                 ? {
                     birthtime: peerBirthtime.toISOString(),
                     birthtimeSource: 'filesystem birthtime fallback',
                   }
                 : {}),
               goal: goalFromContent(peerContent),
-              complete: completion(peerContent).complete,
+              plan: planFromContent(peerContent),
+              entries: peerEntries,
+              complete: peerComplete,
+              duration: peerComplete
+                ? durationValue(peerCreatedAt, peerEntries, completedAt)
+                : null,
               ...(predecessorPeerId === undefined ? {} : { predecessorPeerId, continuationReason }),
             };
           },
         ),
       );
+      const directoryStat = await stat(sessionDir(entry.name));
       sessions.push({
         orchestrationId: entry.name,
         path: mainPath(entry.name),
+        workingDirectory: workingDirectoryFromContent(content),
         actor: typeof registry.actor === 'string' ? registry.actor : 'orchestrator',
         goal: registry.goal,
         done: registry.done,
         steps: registry.steps,
-        plan,
+        plan: registry.steps,
         complete: result.complete,
-        createdAt: registry.createdAt || (await stat(mainPath(entry.name))).birthtime.toISOString(),
+        createdAt,
+        ...(registry.updatedAt
+          ? { updatedAt: registry.updatedAt }
+          : { updatedAt: directoryStat.mtime.toISOString() }),
+        ...(registry.completedAt ? { completedAt: registry.completedAt } : {}),
+        duration: result.complete
+          ? durationValue(createdAt, mainEntries, registry.completedAt)
+          : null,
         peers,
+        entries: mainEntries,
         ...(registry.predecessorOrchestrationId === undefined
           ? {}
           : {
@@ -530,6 +613,65 @@ export async function discoverSessions(actor) {
     }
   }
   return { sessions };
+}
+export async function discoverSessions(actor) {
+  validateActor(actor);
+  if (actor !== 'orchestrator') throw new Error('only orchestrator may discover sessions');
+  const { sessions } = await discoverSessionsInternal();
+  return {
+    sessions: sessions.map((session) => ({
+      orchestrationId: session.orchestrationId,
+      path: session.path,
+      goal: session.goal,
+      done: session.done,
+      steps: session.steps,
+      plan: session.plan,
+      actor: session.actor,
+      complete: session.complete,
+      createdAt: session.createdAt,
+      peers: session.peers.map(
+        ({
+          id,
+          actor: peerActor,
+          createdAt,
+          completedAt,
+          birthtime,
+          birthtimeSource,
+          goal,
+          complete,
+          predecessorPeerId,
+          continuationReason,
+        }) => ({
+          id,
+          actor: peerActor,
+          ...(createdAt === undefined ? {} : { createdAt }),
+          ...(completedAt === undefined ? {} : { completedAt }),
+          ...(birthtime === undefined ? {} : { birthtime }),
+          ...(birthtimeSource === undefined ? {} : { birthtimeSource }),
+          goal,
+          complete,
+          ...(predecessorPeerId === undefined ? {} : { predecessorPeerId, continuationReason }),
+        }),
+      ),
+    })),
+  };
+}
+export async function discoverViewerSessions() {
+  const { sessions } = await discoverSessionsInternal();
+  return {
+    sessions: sessions.map((session) => {
+      const sanitized = { ...session };
+      delete sanitized.path;
+      return sanitized;
+    }),
+  };
+}
+export async function readViewerWorklog(orchestrationId) {
+  validateId(orchestrationId, 'orchestration id');
+  const { sessions } = await discoverViewerSessions();
+  const session = sessions.find((candidate) => candidate.orchestrationId === orchestrationId);
+  if (!session) throw new Error('unknown orchestration id');
+  return session;
 }
 export async function closeWorklog(
   orchestrationId,
