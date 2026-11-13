@@ -50,7 +50,7 @@ const trustedReplacementMutationContexts = new WeakSet();
 const activeContinuations = new Set();
 
 function injectPublicationFailure(point) {
-  if (process.env.WORKLOG_TEST_FAIL_AT === point)
+  if (process.env.NODE_ENV === 'test' && process.env.WORKLOG_TEST_FAIL_AT === point)
     throw new Error(`injected publication failure at ${point}`);
 }
 
@@ -271,7 +271,7 @@ export async function createSession(
         ),
         { flag: 'wx' },
       );
-      if (process.env.WORKLOG_TEST_FAIL_AFTER_STAGING === '1')
+      if (process.env.NODE_ENV === 'test' && process.env.WORKLOG_TEST_FAIL_AFTER_STAGING === '1')
         throw new Error('injected publication failure after staging');
       await mkdir(sessionDir(orchestrationId));
       reserved = true;

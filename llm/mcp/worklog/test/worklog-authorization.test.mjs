@@ -9,6 +9,7 @@ import { join } from 'node:path';
 const execFile = promisify(execFileCallback);
 
 const root = await mkdtemp(join(tmpdir(), 'worklog-auth-'));
+process.env.NODE_ENV = 'test';
 process.env.WORKLOG_DIR = root;
 const {
   createSession,
@@ -152,6 +153,30 @@ test('publication failure reserves no session and preserves discovery', async ()
     ),
     true,
   );
+});
+
+test('publication fault controls are ignored outside test mode', async () => {
+  const caseRoot = await mkdtemp(join(tmpdir(), 'worklog-production-gate-'));
+  try {
+    const script = `
+      import { createSession } from './src/storage/repository.mjs';
+      const result = await createSession('orchestrator', 'production', 'done', ['step']);
+      console.log(result.orchestrationId);
+    `;
+    const { stdout } = await execFile(process.execPath, ['--input-type=module', '-e', script], {
+      cwd: new URL('..', import.meta.url),
+      env: {
+        ...process.env,
+        NODE_ENV: 'production',
+        WORKLOG_DIR: caseRoot,
+        WORKLOG_TEST_FAIL_AT: 'after-reservation',
+        WORKLOG_TEST_FAIL_AFTER_STAGING: '1',
+      },
+    });
+    assert.match(stdout.trim(), /^[a-f0-9]{8}$/);
+  } finally {
+    await rm(caseRoot, { recursive: true, force: true });
+  }
 });
 
 test('publication fault paths clean only owned artifacts and keep discovery safe', async () => {
