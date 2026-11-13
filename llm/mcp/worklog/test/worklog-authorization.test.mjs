@@ -154,6 +154,119 @@ test('publication failure reserves no session and preserves discovery', async ()
   );
 });
 
+test('publication fault paths clean only owned artifacts and keep discovery safe', async () => {
+  const modes = [
+    'after-reservation',
+    'after-first-staged-file-rename',
+    'after-second-staged-file-rename',
+    'during-predecessor-mutation',
+  ];
+  const script = `
+    import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+    import { join } from 'node:path';
+    import { createSession, discoverSessions } from './src/storage/repository.mjs';
+    const existing = await createSession('orchestrator', 'existing', 'done', ['step']);
+    const predecessor = await createSession('orchestrator', 'first', 'done', ['one', 'two']);
+    const foreignSession = join(process.env.WORKLOG_DIR, 'cafebabe');
+    const foreignStaging = join(process.env.WORKLOG_DIR, '.foreign.staging');
+    await mkdir(foreignSession);
+    await writeFile(join(foreignSession, 'keep.txt'), 'keep');
+    await mkdir(foreignStaging);
+    await writeFile(join(foreignStaging, 'keep.txt'), 'keep');
+    const before = await readdir(process.env.WORKLOG_DIR);
+    const predecessorContent = await readFile(predecessor.path, 'utf8');
+    process.env.WORKLOG_TEST_FAIL_AT = process.argv[1];
+    let error;
+    try {
+      await createSession(
+        'orchestrator',
+        'follow-up',
+        'done',
+        ['step'],
+        predecessor.orchestrationId,
+        'continue after fault',
+      );
+    } catch (caught) {
+      error = caught.message;
+    }
+    const after = await readdir(process.env.WORKLOG_DIR);
+    const discovered = await discoverSessions('orchestrator');
+    const newSessionIds = after.filter(
+      (entry) => /^[a-f0-9]{8}$/.test(entry) && !before.includes(entry),
+    );
+    const discoveredNew = discovered.sessions
+      .filter(({ orchestrationId }) => newSessionIds.includes(orchestrationId))
+      .map(({ orchestrationId, goal, plan, path }) => ({ orchestrationId, goal, plan, path }));
+    const predecessorAfter = await readFile(predecessor.path, 'utf8');
+    console.log(JSON.stringify({
+      before,
+      after,
+      error,
+      existingId: existing.orchestrationId,
+      predecessorId: predecessor.orchestrationId,
+      predecessorContent,
+      predecessorAfter,
+      newSessionIds,
+      discovered: discovered.sessions.map(({ orchestrationId }) => orchestrationId),
+      discoveredNew,
+    }));
+  `;
+
+  for (const mode of modes) {
+    const caseRoot = await mkdtemp(join(tmpdir(), 'worklog-publication-fault-'));
+    try {
+      const { stdout } = await execFile(
+        process.execPath,
+        ['--input-type=module', '-e', script, mode],
+        {
+          cwd: new URL('..', import.meta.url),
+          env: { ...process.env, WORKLOG_DIR: caseRoot, WORKLOG_TEST_FAIL_AT: undefined },
+        },
+      );
+      const result = JSON.parse(stdout.trim());
+      assert.equal(result.error, `injected publication failure at ${mode}`);
+      assert.equal(result.after.includes('cafebabe'), true, mode);
+      assert.equal(result.after.includes('.foreign.staging'), true, mode);
+      assert.equal(
+        result.after.some((entry) => entry.endsWith('.staging') && entry !== '.foreign.staging'),
+        false,
+        mode,
+      );
+      assert.equal(result.discovered.includes('cafebabe'), false, mode);
+
+      const successorPublished =
+        mode === 'after-second-staged-file-rename' || mode === 'during-predecessor-mutation';
+      assert.equal(result.newSessionIds.length, successorPublished ? 1 : 0, mode);
+      assert.equal(result.discoveredNew.length, successorPublished ? 1 : 0, mode);
+      if (successorPublished) {
+        assert.equal(result.discoveredNew[0].goal, 'follow-up', mode);
+        assert.deepEqual(result.discoveredNew[0].plan, ['step'], mode);
+        assert.equal(
+          result.discoveredNew[0].path.endsWith(
+            `/${result.discoveredNew[0].orchestrationId}/${result.discoveredNew[0].orchestrationId}-main.txt`,
+          ),
+          true,
+          mode,
+        );
+      }
+      if (mode === 'during-predecessor-mutation') {
+        assert.notEqual(result.predecessorAfter, result.predecessorContent, mode);
+        assert.equal(
+          (result.predecessorAfter.match(/continue after fault/g) || []).length,
+          2,
+          mode,
+        );
+      } else {
+        assert.equal(result.predecessorAfter, result.predecessorContent, mode);
+      }
+      assert.equal(result.discovered.includes(result.existingId), true, mode);
+      assert.equal(result.discovered.includes(result.predecessorId), true, mode);
+    } finally {
+      await rm(caseRoot, { recursive: true, force: true });
+    }
+  }
+});
+
 test('continuation closes each open predecessor item once with the exact reason', async () => {
   const predecessor = await createSession('orchestrator', 'first', 'done', ['one', 'two']);
   const followup = await createSession(
