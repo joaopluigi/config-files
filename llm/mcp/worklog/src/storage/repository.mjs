@@ -1,5 +1,14 @@
 import { randomBytes } from 'node:crypto';
-import { mkdir, readFile, appendFile, writeFile, readdir, stat, rm } from 'node:fs/promises';
+import {
+  mkdir,
+  readFile,
+  appendFile,
+  writeFile,
+  readdir,
+  stat,
+  rm,
+  rename,
+} from 'node:fs/promises';
 import { join } from 'node:path';
 import { withLock, withClaim } from './locks.mjs';
 import {
@@ -203,6 +212,9 @@ export async function createSession(
     const orchestrationId = id();
     const capabilityToken = token();
     const createdAt = new Date().toISOString();
+    const stagingDir = join(root, `.${orchestrationId}-${token()}.staging`);
+    const stagedMainPath = join(stagingDir, `${orchestrationId}-main.txt`);
+    const stagedRegistryPath = join(stagingDir, 'session.json');
     const header = [
       `# worklog — ${goal}`,
       '',
@@ -226,11 +238,13 @@ export async function createSession(
       '── log ──',
       '',
     ].join('\n');
+    let published = false;
     try {
-      await mkdir(sessionDir(orchestrationId), { recursive: true });
-      await writeFile(mainPath(orchestrationId), header, { flag: 'wx' });
+      await mkdir(root, { recursive: true });
+      await mkdir(stagingDir);
+      await writeFile(stagedMainPath, header, { flag: 'wx' });
       await writeFile(
-        registryPath(orchestrationId),
+        stagedRegistryPath,
         JSON.stringify(
           {
             token: capabilityToken,
@@ -266,9 +280,10 @@ export async function createSession(
         }
         if (after !== content) await appendFile(path, after.slice(content.length));
       }
-    } catch (error) {
-      await rm(sessionDir(orchestrationId), { recursive: true, force: true });
-      throw error;
+      await rename(stagingDir, sessionDir(orchestrationId));
+      published = true;
+    } finally {
+      if (!published) await rm(stagingDir, { recursive: true, force: true });
     }
     return {
       orchestrationId,
