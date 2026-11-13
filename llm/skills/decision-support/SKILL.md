@@ -63,6 +63,25 @@ Follow this sequence:
 6. **Escalate** when authority, safety, missing evidence, or material uncertainty
    requires a person, domain expert, policy owner, or explicit approval.
 
+## Translate rules into supported relations
+
+Translate natural-language rules into explicit, supported relations before using
+them in a model. For example, write equal, not equal, at least, at most, greater
+than, or less than as a relation between a named variable and a concrete value
+or another named variable. Preserve the meaning and the path of each rule so
+ that an unsupported statement is visible rather than silently approximated.
+
+Do not send grouped **all-of** conditions, weighted objectives, or unbounded
+ expressions as if they were executable model content when the model cannot
+ represent them. Mark those parts unsupported and keep the model unresolved.
+ Comparisons require an explicit set of candidate options; do not infer or invent
+ candidates from a goal, a preference, or an incomplete description.
+
+When a rule cannot be represented by the supported relations, stop treating the
+ model as resolved. Ask for clarification, delegate the missing interpretation
+ to an appropriate expert, or request a bounded reformulation. Do not retry the
+ same unsupported model or hide the gap behind a new assumption.
+
 ## Certainty
 
 Label conclusions as:

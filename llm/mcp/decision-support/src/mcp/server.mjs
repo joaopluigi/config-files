@@ -77,8 +77,19 @@ const text = (value, isError = false) => ({
   content: [{ type: 'text', text: JSON.stringify(value) }],
 });
 
+function structuredError(code, path, message, extra = {}) {
+  return { code, path, message, ...extra };
+}
+
 function result(status, message, extra = {}) {
-  return { status, ...(message ? { error: message } : {}), ...extra };
+  const details = message && typeof message === 'object' ? message : {};
+  const textMessage = typeof message === 'string' ? message : details.message;
+  return {
+    status,
+    ...(textMessage ? { error: textMessage } : {}),
+    ...details,
+    ...extra,
+  };
 }
 
 function serializedSize(value) {
@@ -110,17 +121,30 @@ function validateModel(model) {
   if (cartesianSize(model) > MAX_CARTESIAN) return `cartesian product exceeds bound ${MAX_CARTESIAN}`;
   if (model.constraints !== undefined && !Array.isArray(model.constraints)) return 'constraints must be an array';
   if (model.objectives !== undefined && !Array.isArray(model.objectives)) return 'objectives must be an array';
-  for (const constraint of model.constraints ?? []) {
-    if (!constraint || !['eq', 'neq', 'gte', 'lte', 'gt', 'lt'].includes(constraint.op)) return 'unsupported constraint operation';
+  for (const [constraintIndex, constraint] of (model.constraints ?? []).entries()) {
+    if (!constraint || !['eq', 'neq', 'gte', 'lte', 'gt', 'lt'].includes(constraint.op)) {
+      return structuredError(
+        'unsupported_constraint_operation',
+        ['constraints', constraintIndex, 'op'],
+        'unsupported constraint operation; use one of the supported relations',
+        { supported: ['eq', 'neq', 'gte', 'lte', 'gt', 'lt'] },
+      );
+    }
     for (const side of ['left', 'right']) {
       const expr = constraint[side];
       if (!expr || (expr.var === undefined && expr.const === undefined)) return 'invalid constraint expression';
       if (expr.var !== undefined && !names.has(expr.var)) return 'unknown variable';
     }
   }
-  for (const objective of model.objectives ?? []) {
+  for (const [objectiveIndex, objective] of (model.objectives ?? []).entries()) {
     if (!objective || !['maximize', 'minimize'].includes(objective.direction)) return 'invalid objective';
-    if (!objective.expr || (objective.expr.var === undefined && objective.expr.const === undefined)) return 'invalid objective expression';
+    if (!objective.expr || (objective.expr.var === undefined && objective.expr.const === undefined)) {
+      return structuredError(
+        'invalid_objective_expression',
+        ['objectives', objectiveIndex, 'expr'],
+        'objective expression is unsupported; use a variable or constant relation',
+      );
+    }
     if (objective.expr.var !== undefined && !names.has(objective.expr.var)) return 'unknown objective variable';
   }
   if (model.schema_version !== undefined
@@ -286,7 +310,12 @@ export function createServer() {
       const modelError = validateModel(args.model);
       if (serializedSize(request) > MAX_SERIALIZED_INPUT_BYTES) payload = result('invalid_input', `serialized input exceeds bound ${MAX_SERIALIZED_INPUT_BYTES}`);
       else if (modelError) payload = result('invalid_input', modelError);
-      else if (name === 'decision_options_compare') {
+      else if (name === 'decision_options_compare' && args.options === undefined) {
+        payload = result(
+          'invalid_input',
+          structuredError('missing_options', ['options'], 'options must be an array; comparison requires explicit candidate options; provide an options array'),
+        );
+      } else if (name === 'decision_options_compare') {
         const optionError = validateOptions(args.model, args.options);
         payload = optionError ? result('invalid_input', optionError.message, { errors: optionError.errors }) : undefined;
       }
