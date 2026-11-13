@@ -1,8 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile as execFileCallback } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, readdir, rename, rm, utimes } from 'node:fs/promises';
-import { mkdirSync, renameSync } from 'node:fs';
+import { mkdtemp, mkdir, readFile, readdir, rm, utimes } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -75,44 +74,83 @@ test('continuation successor creation failure leaves predecessor open and create
   assert.deepEqual(await readdir(root), beforeEntries);
 });
 
-test('continuation failure preserves published sessions and keeps discovery readable', async () => {
-  const before = await readdir(root);
-  const existing = await createSession('orchestrator', 'existing', 'done', ['step']);
-  const predecessor = await createSession('orchestrator', 'first', 'done', ['step']);
-  const predecessorContent = await readFile(predecessor.path, 'utf8');
-  const predecessorBackup = `${predecessor.path}.backup`;
-  const failingSteps = ['step'];
-  failingSteps.map = () => {
-    renameSync(predecessor.path, predecessorBackup);
-    mkdirSync(predecessor.path);
-    return ['step'];
-  };
-
-  await assert.rejects(
-    () =>
-      createSession(
+test('publication failure reserves no session and preserves discovery', async () => {
+  const script = `
+    import { mkdir, readFile, readdir } from 'node:fs/promises';
+    import { join } from 'node:path';
+    import { createSession, discoverSessions } from './src/storage/repository.mjs';
+    const existing = await createSession('orchestrator', 'existing', 'done', ['step']);
+    const predecessor = await createSession('orchestrator', 'first', 'done', ['step']);
+    const before = await readdir(process.env.WORKLOG_DIR);
+    const existingContent = await readFile(existing.path, 'utf8');
+    const predecessorContent = await readFile(predecessor.path, 'utf8');
+    const emptySession = join(process.env.WORKLOG_DIR, 'deadbeef');
+    await mkdir(emptySession);
+    process.env.WORKLOG_TEST_FAIL_AFTER_STAGING = '1';
+    let error;
+    try {
+      await createSession(
         'orchestrator',
         'follow-up',
         'done',
-        failingSteps,
+        ['step'],
         predecessor.orchestrationId,
         'continue after failure',
-      ),
-    /EISDIR|EEXIST|ENOTDIR/,
-  );
-  await rm(predecessor.path, { recursive: true, force: true });
-  await rename(predecessorBackup, predecessor.path);
-
-  assert.equal(await readFile(predecessor.path, 'utf8'), predecessorContent);
-  const discovered = await import('../src/storage/repository.mjs').then(({ discoverSessions }) =>
-    discoverSessions('orchestrator'),
-  );
+      );
+    } catch (caught) {
+      error = caught.message;
+    }
+    const afterFailure = await readdir(process.env.WORKLOG_DIR);
+    const discovered = await discoverSessions('orchestrator');
+    console.log(JSON.stringify({
+      before,
+      afterFailure,
+      error,
+      existingContent,
+      predecessorContent,
+      existing,
+      predecessor,
+      discovered: discovered.sessions.map(({ orchestrationId }) => orchestrationId),
+    }));
+  `;
+  const { stdout } = await execFile(process.execPath, ['--input-type=module', '-e', script], {
+    cwd: new URL('..', import.meta.url),
+    env: { ...process.env, WORKLOG_DIR: root },
+  });
+  const result = JSON.parse(stdout.trim());
+  assert.match(result.error, /injected publication failure after staging/);
+  assert.equal(result.afterFailure.includes('deadbeef'), true);
   assert.deepEqual(
-    discovered.sessions
-      .map(({ orchestrationId }) => orchestrationId)
-      .filter((orchestrationId) => !before.includes(orchestrationId))
-      .sort(),
-    [existing.orchestrationId, predecessor.orchestrationId].sort(),
+    result.afterFailure.filter((entry) => result.before.includes(entry)).sort(),
+    result.before.sort(),
+  );
+  assert.equal(
+    result.afterFailure.some((entry) => entry.endsWith('.staging')),
+    false,
+  );
+  assert.equal(await readFile(result.existing.path, 'utf8'), result.existingContent);
+  assert.equal(await readFile(result.predecessor.path, 'utf8'), result.predecessorContent);
+  assert.deepEqual(
+    result.discovered.filter((orchestrationId) => !result.before.includes(orchestrationId)),
+    [],
+  );
+
+  await rm(join(root, 'deadbeef'), { recursive: true, force: true });
+  const successor = await createSession(
+    'orchestrator',
+    'follow-up retry',
+    'done',
+    ['step'],
+    result.predecessor.orchestrationId,
+    'continue after failure',
+  );
+  const { discoverSessions } = await import('../src/storage/repository.mjs');
+  const discoveredAfterRetry = await discoverSessions('orchestrator');
+  assert.equal(
+    discoveredAfterRetry.sessions.some(
+      ({ orchestrationId }) => orchestrationId === successor.orchestrationId,
+    ),
+    true,
   );
 });
 

@@ -239,6 +239,7 @@ export async function createSession(
       '',
     ].join('\n');
     let published = false;
+    let reserved = false;
     try {
       await mkdir(root, { recursive: true });
       await mkdir(stagingDir);
@@ -265,6 +266,13 @@ export async function createSession(
         ),
         { flag: 'wx' },
       );
+      if (process.env.WORKLOG_TEST_FAIL_AFTER_STAGING === '1')
+        throw new Error('injected publication failure after staging');
+      await mkdir(sessionDir(orchestrationId));
+      reserved = true;
+      await rename(stagedMainPath, mainPath(orchestrationId));
+      await rename(stagedRegistryPath, registryPath(orchestrationId));
+      published = true;
       if (predecessor) {
         const path = mainPath(predecessorOrchestrationId);
         const entries = predecessorCompletion.openItems.map((item) => ({
@@ -280,10 +288,10 @@ export async function createSession(
         }
         if (after !== content) await appendFile(path, after.slice(content.length));
       }
-      await rename(stagingDir, sessionDir(orchestrationId));
-      published = true;
     } finally {
-      if (!published) await rm(stagingDir, { recursive: true, force: true });
+      if (!published && reserved)
+        await rm(sessionDir(orchestrationId), { recursive: true, force: true });
+      await rm(stagingDir, { recursive: true, force: true });
     }
     return {
       orchestrationId,
