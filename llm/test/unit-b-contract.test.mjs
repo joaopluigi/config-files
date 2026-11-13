@@ -13,13 +13,12 @@ async function readUtf8(path) {
   return readFile(path, 'utf8');
 }
 
-test('orchestrator delegates and relies on the universal behavior source', async () => {
+test('orchestrator delegates without duplicating universal behavior guidance', async () => {
   const document = await readUtf8(join(agentsRoot, 'orchestrator.md'));
 
   assert.match(document, /^mode: primary$/m);
   assert.match(document, /never execute operational actions directly/i);
   assert.match(document, /delegate every task to specialized sub-agents/i);
-  assert.match(document, /llm\/rules\/agent\.md/);
   assert.doesNotMatch(document, /DecisionModel\s+v1|traffic[- ]light gate/i);
 });
 

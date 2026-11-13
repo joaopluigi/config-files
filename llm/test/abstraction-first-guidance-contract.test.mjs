@@ -35,7 +35,7 @@ function toolPattern(tool) {
   return new RegExp(`\\b${tool}\\b`, 'g');
 }
 
-test('orchestrator keeps direct tool names only in allowed-tools and points to universal behavior', async () => {
+test('orchestrator keeps direct tool names only in allowed-tools', async () => {
   const document = await readUtf8(join(llmRoot, 'agents', 'orchestrator.md'));
   const { frontmatter, prose } = splitFrontmatter(document);
 
@@ -43,7 +43,6 @@ test('orchestrator keeps direct tool names only in allowed-tools and points to u
     assert.equal((frontmatter.match(toolPattern(tool)) ?? []).length, 1, `${tool} must be listed once in the allowed-tools surface`);
     assert.equal((prose.match(toolPattern(tool)) ?? []).length, 0, `${tool} must not appear in orchestrator prose`);
   }
-  assert.match(prose, /llm\/rules\/agent\.md/);
   assert.match(prose, /delegate every task to specialized sub-agents/i);
 });
 
