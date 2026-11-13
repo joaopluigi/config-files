@@ -16,51 +16,48 @@ function splitFrontmatter(document) {
   return { frontmatter: match[1], prose: match[2] };
 }
 
-const solverTools = [
+const allowedTools = [
+  'eca__spawn_agent',
   'decision_model_validate',
   'decision_space_explore',
   'decision_options_compare',
+  'worklog__worklog_session_create',
+  'worklog__worklog_peer_create',
+  'worklog__worklog_append',
+  'worklog__worklog_read',
+  'worklog__worklog_ask',
+  'worklog__worklog_answer',
+  'worklog__worklog_status',
+  'worklog__worklog_close',
 ];
 
 function toolPattern(tool) {
   return new RegExp(`\\b${tool}\\b`, 'g');
 }
 
-test('orchestrator keeps solver names in allowed-tools and explains the abstraction-first behavior', async () => {
+test('orchestrator keeps direct tool names only in allowed-tools and points to universal behavior', async () => {
   const document = await readUtf8(join(llmRoot, 'agents', 'orchestrator.md'));
   const { frontmatter, prose } = splitFrontmatter(document);
 
-  for (const tool of solverTools) {
+  for (const tool of allowedTools) {
     assert.equal((frontmatter.match(toolPattern(tool)) ?? []).length, 1, `${tool} must be listed once in the allowed-tools surface`);
     assert.equal((prose.match(toolPattern(tool)) ?? []).length, 0, `${tool} must not appear in orchestrator prose`);
   }
-
-  for (const abstraction of ['model', 'validate', 'explore', 'compare', 'certainty']) {
-    assert.match(prose, new RegExp(`\\b${abstraction}\\b`, 'i'), `prose must describe solver behavior through ${abstraction}`);
-  }
+  assert.match(prose, /llm\/rules\/agent\.md/);
+  assert.match(prose, /delegate every task to specialized sub-agents/i);
 });
 
-test('orchestrator has a traffic-light gate for finite closed constraint problems and vague subjective open problems', async () => {
-  const document = await readUtf8(join(llmRoot, 'agents', 'orchestrator.md'));
+test('universal guidance owns the behavior loop and decision invariants', async () => {
+  const document = await readUtf8(join(llmRoot, 'rules', 'agent.md'));
 
-  assert.match(document, /traffic[- ]light|green\b[\s\S]*amber\b[\s\S]*red\b/i);
-  assert.match(document, /finite[\s-]+closed[\s\S]*constraint|closed[\s-]+constraint[\s\S]*finite/i);
-  assert.match(document, /vague[\s,/-]+subjective[\s,/-]+open|vague[\s\S]*subjective[\s\S]*open/i);
-  assert.match(document, /gate|fallback|do not force|ordinary reasoning|ask the user/i);
-});
-
-test('planning uses the same behavior-first workflow and fallback without implementation names', async () => {
-  const document = await readUtf8(join(llmRoot, 'skills', 'planning', 'SKILL.md'));
-
-  for (const abstraction of ['model', 'validate', 'explore', 'compare', 'certainty']) {
-    assert.match(document, new RegExp(`\\b${abstraction}\\b`, 'i'), `planning must describe ${abstraction} as behavior`);
+  for (const phrase of [
+    /meaningful alternatives visible/i,
+    /trade-offs/i,
+    /facts, inferences, assumptions, and uncertainty/i,
+    /smallest authorized next step/i,
+    /authority, approval, scope, isolation, evidence, verification, and stop conditions/i,
+  ]) {
+    assert.match(document, phrase);
   }
-  assert.match(document, /finite[\s-]+closed[\s\S]*constraint|closed[\s-]+constraint[\s\S]*finite/i);
-  assert.match(document, /vague[\s,/-]+subjective[\s,/-]+open|vague[\s\S]*subjective[\s\S]*open/i);
-  assert.match(document, /fallback|ordinary reasoning|do not force|ask the user|state uncertainty/i);
-
-  for (const tool of solverTools) {
-    assert.doesNotMatch(document, toolPattern(tool), `planning must not depend on direct MCP name ${tool}`);
-  }
-  assert.doesNotMatch(document, /core\.logic|\b(?:run\*|lvar|fresh|conde|membero|featurec)\b/i);
+  assert.doesNotMatch(document, /decisionmodel|traffic[- ]light|finite closed constraint/i);
 });

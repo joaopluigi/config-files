@@ -7,36 +7,27 @@ import { fileURLToPath } from 'node:url';
 
 const llmRoot = fileURLToPath(new URL('..', import.meta.url));
 const agentsRoot = join(llmRoot, 'agents');
-const skillsRoot = join(llmRoot, 'skills');
 const ecaRoot = join(llmRoot, 'eca');
 
 async function readUtf8(path) {
   return readFile(path, 'utf8');
 }
 
-test('orchestrator keeps delegation-first behavior and documents DecisionModel v1 tools', async () => {
+test('orchestrator delegates and relies on the universal behavior source', async () => {
   const document = await readUtf8(join(agentsRoot, 'orchestrator.md'));
 
   assert.match(document, /^mode: primary$/m);
   assert.match(document, /never execute operational actions directly/i);
   assert.match(document, /delegate every task to specialized sub-agents/i);
-  assert.match(document, /DecisionModel\s+v1/i);
-  for (const tool of [
-    'decision_model_validate',
-    'decision_space_explore',
-    'decision_options_compare',
-  ]) {
-    assert.match(document, new RegExp(`\\b${tool}\\b`));
-  }
+  assert.match(document, /llm\/rules\/agent\.md/);
+  assert.doesNotMatch(document, /DecisionModel\s+v1|traffic[- ]light gate/i);
 });
 
-test('planning makes synthesis orchestrator-owned after ideators return', async () => {
-  const document = await readUtf8(join(skillsRoot, 'planning', 'SKILL.md'));
-
-  assert.match(document, /Once all ideators have returned/i);
-  assert.match(document, /the orchestrator synthesizes/i);
-  assert.doesNotMatch(document, /Spawn a `synthesizer`/i);
-  assert.doesNotMatch(document, /synthesizer agent/i);
+test('universal guidance owns alternatives, trade-offs, and authorized next steps', async () => {
+  const document = await readUtf8(join(llmRoot, 'rules', 'agent.md'));
+  assert.match(document, /meaningful alternatives/i);
+  assert.match(document, /trade-offs/i);
+  assert.match(document, /smallest authorized next step/i);
 });
 
 test('synthesizer is removed and both ECA profiles use the same decision-support command', async () => {
