@@ -5,7 +5,7 @@ description: "Operate on a GitHub pull request in an isolated worktree."
 
 # Pull request review mechanics
 
-Use repository guidance and `llm/rules/agent.md` for review criteria and behavior. Use this skill when given a repository and pull request number or URL.
+Use shared repository guidance for review criteria and behavior. Use this skill when given a repository and pull request number or URL.
 
 Reference index: [`references/REFERENCE.md`](references/REFERENCE.md). Read it to choose the relevant reference document before using detailed mechanics.
 
@@ -18,7 +18,7 @@ Default to read-only. Pending review may create comments but must not submit. Su
 1. Resolve repository, PR number, base/head commits, reviewer identity, and authentication.
 2. Read metadata, diff, checks, changed files, reviews, and pending review state with the scripts under `scripts/`.
 3. Use an exact detached worktree at the PR head, or the snapshot script when no local clone exists. Never alter the user's checkout.
-4. Locate `AGENTS.md`, `CONTRIBUTING.md`, and `REVIEW.md`; apply them together with `llm/rules/agent.md`.
+4. Locate `AGENTS.md`, `CONTRIBUTING.md`, and `REVIEW.md`; apply them together with shared repository guidance.
 5. For pending comments, create JSON with `commit_id`, `path`, changed-file line, `side`, and body. Use fenced code blocks for examples.
 6. Verify every write with the verification script. Do not execute submission merely to validate syntax.
 

@@ -65,8 +65,8 @@ test('pr-review points to universal behavior without duplicating workflow guidan
   assert.doesNotMatch(orchestrator, /DecisionModel\s+v1|traffic[- ]light gate/i);
   assert.doesNotMatch(prReview, /\breviewing\b/i, 'pr-review must not depend on the deleted reviewing skill');
   assert.doesNotMatch(worktreeReference, /\bprocedure\b/i);
-  assert.match(prReview, /llm\/rules\/agent\.md/);
-  assert.match(worktreeReference, /llm\/rules\/agent\.md/);
+  assert.match(prReview, /shared repository guidance/);
+  assert.match(worktreeReference, /shared repository guidance/);
 });
 
 test('install.sh keeps generic skills linking', async () => {
