@@ -350,9 +350,12 @@ test('concurrent continuations publish one successor and one continuation reason
     (entry) => !before.includes(entry) && entry !== predecessor.orchestrationId,
   );
   assert.equal(successors.length, 1);
+  const fulfilled = results.find(({ status }) => status === 'fulfilled').value;
+  const winningReason = fulfilled.continuationReason;
+  const losingReason = winningReason === 'winner reason' ? 'loser reason' : 'winner reason';
   const content = await readFile(predecessor.path, 'utf8');
-  assert.equal((content.match(/winner reason/g) || []).length, 2);
-  assert.equal((content.match(/loser reason/g) || []).length, 0);
+  assert.equal((content.match(new RegExp(winningReason, 'g')) || []).length, 2);
+  assert.equal((content.match(new RegExp(losingReason, 'g')) || []).length, 0);
 });
 
 test('separate processes publish one continuation successor and cleanly reject the loser', async () => {
