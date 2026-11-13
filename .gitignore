@@ -1,5 +1,7 @@
 /.clj-kondo/*
 /llm/skills/*
+!/llm/skills/decision-support
+!/llm/skills/decision-support/**
 !/llm/skills/worklog
 !/llm/skills/git-commit
 !/llm/skills/rewrite-text
