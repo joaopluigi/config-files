@@ -52,7 +52,7 @@ test('the five workflow skill packages and their stale gitignore allow-list entr
       `.gitignore must not allow-list deleted ${skill} workflow skill`,
     );
   }
-  for (const skill of ['git-commit', 'git-worktree', 'pr-review', 'rewrite-text', 'worklog', 'writing-clojure']) {
+  for (const skill of ['decision-support', 'git-commit', 'git-worktree', 'pr-review', 'rewrite-text', 'worklog', 'writing-clojure']) {
     assert.match(gitignore, new RegExp(`^!/llm/skills/${skill}(?:/|$)`, 'm'), `${skill} must remain allow-listed`);
   }
 });
