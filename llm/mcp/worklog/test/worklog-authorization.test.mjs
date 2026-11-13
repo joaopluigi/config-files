@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile as execFileCallback } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, readdir, utimes } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, rename, rm, utimes } from 'node:fs/promises';
+import { mkdirSync, renameSync } from 'node:fs';
 import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -72,6 +73,47 @@ test('continuation successor creation failure leaves predecessor open and create
   );
   assert.equal(await readFile(predecessor.path, 'utf8'), before);
   assert.deepEqual(await readdir(root), beforeEntries);
+});
+
+test('continuation failure preserves published sessions and keeps discovery readable', async () => {
+  const before = await readdir(root);
+  const existing = await createSession('orchestrator', 'existing', 'done', ['step']);
+  const predecessor = await createSession('orchestrator', 'first', 'done', ['step']);
+  const predecessorContent = await readFile(predecessor.path, 'utf8');
+  const predecessorBackup = `${predecessor.path}.backup`;
+  const failingSteps = ['step'];
+  failingSteps.map = () => {
+    renameSync(predecessor.path, predecessorBackup);
+    mkdirSync(predecessor.path);
+    return ['step'];
+  };
+
+  await assert.rejects(
+    () =>
+      createSession(
+        'orchestrator',
+        'follow-up',
+        'done',
+        failingSteps,
+        predecessor.orchestrationId,
+        'continue after failure',
+      ),
+    /EISDIR|EEXIST|ENOTDIR/,
+  );
+  await rm(predecessor.path, { recursive: true, force: true });
+  await rename(predecessorBackup, predecessor.path);
+
+  assert.equal(await readFile(predecessor.path, 'utf8'), predecessorContent);
+  const discovered = await import('../src/storage/repository.mjs').then(({ discoverSessions }) =>
+    discoverSessions('orchestrator'),
+  );
+  assert.deepEqual(
+    discovered.sessions
+      .map(({ orchestrationId }) => orchestrationId)
+      .filter((orchestrationId) => !before.includes(orchestrationId))
+      .sort(),
+    [existing.orchestrationId, predecessor.orchestrationId].sort(),
+  );
 });
 
 test('continuation closes each open predecessor item once with the exact reason', async () => {
