@@ -77,8 +77,23 @@ const text = (value, isError = false) => ({
   content: [{ type: 'text', text: JSON.stringify(value) }],
 });
 
+function structuredError(code, path, message, extra = {}) {
+  return { code, path, message, ...extra };
+}
+
 function result(status, message, extra = {}) {
-  return { status, ...(message ? { error: message } : {}), ...extra };
+  const details = message && typeof message === 'object' ? message : {};
+  const textMessage = typeof message === 'string' ? message : details.message;
+  return {
+    status,
+    ...(textMessage ? { error: textMessage } : {}),
+    ...details,
+    ...extra,
+  };
+}
+
+function invalidInput(code, path, message, extra = {}) {
+  return result('invalid_input', structuredError(code, path, message, extra));
 }
 
 function serializedSize(value) {
@@ -95,39 +110,52 @@ function cartesianSize(model) {
 }
 
 function validateModel(model) {
-  if (!model || typeof model !== 'object' || Array.isArray(model)) return 'model must be an object';
-  if (model.version !== undefined && model.version !== 1 && model.version !== '1') return 'unsupported model version';
-  if (!Array.isArray(model.variables) || model.variables.length === 0) return 'variables must be a non-empty array';
-  if (model.variables.length > MAX_VARIABLES) return `variables exceed bound ${MAX_VARIABLES}`;
+  if (!model || typeof model !== 'object' || Array.isArray(model)) return structuredError('invalid_model', ['model'], 'model must be an object');
+  if (model.version !== undefined && model.version !== 1 && model.version !== '1') return structuredError('unsupported_model_version', ['model', 'version'], 'unsupported model version; use 1');
+  if (!Array.isArray(model.variables) || model.variables.length === 0) return structuredError('invalid_variables', ['model', 'variables'], 'variables must be a non-empty array');
+  if (model.variables.length > MAX_VARIABLES) return structuredError('variable_bound_exceeded', ['model', 'variables'], `variables exceed bound ${MAX_VARIABLES}`);
   const names = new Set();
-  for (const variable of model.variables) {
-    if (!variable || typeof variable.name !== 'string' || !/^[A-Za-z_][A-Za-z0-9_-]*$/.test(variable.name)) return 'invalid variable name';
-    if (names.has(variable.name)) return 'duplicate variable name';
+  for (const [variableIndex, variable] of model.variables.entries()) {
+    if (!variable || typeof variable.name !== 'string' || !/^[A-Za-z_][A-Za-z0-9_-]*$/.test(variable.name)) return structuredError('invalid_variable_name', ['variables', variableIndex, 'name'], 'variable name must start with a letter or underscore and contain only letters, numbers, underscores, or hyphens');
+    if (names.has(variable.name)) return structuredError('duplicate_variable_name', ['variables', variableIndex, 'name'], `duplicate variable name ${variable.name}`);
     names.add(variable.name);
-    if (!Array.isArray(variable.domain) || variable.domain.length === 0 || variable.domain.length > MAX_DOMAIN) return 'variable domains must be bounded and non-empty';
-    if (variable.domain.some((value) => value === undefined || typeof value === 'function')) return 'domain contains unsupported value';
+    if (!Array.isArray(variable.domain) || variable.domain.length === 0 || variable.domain.length > MAX_DOMAIN) return structuredError('invalid_domain', ['variables', variableIndex, 'domain'], `variable domain must be non-empty and no larger than ${MAX_DOMAIN}`);
+    if (variable.domain.some((value) => value === undefined || typeof value === 'function')) return structuredError('unsupported_domain_value', ['variables', variableIndex, 'domain'], 'domain contains an unsupported value');
   }
-  if (cartesianSize(model) > MAX_CARTESIAN) return `cartesian product exceeds bound ${MAX_CARTESIAN}`;
-  if (model.constraints !== undefined && !Array.isArray(model.constraints)) return 'constraints must be an array';
-  if (model.objectives !== undefined && !Array.isArray(model.objectives)) return 'objectives must be an array';
-  for (const constraint of model.constraints ?? []) {
-    if (!constraint || !['eq', 'neq', 'gte', 'lte', 'gt', 'lt'].includes(constraint.op)) return 'unsupported constraint operation';
+  if (cartesianSize(model) > MAX_CARTESIAN) return structuredError('cartesian_bound_exceeded', ['variables'], `cartesian product exceeds bound ${MAX_CARTESIAN}`);
+  if (model.constraints !== undefined && !Array.isArray(model.constraints)) return structuredError('invalid_constraints', ['constraints'], 'constraints must be an array');
+  if (model.objectives !== undefined && !Array.isArray(model.objectives)) return structuredError('invalid_objectives', ['objectives'], 'objectives must be an array');
+  for (const [constraintIndex, constraint] of (model.constraints ?? []).entries()) {
+    if (!constraint || !['eq', 'neq', 'gte', 'lte', 'gt', 'lt'].includes(constraint.op)) {
+      return structuredError(
+        'unsupported_constraint_operation',
+        ['constraints', constraintIndex, 'op'],
+        'unsupported constraint operation; use one of the supported relations',
+        { supported: ['eq', 'neq', 'gte', 'lte', 'gt', 'lt'] },
+      );
+    }
     for (const side of ['left', 'right']) {
       const expr = constraint[side];
-      if (!expr || (expr.var === undefined && expr.const === undefined)) return 'invalid constraint expression';
-      if (expr.var !== undefined && !names.has(expr.var)) return 'unknown variable';
+      if (!expr || (expr.var === undefined && expr.const === undefined)) return structuredError('invalid_constraint_expression', ['constraints', constraintIndex, side], 'constraint expression must contain a variable or constant');
+      if (expr.var !== undefined && !names.has(expr.var)) return structuredError('unknown_constraint_variable', ['constraints', constraintIndex, side, 'var'], `unknown variable ${expr.var}`);
     }
   }
-  for (const objective of model.objectives ?? []) {
-    if (!objective || !['maximize', 'minimize'].includes(objective.direction)) return 'invalid objective';
-    if (!objective.expr || (objective.expr.var === undefined && objective.expr.const === undefined)) return 'invalid objective expression';
-    if (objective.expr.var !== undefined && !names.has(objective.expr.var)) return 'unknown objective variable';
+  for (const [objectiveIndex, objective] of (model.objectives ?? []).entries()) {
+    if (!objective || !['maximize', 'minimize'].includes(objective.direction)) return structuredError('invalid_objective', ['objectives', objectiveIndex], 'objective must specify direction maximize or minimize');
+    if (!objective.expr || (objective.expr.var === undefined && objective.expr.const === undefined)) {
+      return structuredError(
+        'invalid_objective_expression',
+        ['objectives', objectiveIndex, 'expr'],
+        'objective expression is unsupported; use a variable or constant relation',
+      );
+    }
+    if (objective.expr.var !== undefined && !names.has(objective.expr.var)) return structuredError('unknown_objective_variable', ['objectives', objectiveIndex, 'expr', 'var'], `unknown variable ${objective.expr.var}`);
   }
   if (model.schema_version !== undefined
       && !((Number.isInteger(model.schema_version) && model.schema_version >= 1)
-        || (typeof model.schema_version === 'string' && model.schema_version.length > 0))) return 'schema_version must be a positive integer or non-empty string';
+        || (typeof model.schema_version === 'string' && model.schema_version.length > 0))) return structuredError('invalid_schema_version', ['schema_version'], 'schema_version must be a positive integer or non-empty string');
   for (const field of ['assumptions', 'criteria', 'evidence']) {
-    if (model[field] !== undefined && !Array.isArray(model[field])) return `${field} must be an array`;
+    if (model[field] !== undefined && !Array.isArray(model[field])) return structuredError('invalid_metadata_field', [field], `${field} must be an array`);
   }
   return null;
 }
@@ -151,24 +179,24 @@ function jsonEqual(left, right) {
 }
 
 function validateOptions(model, options) {
-  if (!Array.isArray(options)) return { message: 'options must be an array' };
-  if (options.length > MAX_OPTIONS) return { message: `options exceed bound ${MAX_OPTIONS}` };
+  if (!Array.isArray(options)) return structuredError('invalid_options', ['options'], 'options must be an array');
+  if (options.length > MAX_OPTIONS) return structuredError('option_bound_exceeded', ['options'], `options exceed bound ${MAX_OPTIONS}`);
   const variables = new Map(model.variables.map(({ name, domain }) => [name, domain]));
   const errors = [];
   options.forEach((option, optionIndex) => {
     if (!option || typeof option !== 'object' || Array.isArray(option)) {
-      errors.push({ option_index: optionIndex, code: 'invalid_option', message: 'option must be an object' });
+      errors.push({ option_index: optionIndex, code: 'invalid_option', path: ['options', optionIndex], message: 'option must be an object' });
       return;
     }
     for (const field of Object.keys(option)) {
-      if (!variables.has(field)) errors.push({ option_index: optionIndex, field, code: 'unknown_field', message: `unknown option field ${field}` });
-      else if (!variables.get(field).some((value) => jsonEqual(value, option[field]))) errors.push({ option_index: optionIndex, field, code: 'out_of_domain', message: `option value for ${field} is outside its domain` });
+      if (!variables.has(field)) errors.push({ option_index: optionIndex, field, code: 'unknown_field', path: ['options', optionIndex, field], message: `unknown option field ${field}` });
+      else if (!variables.get(field).some((value) => jsonEqual(value, option[field]))) errors.push({ option_index: optionIndex, field, code: 'out_of_domain', path: ['options', optionIndex, field], message: `option value for ${field} is outside its domain` });
     }
     for (const field of variables.keys()) {
-      if (!Object.hasOwn(option, field)) errors.push({ option_index: optionIndex, field, code: 'missing_field', message: `option is missing variable ${field}` });
+      if (!Object.hasOwn(option, field)) errors.push({ option_index: optionIndex, field, code: 'missing_field', path: ['options', optionIndex, field], message: `option is missing variable ${field}` });
     }
   });
-  return errors.length ? { errors } : null;
+  return errors.length ? structuredError('invalid_option_fields', ['options'], 'one or more options contain invalid fields; inspect errors for each option', { errors }) : null;
 }
 
 class Worker {
@@ -281,19 +309,26 @@ export function createServer() {
       };
       if (request.method !== 'tools/call') return { jsonrpc: '2.0', id: request.id, error: { code: -32601, message: 'method not found' } };
       const { name, arguments: args = {} } = request.params ?? {};
-      if (!toolNames.includes(name)) return { jsonrpc: '2.0', id: request.id, result: text(result('error', 'unknown tool'), true) };
+      if (!toolNames.includes(name)) return { jsonrpc: '2.0', id: request.id, result: text(invalidInput('unknown_tool', ['params', 'name'], 'unknown tool; use one of the advertised decision-support tools'), true) };
+      const input = args && typeof args === 'object' && !Array.isArray(args) ? args : {};
       let payload;
-      const modelError = validateModel(args.model);
-      if (serializedSize(request) > MAX_SERIALIZED_INPUT_BYTES) payload = result('invalid_input', `serialized input exceeds bound ${MAX_SERIALIZED_INPUT_BYTES}`);
-      else if (modelError) payload = result('invalid_input', modelError);
-      else if (name === 'decision_options_compare') {
-        const optionError = validateOptions(args.model, args.options);
-        payload = optionError ? result('invalid_input', optionError.message, { errors: optionError.errors }) : undefined;
+      const modelError = validateModel(input.model);
+      if (serializedSize(request) > MAX_SERIALIZED_INPUT_BYTES) payload = invalidInput('serialized_input_too_large', ['request'], `serialized input exceeds bound ${MAX_SERIALIZED_INPUT_BYTES}`);
+      else if (modelError) payload = invalidInput(modelError.code, modelError.path, modelError.message, Object.fromEntries(Object.entries(modelError).filter(([key]) => !['code', 'path', 'message'].includes(key))));
+      else if (name === 'decision_options_compare' && input.options === undefined) {
+        payload = invalidInput(
+          'missing_options',
+          ['options'],
+          'options must be an array; comparison requires explicit candidate options; provide an options array',
+        );
+      } else if (name === 'decision_options_compare') {
+        const optionError = validateOptions(input.model, input.options);
+        payload = optionError ? invalidInput(optionError.code, optionError.path, optionError.message, { errors: optionError.errors }) : undefined;
       }
-      if (!payload && name === 'decision_space_explore' && args.cursor !== undefined) payload = result('invalid_input', 'cursor is not a valid continuation cursor');
-      if (!payload && name === 'decision_space_explore' && (!Number.isInteger(args.limit ?? 100) || args.limit < 1 || args.limit > MAX_LIMIT)) payload = result('invalid_input', `limit must be an integer from 1 to ${MAX_LIMIT}`);
+      if (!payload && name === 'decision_space_explore' && input.cursor !== undefined) payload = invalidInput('unsupported_cursor', ['cursor'], 'cursor is not a valid continuation cursor');
+      if (!payload && name === 'decision_space_explore' && (!Number.isInteger(input.limit ?? 100) || input.limit < 1 || input.limit > MAX_LIMIT)) payload = invalidInput('invalid_limit', ['limit'], `limit must be an integer from 1 to ${MAX_LIMIT}`);
       if (!payload) {
-        try { payload = await worker.request({ op: name, model: args.model, limit: args.limit ?? 100, options: args.options }); }
+        try { payload = await worker.request({ op: name, model: input.model, limit: input.limit ?? 100, options: input.options }); }
         catch (error) {
           payload = result(error.message.includes('timed out') ? 'timeout' : 'worker_error', error.message);
           if (worker.closed && !closed) worker = new Worker();
