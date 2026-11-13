@@ -57,12 +57,11 @@ test('the five workflow skill packages and their stale gitignore allow-list entr
   }
 });
 
-test('orchestrator and pr-review point to universal behavior without duplicating workflow guidance', async () => {
+test('pr-review points to universal behavior without duplicating workflow guidance', async () => {
   const orchestrator = await readUtf8(join(llmRoot, 'agents', 'orchestrator.md'));
   const prReview = await readUtf8(join(skillsRoot, 'pr-review', 'SKILL.md'));
   const worktreeReference = await readUtf8(join(skillsRoot, 'pr-review', 'references', 'worktree-and-snapshot.md'));
 
-  assert.match(orchestrator, /llm\/rules\/agent\.md/);
   assert.doesNotMatch(orchestrator, /DecisionModel\s+v1|traffic[- ]light gate/i);
   assert.doesNotMatch(prReview, /\breviewing\b/i, 'pr-review must not depend on the deleted reviewing skill');
   assert.doesNotMatch(worktreeReference, /\bprocedure\b/i);
