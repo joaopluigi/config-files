@@ -49,6 +49,11 @@ const trustedPeerMutationContexts = new WeakSet();
 const trustedReplacementMutationContexts = new WeakSet();
 const activeContinuations = new Set();
 
+function injectPublicationFailure(point) {
+  if (process.env.WORKLOG_TEST_FAIL_AT === point)
+    throw new Error(`injected publication failure at ${point}`);
+}
+
 function mutationContextFor(orchestrationId, peerId, actor, path, registry) {
   const context = Object.freeze({
     registry,
@@ -270,9 +275,12 @@ export async function createSession(
         throw new Error('injected publication failure after staging');
       await mkdir(sessionDir(orchestrationId));
       reserved = true;
+      injectPublicationFailure('after-reservation');
       await rename(stagedMainPath, mainPath(orchestrationId));
+      injectPublicationFailure('after-first-staged-file-rename');
       await rename(stagedRegistryPath, registryPath(orchestrationId));
       published = true;
+      injectPublicationFailure('after-second-staged-file-rename');
       if (predecessor) {
         const path = mainPath(predecessorOrchestrationId);
         const entries = predecessorCompletion.openItems.map((item) => ({
@@ -286,7 +294,10 @@ export async function createSession(
           validateAppend(after, entry.item, entry.tag, true);
           after += renderEntry(entry.item, 'orchestrator', entry.tag, entry.message);
         }
-        if (after !== content) await appendFile(path, after.slice(content.length));
+        if (after !== content) {
+          await appendFile(path, after.slice(content.length));
+          injectPublicationFailure('during-predecessor-mutation');
+        }
       }
     } finally {
       if (!published && reserved)
