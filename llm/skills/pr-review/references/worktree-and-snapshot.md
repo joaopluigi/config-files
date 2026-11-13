@@ -12,4 +12,4 @@ git fetch origin "pull/NUMBER/head"
 Without a clone, run `scripts/prepare_workspace.sh OWNER/REPOSITORY NUMBER`.
 It returns an exact temporary snapshot; apply experiments there and remove it
 afterward. Locate `AGENTS.md`, `CONTRIBUTING.md`, and `REVIEW.md` at the root
-and relevant parents and apply them together with `llm/rules/agent.md`.
+and relevant parents and apply them together with shared repository guidance.
