@@ -27,7 +27,12 @@ test('agent constitution states the universal evidence-bounded decision loop and
   ]) {
     assert.match(document, step, `universal decision loop must include ${step}`);
   }
-  assert.match(document, /meaningful alternatives must always be presented with trade-offs/i);
+  assert.match(document, /meaningful alternatives visible/i);
+  assert.match(document, /trade-offs/i);
+  assert.match(document, /do not silently choose the easiest or smallest option/i);
+  assert.match(document, /facts, inferences, assumptions, and uncertainty/i);
+  assert.match(document, /authority, approval, scope, isolation, evidence, verification, and stop conditions/i);
+  assert.match(document, /smallest authorized next step only after that comparison/i);
 });
 
 test('the five workflow skill packages and their stale gitignore allow-list entries are absent', async () => {
@@ -47,13 +52,26 @@ test('the five workflow skill packages and their stale gitignore allow-list entr
       `.gitignore must not allow-list deleted ${skill} workflow skill`,
     );
   }
+  for (const skill of ['git-commit', 'git-worktree', 'pr-review', 'rewrite-text', 'worklog', 'writing-clojure']) {
+    assert.match(gitignore, new RegExp(`^!/llm/skills/${skill}(?:/|$)`, 'm'), `${skill} must remain allow-listed`);
+  }
 });
 
-test('pr-review is self-contained while install.sh keeps generic skills linking', async () => {
+test('orchestrator and pr-review point to universal behavior without duplicating workflow guidance', async () => {
+  const orchestrator = await readUtf8(join(llmRoot, 'agents', 'orchestrator.md'));
   const prReview = await readUtf8(join(skillsRoot, 'pr-review', 'SKILL.md'));
-  const install = await readUtf8(join(repoRoot, 'install.sh'));
+  const worktreeReference = await readUtf8(join(skillsRoot, 'pr-review', 'references', 'worktree-and-snapshot.md'));
 
+  assert.match(orchestrator, /llm\/rules\/agent\.md/);
+  assert.doesNotMatch(orchestrator, /DecisionModel\s+v1|traffic[- ]light gate/i);
   assert.doesNotMatch(prReview, /\breviewing\b/i, 'pr-review must not depend on the deleted reviewing skill');
+  assert.doesNotMatch(worktreeReference, /\bprocedure\b/i);
+  assert.match(prReview, /llm\/rules\/agent\.md/);
+  assert.match(worktreeReference, /llm\/rules\/agent\.md/);
+});
+
+test('install.sh keeps generic skills linking', async () => {
+  const install = await readUtf8(join(repoRoot, 'install.sh'));
   assert.match(install, /link "\$REPO\/llm\/skills" "\$CONFIG_ECA\/skills"/);
   assert.match(install, /link "\$REPO\/llm\/skills" "\$CLAUDE\/skills"/);
 });
