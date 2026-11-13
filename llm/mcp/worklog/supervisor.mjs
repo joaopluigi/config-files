@@ -20,7 +20,7 @@ function log(message) {
   process.stderr.write(`[worklog-supervisor] ${message}\n`);
 }
 
-function spawnChild(label, entrypoint, args, env, stdio, cwd = callerCwd) {
+function spawnChild(label, entrypoint, args, env, stdio, cwd = callerCwd, options = {}) {
   const child = spawn(process.execPath, [entrypoint, ...args], {
     cwd,
     env: { ...process.env, ...env },
@@ -33,11 +33,11 @@ function spawnChild(label, entrypoint, args, env, stdio, cwd = callerCwd) {
   });
   child.once('error', (error) => {
     log(`${label} failed: ${error.stack || error}`);
-    if (!shuttingDown) void shutdown(1);
+    if (!shuttingDown && options.fatalOnError !== false) void shutdown(1);
   });
   child.once('exit', (code, signal) => {
     children.delete(child);
-    if (!shuttingDown) {
+    if (!shuttingDown && options.fatalOnExit !== false) {
       log(`${label} exited unexpectedly: code=${code} signal=${signal}`);
       void shutdown(1);
     }
@@ -57,7 +57,11 @@ function waitForOutput(child, pattern) {
     };
     const onExit = (code, signal) => {
       cleanup();
-      reject(new Error(`${child.label} exited before readiness: code=${code} signal=${signal}`));
+      reject(
+        new Error(
+          `${child.label} exited before readiness: code=${code} signal=${signal}; output=${output}`,
+        ),
+      );
     };
     const onError = (error) => {
       cleanup();
@@ -79,6 +83,10 @@ function waitForOutput(child, pattern) {
 function waitForExit(child) {
   if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve();
   return new Promise((resolve) => child.once('exit', resolve));
+}
+
+function isPreferredPortBindFailure(error) {
+  return /(?:EADDRINUSE|address already in use|Port \d+ is already in use)/i.test(error.message);
 }
 
 async function shutdown(exitCode = 0) {
@@ -123,21 +131,33 @@ async function start() {
   const httpEndpoint = httpReady.match[1];
   const token = httpReady.match[2];
 
-  const vite = spawnChild(
-    'vite',
-    viteEntrypoint,
-    ['--host', host],
-    {
-      ...sharedEnv,
-      WORKLOG_MCP_PROXY_TARGET: new URL(httpEndpoint).origin,
-      VITE_MCP_ENDPOINT: '/mcp',
-      VITE_MCP_TOKEN: token,
-    },
-    ['ignore', 'pipe', 'pipe'],
-    appRoot,
-  );
-  vite.stdout.on('data', (chunk) => process.stderr.write(`[vite] ${chunk}`));
-  const viteReady = await waitForOutput(vite, /Local:\s+(http:\/\/127\.0\.0\.1:\d+\/?)/);
+  const viteEnv = {
+    ...sharedEnv,
+    WORKLOG_MCP_PROXY_TARGET: new URL(httpEndpoint).origin,
+    VITE_MCP_ENDPOINT: '/mcp',
+    VITE_MCP_TOKEN: token,
+    WORKLOG_VITE_PORT: process.env.WORKLOG_VITE_PORT || '5173',
+  };
+  const viteArgs = ['--host', host];
+  const viteStdio = ['ignore', 'pipe', 'pipe'];
+  const startVite = (env, options) => {
+    const vite = spawnChild('vite', viteEntrypoint, viteArgs, env, viteStdio, appRoot, options);
+    vite.stdout.on('data', (chunk) => process.stderr.write(`[vite] ${chunk}`));
+    return vite;
+  };
+
+  let vite = startVite(viteEnv, { fatalOnExit: false, fatalOnError: false });
+  let viteReady;
+  try {
+    viteReady = await waitForOutput(vite, /Local:\s+(http:\/\/127\.0\.0\.1:\d+\/?)/);
+  } catch (error) {
+    if (viteEnv.WORKLOG_VITE_PORT === '0' || !isPreferredPortBindFailure(error)) throw error;
+    log(
+      `preferred Vite port ${viteEnv.WORKLOG_VITE_PORT} is occupied; retrying on an OS-assigned port`,
+    );
+    vite = startVite({ ...viteEnv, WORKLOG_VITE_PORT: '0' }, { fatalOnExit: false });
+    viteReady = await waitForOutput(vite, /Local:\s+(http:\/\/127\.0\.0\.1:\d+\/?)/);
+  }
   const viteEndpoint = viteReady.match[1].replace(/\/$/, '');
   log(
     `WORKLOG_MCP_ENDPOINT=${httpEndpoint} WORKLOG_MCP_TOKEN=${token} WORKLOG_VITE_ENDPOINT=${viteEndpoint}`,

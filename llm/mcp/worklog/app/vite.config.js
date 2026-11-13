@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const mcpProxyTarget = globalThis.process?.env.WORKLOG_MCP_PROXY_TARGET;
+const vitePort = Number(globalThis.process?.env.WORKLOG_VITE_PORT || 5173);
 
 export default defineConfig({
   build: {
@@ -10,7 +11,7 @@ export default defineConfig({
   },
   plugins: [react(), tailwindcss()],
   server: {
-    port: 5173,
+    port: vitePort,
     strictPort: true,
     proxy: mcpProxyTarget
       ? {
