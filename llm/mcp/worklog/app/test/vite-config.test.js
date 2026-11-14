@@ -9,6 +9,7 @@ const { default: viteConfig } = await import('../vite.config.js');
 describe('Vite development server configuration', () => {
   it('uses the fixed port and refuses to fall back to another port', () => {
     expect(viteConfig.server).toMatchObject({
+      host: '127.0.0.1',
       port: 5173,
       strictPort: true,
     });

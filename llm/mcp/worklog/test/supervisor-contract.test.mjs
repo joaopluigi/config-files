@@ -158,9 +158,17 @@ test('professional config points to a supervisor whose stdio child emits clean M
   }
 });
 
-test('supervisor exposes HTTP MCP and Vite proxy readiness using one token and worklog directory', async () => {
+test('supervisor exposes HTTP MCP and Vite proxy readiness using one token and worklog directory', async (t) => {
+  const preferred = await listenOnPreferredPort();
+  if (!preferred) {
+    t.skip('127.0.0.1:5173 is already owned by an unrelated process');
+    return;
+  }
+  await new Promise((resolve, reject) =>
+    preferred.close((error) => (error ? reject(error) : resolve())),
+  );
   const worklogDir = await mkdtemp(join(tmpdir(), 'supervisor-browser-'));
-  const child = spawnSupervisor(worklogDir, { WORKLOG_VITE_PORT: '0' });
+  const child = spawnSupervisor(worklogDir);
   try {
     let readiness;
     try {
@@ -228,73 +236,54 @@ test('preferred Vite port remains 5173 when it is free', async (t) => {
   }
 });
 
-test('occupied preferred Vite port stays alive while supervisor falls back', async (t) => {
+test('occupied preferred Vite port leaves HTTP and stdio usable without an alternate endpoint', async (t) => {
   const preferred = await listenOnPreferredPort();
   if (!preferred) {
     t.skip('127.0.0.1:5173 is already owned by an unrelated process');
     return;
   }
   const worklogDir = await mkdtemp(join(tmpdir(), 'supervisor-occupied-'));
-  const child = spawnSupervisor(worklogDir, { WORKLOG_MCP_TOKEN: 'occupied-port-token' });
+  const child = spawnSupervisor(worklogDir, { WORKLOG_MCP_TOKEN: 'occupied-port-token' }, [
+    'pipe',
+    'pipe',
+    'pipe',
+  ]);
   try {
     const readiness = await waitForPattern(
       child.stderr,
       child,
-      /WORKLOG_MCP_ENDPOINT=(http:\/\/127\.0\.0\.1:\d+\/mcp).*WORKLOG_VITE_ENDPOINT=(http:\/\/127\.0\.0\.1:\d+)/,
+      /frontend unavailable: Vite could not start on 127\.0\.0\.1:5173[\s\S]*WORKLOG_MCP_ENDPOINT=(http:\/\/127\.0\.0\.1:\d+\/mcp) WORKLOG_MCP_TOKEN=([^\s\n]+)/,
     );
-    assert.notEqual(readiness.match[2], 'http://127.0.0.1:5173');
+    const endpoint = readiness.match[1];
+    const emittedToken = readiness.match[2];
+    assert.doesNotMatch(readiness.output, /WORKLOG_VITE_ENDPOINT=/);
     assert.equal(preferred.listening, true);
+
+    const httpResponse = await globalThis.fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json, text/event-stream',
+        authorization: `Bearer ${emittedToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(initializeRequest(2)),
+    });
+    assert.equal(httpResponse.status, 200);
+    const httpBody = await httpResponse.json();
+    assert.equal(httpBody.result.serverInfo.name, 'delegation-worklog');
+
+    const stdioResponse = waitForPattern(child.stdout, child, /\n/);
+    child.stdin.write(`${JSON.stringify(initializeRequest(3))}\n`);
+    const stdioBody = JSON.parse((await stdioResponse).output.trim());
+    assert.equal(stdioBody.result.serverInfo.name, 'delegation-worklog');
   } finally {
     child.kill('SIGTERM');
     await waitForExit(child).catch(() => child.kill('SIGKILL'));
+    assert.equal(preferred.listening, true);
     await new Promise((resolve, reject) =>
       preferred.close((error) => (error ? reject(error) : resolve())),
     );
     await rm(worklogDir, { recursive: true, force: true });
-  }
-});
-
-test('concurrent supervisors get distinct Vite endpoints and working stdio', async () => {
-  const worklogDirs = await Promise.all([
-    mkdtemp(join(tmpdir(), 'supervisor-concurrent-a-')),
-    mkdtemp(join(tmpdir(), 'supervisor-concurrent-b-')),
-  ]);
-  const children = worklogDirs.map((worklogDir, index) =>
-    spawnSupervisor(worklogDir, { WORKLOG_MCP_TOKEN: `concurrent-token-${index}` }, [
-      'pipe',
-      'pipe',
-      'pipe',
-    ]),
-  );
-  try {
-    const readiness = await Promise.all(
-      children.map((child) =>
-        waitForPattern(
-          child.stderr,
-          child,
-          /WORKLOG_MCP_ENDPOINT=(http:\/\/127\.0\.0\.1:\d+\/mcp).*WORKLOG_MCP_TOKEN=([^\s\n]+).*WORKLOG_VITE_ENDPOINT=(http:\/\/127\.0\.0\.1:\d+)/,
-        ),
-      ),
-    );
-    assert.notEqual(readiness[0].match[3], readiness[1].match[3]);
-    await Promise.all(
-      children.map(async (child, index) => {
-        const response = waitForPattern(child.stdout, child, /\n/);
-        child.stdin.write(`${JSON.stringify(initializeRequest(index + 10))}\n`);
-        const result = await response;
-        assert.equal(JSON.parse(result.output.trim()).result.serverInfo.name, 'delegation-worklog');
-      }),
-    );
-  } finally {
-    await Promise.all(
-      children.map(async (child) => {
-        if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
-        await waitForExit(child).catch(() => child.kill('SIGKILL'));
-      }),
-    );
-    await Promise.all(
-      worklogDirs.map((worklogDir) => rm(worklogDir, { recursive: true, force: true })),
-    );
   }
 });
 
