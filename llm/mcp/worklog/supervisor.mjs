@@ -11,6 +11,7 @@ const httpEntrypoint = join(packageRoot, 'src', 'runtime', 'http.mjs');
 const appRoot = join(packageRoot, 'app');
 const viteEntrypoint = join(appRoot, 'node_modules', 'vite', 'bin', 'vite.js');
 const host = '127.0.0.1';
+const vitePort = 5173;
 
 const children = new Set();
 let shuttingDown = false;
@@ -85,10 +86,6 @@ function waitForExit(child) {
   return new Promise((resolve) => child.once('exit', resolve));
 }
 
-function isPreferredPortBindFailure(error) {
-  return /(?:EADDRINUSE|address already in use|Port \d+ is already in use)/i.test(error.message);
-}
-
 async function shutdown(exitCode = 0) {
   if (shutdownPromise) return shutdownPromise;
   shuttingDown = true;
@@ -136,9 +133,8 @@ async function start() {
     WORKLOG_MCP_PROXY_TARGET: new URL(httpEndpoint).origin,
     VITE_MCP_ENDPOINT: '/mcp',
     VITE_MCP_TOKEN: token,
-    WORKLOG_VITE_PORT: process.env.WORKLOG_VITE_PORT || '5173',
   };
-  const viteArgs = ['--host', host];
+  const viteArgs = ['--host', host, '--port', String(vitePort), '--strictPort'];
   const viteStdio = ['ignore', 'pipe', 'pipe'];
   const startVite = (env, options) => {
     const vite = spawnChild('vite', viteEntrypoint, viteArgs, env, viteStdio, appRoot, options);
@@ -146,22 +142,17 @@ async function start() {
     return vite;
   };
 
-  let vite = startVite(viteEnv, { fatalOnExit: false, fatalOnError: false });
-  let viteReady;
+  const vite = startVite(viteEnv, { fatalOnExit: false, fatalOnError: false });
   try {
-    viteReady = await waitForOutput(vite, /Local:\s+(http:\/\/127\.0\.0\.1:\d+\/?)/);
-  } catch (error) {
-    if (viteEnv.WORKLOG_VITE_PORT === '0' || !isPreferredPortBindFailure(error)) throw error;
+    const viteReady = await waitForOutput(vite, /Local:\s+(http:\/\/127\.0\.0\.1:\d+\/?)/);
+    const viteEndpoint = viteReady.match[1].replace(/\/$/, '');
     log(
-      `preferred Vite port ${viteEnv.WORKLOG_VITE_PORT} is occupied; retrying on an OS-assigned port`,
+      `WORKLOG_MCP_ENDPOINT=${httpEndpoint} WORKLOG_MCP_TOKEN=${token} WORKLOG_VITE_ENDPOINT=${viteEndpoint}`,
     );
-    vite = startVite({ ...viteEnv, WORKLOG_VITE_PORT: '0' }, { fatalOnExit: false });
-    viteReady = await waitForOutput(vite, /Local:\s+(http:\/\/127\.0\.0\.1:\d+\/?)/);
+  } catch (error) {
+    log(`frontend unavailable: Vite could not start on ${host}:${vitePort}; ${error.message}`);
+    log(`WORKLOG_MCP_ENDPOINT=${httpEndpoint} WORKLOG_MCP_TOKEN=${token}`);
   }
-  const viteEndpoint = viteReady.match[1].replace(/\/$/, '');
-  log(
-    `WORKLOG_MCP_ENDPOINT=${httpEndpoint} WORKLOG_MCP_TOKEN=${token} WORKLOG_VITE_ENDPOINT=${viteEndpoint}`,
-  );
 }
 
 process.once('SIGINT', () => void shutdown(0));

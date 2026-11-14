@@ -76,7 +76,6 @@ test('supervisor records the temporary caller cwd for a real stdio MCP session',
       WORKLOG_DIR: worklogDir,
       WORKLOG_MCP_TOKEN: 'supervisor-caller-cwd-test-token',
       WORKLOG_HTTP_PORT: '0',
-      WORKLOG_VITE_PORT: '0',
     },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
