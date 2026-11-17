@@ -8,8 +8,8 @@
 !/llm/skills/writing-clojure
 !/llm/skills/pr-review
 !/llm/skills/pr-review/**
-!/llm/skills/git-worktree
-!/llm/skills/git-worktree/**
+!/llm/skills/worktree-lifecycle
+!/llm/skills/worktree-lifecycle/**
 /.lsp/*
 /node_modules/
 **/node_modules/

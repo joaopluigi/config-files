@@ -1,13 +1,13 @@
 ---
-name: git-worktree
-description: "Use whenever work must happen in an isolated environment: before changing, building, testing, or reviewing a Git repository; when several agents change files at the same time (one environment each); and when combining results from isolated environments into one."
+name: worktree-lifecycle
+description: "Use whenever a Git task involves modifying, building, testing, or reviewing: create or use a managed isolated worktree rather than the original checkout; also use it for concurrent writers and integration."
 ---
 
-# Git Worktree Isolation
+# Worktree Lifecycle
 
 Use this skill **before making any changes in any Git repository directory**. This includes editing source files, running builds or repairs and preparing commits. The purpose is to keep the user's existing checkout separate from task work. Read-only inspection that does not operate on a local checkout, such as reading a pinned remote API response, may happen before a local worktree exists. Target resolution, an explicitly authorized fetch, and recording the original checkout state are also setup exceptions; they must not switch branches or modify checkout files. Once a local checkout is used for task work, follow this procedure.
 
-This skill documents a procedure only. It does not provide scripts and git-worktree command specifics.
+This skill documents a procedure only. It does not provide scripts or worktree command specifics.
 
 ## Procedure
 
