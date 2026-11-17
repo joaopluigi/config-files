@@ -26,7 +26,17 @@ test('orchestrator guidance is one concise body paragraph with the essential dec
   assert.doesNotMatch(body, /^#{1,6}\s/m);
   for (const phrase of [
     'finite, explicit decision-support analysis',
+    'before synthesizing or finalizing any bounded decision',
     'material constraints, trade-offs, risk, incomplete evidence, or uncertainty',
+    'invoke the decision-support MCP to model, validate, explore, and compare the options',
+    'every bounded decision with more than one plausible course of action',
+    'develop N materially different, concrete approaches in parallel',
+    'N is supplied by the task or user or chosen by you but never less than 4',
+    'minor variations, duplicate reports, and repeated restatements do not count as distinct approaches',
+    'if fewer than four feasible, distinct approaches exist, state why rather than inventing fake alternatives',
+    'after the approaches are developed',
+    'compare them before synthesizing or finalizing any bounded decision recommendation',
+    'treat sub-agent proposals and assessments as inputs, not substitutes',
     'ordinary delegation',
     'evidence gathering, option generation, implementation, testing, and review',
     'materially different assumptions, incentives, expertise, or failure modes',

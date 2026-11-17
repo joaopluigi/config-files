@@ -18,6 +18,7 @@ function splitFrontmatter(document) {
 
 const allowedTools = [
   'eca__spawn_agent',
+  'eca__read_file',
   'decision_model_validate',
   'decision_space_explore',
   'decision_options_compare',
