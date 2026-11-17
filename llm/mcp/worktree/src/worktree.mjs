@@ -17,6 +17,7 @@ const exec = promisify(execFile);
 const now = () => new Date().toISOString();
 const id = () => randomBytes(8).toString("hex");
 const MAX_CHECKPOINTS = 100;
+const LEASE_GRACE_MS = 300000;
 const BLOCKED_STATUSES = new Set([
   "failed",
   "ambiguous",
@@ -46,11 +47,14 @@ function canonicalizeExistingPath(path) {
 export function paths(env = process.env) {
   const configuredStateDir = env.WORKTREE_STATE_DIR;
   const stateDir = canonicalizeExistingPath(
-    configuredStateDir || join(env.HOME || homedir(), ".config", "config-files-worktrees"),
+    configuredStateDir ||
+      join(env.HOME || homedir(), ".config", "config-files-worktrees"),
   );
-  if ([tmpdir(), "/tmp", "/private/tmp"].some((root) =>
-    isWithin(canonicalizeExistingPath(root), stateDir),
-  )) {
+  if (
+    [tmpdir(), "/tmp", "/private/tmp"].some((root) =>
+      isWithin(canonicalizeExistingPath(root), stateDir),
+    )
+  ) {
     throw new WorktreeError(
       "WORKTREE_STATE_DIR must be a durable configured root outside the system temporary directory",
     );
@@ -181,7 +185,8 @@ export class WorktreeStore {
       let dirty = false;
       if (exists) {
         try {
-          dirty = (await git(manifest.path, ["status", "--porcelain"])).length > 0;
+          dirty =
+            (await git(manifest.path, ["status", "--porcelain"])).length > 0;
         } catch {
           dirty = true;
         }
@@ -190,7 +195,10 @@ export class WorktreeStore {
       if (actuals.length > 1) {
         next.status = "ambiguous";
         next.quarantineReason = "multiple-worktree-entries";
-      } else if (!exists && ["active", "leased", "provisioning"].includes(manifest.status)) {
+      } else if (
+        !exists &&
+        ["active", "leased", "provisioning"].includes(manifest.status)
+      ) {
         next.status = manifest.status === "provisioning" ? "failed" : "missing";
         next.quarantineReason = "worktree-not-found";
       } else if (
@@ -199,7 +207,10 @@ export class WorktreeStore {
       ) {
         next.status = "ambiguous";
         next.quarantineReason = "worktree-identity-mismatch";
-      } else if (dirty && ["active", "leased", "provisioning"].includes(manifest.status)) {
+      } else if (
+        dirty &&
+        ["active", "leased", "provisioning"].includes(manifest.status)
+      ) {
         next.status = "quarantined";
         next.quarantineReason = "dirty-uncommitted-worktree";
       }
@@ -286,23 +297,36 @@ export class WorktreeStore {
         exactCommit,
       ]);
       manifest.status = "active";
-      await atomicWrite(manifestPath(this.paths.stateDir, worktreeId), manifest);
+      await atomicWrite(
+        manifestPath(this.paths.stateDir, worktreeId),
+        manifest,
+      );
     } catch (error) {
       manifest.status = "failed";
       manifest.quarantineReason = "provisioning-failed";
       try {
-        await atomicWrite(manifestPath(this.paths.stateDir, worktreeId), manifest);
+        await atomicWrite(
+          manifestPath(this.paths.stateDir, worktreeId),
+          manifest,
+        );
       } catch {
         // Preserve the original failure when the manifest store is unavailable.
       }
       try {
-        if ((await worktreeEntries(identity.root)).some((entry) => entry.path === path))
+        if (
+          (await worktreeEntries(identity.root)).some(
+            (entry) => entry.path === path,
+          )
+        )
           await git(identity.root, ["worktree", "remove", "--force", path]);
       } catch {
         manifest.status = "quarantined";
         manifest.quarantineReason = "provisioning-rollback-failed";
         try {
-          await atomicWrite(manifestPath(this.paths.stateDir, worktreeId), manifest);
+          await atomicWrite(
+            manifestPath(this.paths.stateDir, worktreeId),
+            manifest,
+          );
         } catch {
           // The durable pending manifest remains the recovery record.
         }
@@ -349,23 +373,36 @@ export class WorktreeStore {
     return manifest;
   }
 
+  async assertLeaseActive(worktreeId, manifest) {
+    const timestamp = this.clock();
+    const expiresAt =
+      manifest.leaseExpiresAt && Date.parse(manifest.leaseExpiresAt);
+    if (expiresAt && timestamp >= expiresAt) {
+      manifest.status = "quarantined";
+      manifest.quarantineReason = "lease-expired";
+      await atomicWrite(
+        manifestPath(this.paths.stateDir, worktreeId),
+        manifest,
+      );
+      throw new WorktreeError("lease expired");
+    }
+  }
+
   async heartbeat(worktreeId, owner, leaseSeconds = 3600) {
     const manifest = await this.get(worktreeId);
     if (manifest.owner !== owner) throw new WorktreeError("owner mismatch");
     if (manifest.status !== "active")
       throw new WorktreeError("worktree is not active");
+    await this.assertLeaseActive(worktreeId, manifest);
     const timestamp = this.clock();
-    if (manifest.leaseExpiresAt && timestamp >= Date.parse(manifest.leaseExpiresAt)) {
-      manifest.status = "quarantined";
-      manifest.quarantineReason = "lease-expired";
-      await atomicWrite(manifestPath(this.paths.stateDir, worktreeId), manifest);
-      throw new WorktreeError("lease expired");
-    }
     manifest.lastHeartbeatAt = new Date(timestamp).toISOString();
     manifest.leaseExpiresAt = new Date(
       timestamp + leaseSeconds * 1000,
     ).toISOString();
-    manifest.heartbeatCadenceSeconds = Math.max(1, Math.floor(leaseSeconds / 3));
+    manifest.heartbeatCadenceSeconds = Math.max(
+      1,
+      Math.floor(leaseSeconds / 3),
+    );
     await atomicWrite(manifestPath(this.paths.stateDir, worktreeId), manifest);
     return this.descriptor(manifest);
   }
@@ -375,6 +412,7 @@ export class WorktreeStore {
     if (manifest.owner !== owner) throw new WorktreeError("owner mismatch");
     const blocked = lifecycleError(manifest);
     if (blocked) throw blocked;
+    await this.assertLeaseActive(worktreeId, manifest);
     const current = await git(manifest.path, ["rev-parse", "HEAD"]);
     const reference = await git(manifest.path, [
       "rev-parse",
@@ -413,12 +451,17 @@ export class WorktreeStore {
     if (manifest.owner !== owner) throw new WorktreeError("owner mismatch");
     const blocked = lifecycleError(manifest);
     if (blocked) throw blocked;
+    await this.assertLeaseActive(worktreeId, manifest);
     const dirty =
       (await git(manifest.path, ["status", "--porcelain"])).length > 0;
     if (dirty) throw new WorktreeError("refusing to release dirty worktree");
     const entries = await worktreeEntries(manifest.repoRoot);
     const matching = entries.filter((entry) => entry.path === manifest.path);
-    if (matching.length !== 1 || !matching[0].detached || matching[0].commit !== manifest.commit)
+    if (
+      matching.length !== 1 ||
+      !matching[0].detached ||
+      matching[0].commit !== manifest.commit
+    )
       throw new WorktreeError("worktree identity no longer matches manifest");
     await git(manifest.repoRoot, ["worktree", "remove", manifest.path]);
     manifest.status = "released";
@@ -438,7 +481,7 @@ export class WorktreeStore {
     for (const manifest of manifests) {
       const expired =
         manifest.leaseExpiresAt &&
-        Date.parse(manifest.leaseExpiresAt) + 300000 < timestamp;
+        Date.parse(manifest.leaseExpiresAt) + LEASE_GRACE_MS <= timestamp;
       if (manifest.status === "active" && expired) {
         manifest.status = "quarantined";
         manifest.quarantineReason = "lease-expired";

@@ -116,7 +116,10 @@ test("descriptor includes ownership and integration role", async () => {
     descriptor.lifecycleContract.releaseRestrictions,
     /quarantined.*never silently released or deleted/,
   );
-  assert.match(descriptor.lifecycleContract.reconciliationAndGc, /server-owned/);
+  assert.match(
+    descriptor.lifecycleContract.reconciliationAndGc,
+    /server-owned/,
+  );
 });
 
 test("heartbeat renews lease and rejects a different owner", async () => {
@@ -184,6 +187,35 @@ test("heartbeat fails closed at expiry, including after restart and grace", asyn
   );
 });
 
+test("checkpoint and release fail closed at expiry and grace boundaries", async () => {
+  for (const offset of [10000, 310000]) {
+    for (const operation of ["checkpoint", "release"]) {
+      const r = await repo();
+      const state = await durableState();
+      const root = await mkdtemp(join(tmpdir(), "worktree-root-"));
+      let time = Date.parse("2026-01-01T00:00:00Z");
+      const store = new WorktreeStore(env(state, root), () => time);
+      const created = await store.create({
+        repo: r.root,
+        commit: r.commit,
+        task: `${operation}-${offset}`,
+        agent: "a",
+        owner: "o",
+        leaseSeconds: 10,
+      });
+      time += offset;
+      await assert.rejects(
+        () =>
+          operation === "checkpoint"
+            ? store.checkpoint(created.id, "o", r.commit)
+            : store.release(created.id, "o"),
+        /lease expired/,
+      );
+      assert.equal((await store.status(created.id)).status, "quarantined");
+    }
+  }
+});
+
 test("checkpoint is durable and recoverable", async () => {
   const r = await repo();
   const state = await durableState();
@@ -203,9 +235,17 @@ test("checkpoint is durable and recoverable", async () => {
     await readFile(join(state, "manifests", `${created.id}.json`), "utf8"),
   );
   assert.equal(manifest.checkpoints[0].commit, r.commit);
-  assert.equal(manifest.checkpoints[0].recoveryReference, result.recoveryReference);
+  assert.equal(
+    manifest.checkpoints[0].recoveryReference,
+    result.recoveryReference,
+  );
   assert.equal((await store.status(created.id)).checkpointHistory.length, 1);
-  const { stdout } = await run("git", ["-C", r.root, "show-ref", result.recoveryReference]);
+  const { stdout } = await run("git", [
+    "-C",
+    r.root,
+    "show-ref",
+    result.recoveryReference,
+  ]);
   assert.match(stdout, new RegExp(r.commit));
 });
 
@@ -232,7 +272,10 @@ test("checkpoint references stay unique beyond retained history", async () => {
   assert.equal((await store.status(created.id)).checkpointHistory.length, 100);
   const { stdout } = await run("git", ["-C", r.root, "show-ref"]);
   assert.equal(
-    stdout.split("\n").filter((line) => line.includes(`refs/worktree-lifecycle/${created.id}/`)).length,
+    stdout
+      .split("\n")
+      .filter((line) => line.includes(`refs/worktree-lifecycle/${created.id}/`))
+      .length,
     102,
   );
 });
@@ -320,7 +363,13 @@ test("read-only manifest store fails before creating a worktree", async () => {
         }),
       /EACCES|permission|read-only/,
     );
-    const { stdout } = await run("git", ["-C", r.root, "worktree", "list", "--porcelain"]);
+    const { stdout } = await run("git", [
+      "-C",
+      r.root,
+      "worktree",
+      "list",
+      "--porcelain",
+    ]);
     assert.equal(stdout.trim().split("\\n\\n").length, 1);
   } finally {
     await chmod(manifests, 0o755);
