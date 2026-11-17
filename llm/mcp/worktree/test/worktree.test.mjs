@@ -6,6 +6,7 @@ import {
   mkdir,
   readFile,
   realpath,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
@@ -141,6 +142,48 @@ test("heartbeat renews lease and rejects a different owner", async () => {
   );
 });
 
+test("heartbeat fails closed at expiry, including after restart and grace", async () => {
+  const r = await repo();
+  const state = await durableState();
+  const root = await mkdtemp(join(tmpdir(), "worktree-root-"));
+  let time = Date.parse("2026-01-01T00:00:00Z");
+  const first = new WorktreeStore(env(state, root), () => time);
+  const created = await first.create({
+    repo: r.root,
+    commit: r.commit,
+    task: "lease-boundary",
+    agent: "a",
+    owner: "o",
+    leaseSeconds: 10,
+  });
+  time += 10000;
+  const restarted = new WorktreeStore(env(state, root), () => time);
+  await assert.rejects(
+    () => restarted.heartbeat(created.id, "o", 20),
+    /lease expired/,
+  );
+  assert.equal((await restarted.status(created.id)).status, "quarantined");
+
+  const laterRepo = await repo();
+  const laterState = await durableState();
+  const laterRoot = await mkdtemp(join(tmpdir(), "worktree-root-"));
+  let laterTime = Date.parse("2026-01-01T00:00:00Z");
+  const later = new WorktreeStore(env(laterState, laterRoot), () => laterTime);
+  const laterCreated = await later.create({
+    repo: laterRepo.root,
+    commit: laterRepo.commit,
+    task: "lease-grace-boundary",
+    agent: "a",
+    owner: "o",
+    leaseSeconds: 10,
+  });
+  laterTime += 310000;
+  await assert.rejects(
+    () => later.heartbeat(laterCreated.id, "o"),
+    /lease expired/,
+  );
+});
+
 test("checkpoint is durable and recoverable", async () => {
   const r = await repo();
   const state = await durableState();
@@ -164,6 +207,34 @@ test("checkpoint is durable and recoverable", async () => {
   assert.equal((await store.status(created.id)).checkpointHistory.length, 1);
   const { stdout } = await run("git", ["-C", r.root, "show-ref", result.recoveryReference]);
   assert.match(stdout, new RegExp(r.commit));
+});
+
+test("checkpoint references stay unique beyond retained history", async () => {
+  const r = await repo();
+  const state = await durableState();
+  const root = await mkdtemp(join(tmpdir(), "worktree-root-"));
+  const store = new WorktreeStore(env(state, root));
+  const created = await store.create({
+    repo: r.root,
+    commit: r.commit,
+    task: "checkpoint-sequence",
+    agent: "a",
+    owner: "o",
+  });
+  const references = [];
+  for (let index = 0; index < 102; index += 1) {
+    references.push(
+      (await store.checkpoint(created.id, "o", r.commit)).recoveryReference,
+    );
+  }
+  assert.equal(new Set(references).size, 102);
+  assert.equal(references.at(-1), `refs/worktree-lifecycle/${created.id}/102`);
+  assert.equal((await store.status(created.id)).checkpointHistory.length, 100);
+  const { stdout } = await run("git", ["-C", r.root, "show-ref"]);
+  assert.equal(
+    stdout.split("\n").filter((line) => line.includes(`refs/worktree-lifecycle/${created.id}/`)).length,
+    102,
+  );
 });
 
 test("release refuses dirty worktrees and safely releases clean exact commits", async () => {
@@ -259,6 +330,16 @@ test("read-only manifest store fails before creating a worktree", async () => {
 test("rejects a state directory under the system temporary directory", () => {
   assert.throws(
     () => new WorktreeStore({ WORKTREE_STATE_DIR: join(tmpdir(), "unsafe") }),
+    /durable configured root/,
+  );
+});
+
+test("rejects a durable state path symlinked into temporary storage", async () => {
+  const parent = await mkdtemp(join(homedir(), ".worktree-state-link-"));
+  const link = join(parent, "state");
+  await symlink(tmpdir(), link);
+  assert.throws(
+    () => new WorktreeStore({ WORKTREE_STATE_DIR: join(link, "nested") }),
     /durable configured root/,
   );
 });

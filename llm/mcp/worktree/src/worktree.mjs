@@ -7,8 +7,9 @@ import {
   realpath,
   rename,
 } from "node:fs/promises";
+import { existsSync, realpathSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { execFile } from "node:child_process";
 
@@ -32,12 +33,24 @@ function isWithin(parent, child) {
   return rel === "" || (!rel.startsWith("..") && !rel.includes(".." + "/"));
 }
 
+function canonicalizeExistingPath(path) {
+  let candidate = resolve(path);
+  const suffix = [];
+  while (!existsSync(candidate)) {
+    suffix.unshift(candidate.slice(candidate.lastIndexOf("/") + 1));
+    candidate = dirname(candidate);
+  }
+  return resolve(realpathSync(candidate), ...suffix);
+}
+
 export function paths(env = process.env) {
   const configuredStateDir = env.WORKTREE_STATE_DIR;
-  const stateDir = resolve(
+  const stateDir = canonicalizeExistingPath(
     configuredStateDir || join(env.HOME || homedir(), ".config", "config-files-worktrees"),
   );
-  if ([tmpdir(), "/tmp", "/private/tmp"].some((root) => isWithin(root, stateDir))) {
+  if ([tmpdir(), "/tmp", "/private/tmp"].some((root) =>
+    isWithin(canonicalizeExistingPath(root), stateDir),
+  )) {
     throw new WorktreeError(
       "WORKTREE_STATE_DIR must be a durable configured root outside the system temporary directory",
     );
@@ -261,6 +274,7 @@ export class WorktreeStore {
       heartbeatCadenceSeconds: Math.max(1, Math.floor(leaseSeconds / 3)),
       dirty: false,
       checkpoints: [],
+      checkpointSequence: 0,
     };
     await atomicWrite(manifestPath(this.paths.stateDir, worktreeId), manifest);
     try {
@@ -341,6 +355,12 @@ export class WorktreeStore {
     if (manifest.status !== "active")
       throw new WorktreeError("worktree is not active");
     const timestamp = this.clock();
+    if (manifest.leaseExpiresAt && timestamp >= Date.parse(manifest.leaseExpiresAt)) {
+      manifest.status = "quarantined";
+      manifest.quarantineReason = "lease-expired";
+      await atomicWrite(manifestPath(this.paths.stateDir, worktreeId), manifest);
+      throw new WorktreeError("lease expired");
+    }
     manifest.lastHeartbeatAt = new Date(timestamp).toISOString();
     manifest.leaseExpiresAt = new Date(
       timestamp + leaseSeconds * 1000,
@@ -363,9 +383,17 @@ export class WorktreeStore {
     ]);
     if (current !== reference)
       throw new WorktreeError("checkpoint must reference current HEAD");
-    const sequence = (manifest.checkpoints || []).length + 1;
+    const previousSequence = Math.max(
+      manifest.checkpointSequence || 0,
+      ...(manifest.checkpoints || []).map((checkpoint) => {
+        const match = checkpoint.recoveryReference?.match(/\/(\d+)$/);
+        return match ? Number(match[1]) : 0;
+      }),
+    );
+    const sequence = previousSequence + 1;
     const recoveryReference = `refs/worktree-lifecycle/${manifest.id}/${sequence}`;
     await git(manifest.repoRoot, ["update-ref", recoveryReference, reference]);
+    manifest.checkpointSequence = sequence;
     manifest.checkpoints = [
       ...(manifest.checkpoints || []),
       { commit: reference, at: now(), recoveryReference },
