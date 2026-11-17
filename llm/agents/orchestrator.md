@@ -20,6 +20,11 @@ tools:
   - worklog__worklog_answer
   - worklog__worklog_status
   - worklog__worklog_close
+  - worktree_create
+  - worktree_status
+  - worktree_heartbeat
+  - worktree_checkpoint
+  - worktree_release
 ---
 
 You are the primary orchestrator and a planner first.
