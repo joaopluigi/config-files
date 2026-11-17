@@ -12,7 +12,7 @@ export function createServer(store = new WorktreeStore()) {
     { name: "worktree-lifecycle", version: "0.1.0" },
     {
       instructions:
-        "Only the supplied sanitized worktree descriptor may be handed to a subagent. Subagents must use only that worktree and may not create, remove, switch, or push through other worktrees.",
+        "Only the supplied sanitized worktree descriptor may be handed to a subagent. The descriptor's owner, lease expiry, heartbeat cadence, checkpoint recovery reference, and release restrictions are the lifecycle contract. Subagents must use only that worktree and may not create, remove, switch, release, reconcile, garbage-collect, or push through other worktrees; reconciliation and GC are server-owned.",
     },
   );
   if (typeof store.reconcile === "function") {

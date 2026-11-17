@@ -1,7 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, realpath, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import {
+  chmod,
+  mkdtemp,
+  mkdir,
+  readFile,
+  realpath,
+  writeFile,
+} from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { execFile } from "node:child_process";
@@ -31,13 +38,16 @@ function env(stateDir, rootDir) {
   return {
     WORKTREE_STATE_DIR: stateDir,
     WORKTREE_ROOT: rootDir,
-    HOME: stateDir,
+    HOME: homedir(),
   };
+}
+async function durableState() {
+  return mkdtemp(join(homedir(), ".worktree-state-"));
 }
 
 test("create validates repository identity, detached exact commit, and uniqueness", async () => {
   const r = await repo();
-  const state = await mkdtemp(join(tmpdir(), "worktree-state-"));
+  const state = await durableState();
   const root = await mkdtemp(join(tmpdir(), "worktree-root-"));
   const store = new WorktreeStore(env(state, root));
   const descriptor = await store.create({
@@ -75,7 +85,7 @@ test("create validates repository identity, detached exact commit, and uniquenes
 
 test("descriptor includes ownership and integration role", async () => {
   const r = await repo();
-  const state = await mkdtemp(join(tmpdir(), "worktree-state-"));
+  const state = await durableState();
   const root = await mkdtemp(join(tmpdir(), "worktree-root-"));
   const descriptor = await new WorktreeStore(env(state, root)).create({
     repo: r.root,
@@ -99,11 +109,18 @@ test("descriptor includes ownership and integration role", async () => {
       role: "integration",
     },
   );
+  assert.equal(descriptor.lifecycleContract.owner, "owner");
+  assert.equal(descriptor.lifecycleContract.heartbeatCadenceSeconds, 1200);
+  assert.match(
+    descriptor.lifecycleContract.releaseRestrictions,
+    /quarantined.*never silently released or deleted/,
+  );
+  assert.match(descriptor.lifecycleContract.reconciliationAndGc, /server-owned/);
 });
 
 test("heartbeat renews lease and rejects a different owner", async () => {
   const r = await repo();
-  const state = await mkdtemp(join(tmpdir(), "worktree-state-"));
+  const state = await durableState();
   const root = await mkdtemp(join(tmpdir(), "worktree-root-"));
   let time = Date.parse("2026-01-01T00:00:00Z");
   const store = new WorktreeStore(env(state, root), () => time);
@@ -126,7 +143,7 @@ test("heartbeat renews lease and rejects a different owner", async () => {
 
 test("checkpoint is durable and recoverable", async () => {
   const r = await repo();
-  const state = await mkdtemp(join(tmpdir(), "worktree-state-"));
+  const state = await durableState();
   const root = await mkdtemp(join(tmpdir(), "worktree-root-"));
   const store = new WorktreeStore(env(state, root));
   const created = await store.create({
@@ -138,16 +155,20 @@ test("checkpoint is durable and recoverable", async () => {
   });
   const result = await store.checkpoint(created.id, "o", r.commit);
   assert.equal(result.durable, true);
+  assert.match(result.recoveryReference, /^refs\/worktree-lifecycle\//);
   const manifest = JSON.parse(
     await readFile(join(state, "manifests", `${created.id}.json`), "utf8"),
   );
   assert.equal(manifest.checkpoints[0].commit, r.commit);
-  assert.equal((await store.status(created.id)).id, created.id);
+  assert.equal(manifest.checkpoints[0].recoveryReference, result.recoveryReference);
+  assert.equal((await store.status(created.id)).checkpointHistory.length, 1);
+  const { stdout } = await run("git", ["-C", r.root, "show-ref", result.recoveryReference]);
+  assert.match(stdout, new RegExp(r.commit));
 });
 
 test("release refuses dirty worktrees and safely releases clean exact commits", async () => {
   const r = await repo();
-  const state = await mkdtemp(join(tmpdir(), "worktree-state-"));
+  const state = await durableState();
   const root = await mkdtemp(join(tmpdir(), "worktree-root-"));
   const store = new WorktreeStore(env(state, root));
   const created = await store.create({
@@ -170,7 +191,7 @@ test("release refuses dirty worktrees and safely releases clean exact commits", 
 
 test("startup reconciliation and internal gc quarantine, never delete, expired active worktrees", async () => {
   const r = await repo();
-  const state = await mkdtemp(join(tmpdir(), "worktree-state-"));
+  const state = await durableState();
   const root = await mkdtemp(join(tmpdir(), "worktree-root-"));
   let time = Date.parse("2026-01-01T00:00:00Z");
   const store = new WorktreeStore(env(state, root), () => time);
@@ -187,6 +208,59 @@ test("startup reconciliation and internal gc quarantine, never delete, expired a
   assert.equal(result[0].status, "quarantined");
   assert.equal((await store.reconcile())[0].status, "quarantined");
   assert.equal((await store.status(created.id)).id, created.id);
+});
+
+test("reconciliation quarantines dirty active worktrees and release stays blocked", async () => {
+  const r = await repo();
+  const state = await durableState();
+  const root = await mkdtemp(join(tmpdir(), "worktree-root-"));
+  const store = new WorktreeStore(env(state, root));
+  const created = await store.create({
+    repo: r.root,
+    commit: r.commit,
+    task: "dirty-reconcile",
+    agent: "a",
+    owner: "o",
+  });
+  await writeFile(join(created.path, "dirty"), "x");
+  const reconciled = await store.reconcile();
+  assert.equal(reconciled[0].status, "quarantined");
+  await assert.rejects(() => store.release(created.id, "o"), /restricted/);
+  await run("git", ["-C", created.path, "clean", "-fd"]);
+});
+
+test("read-only manifest store fails before creating a worktree", async () => {
+  const r = await repo();
+  const state = await durableState();
+  const manifests = join(state, "manifests");
+  await mkdir(manifests, { recursive: true });
+  await chmod(manifests, 0o555);
+  const root = await mkdtemp(join(tmpdir(), "worktree-root-"));
+  try {
+    const store = new WorktreeStore(env(state, root));
+    await assert.rejects(
+      () =>
+        store.create({
+          repo: r.root,
+          commit: r.commit,
+          task: "read-only",
+          agent: "a",
+          owner: "o",
+        }),
+      /EACCES|permission|read-only/,
+    );
+    const { stdout } = await run("git", ["-C", r.root, "worktree", "list", "--porcelain"]);
+    assert.equal(stdout.trim().split("\\n\\n").length, 1);
+  } finally {
+    await chmod(manifests, 0o755);
+  }
+});
+
+test("rejects a state directory under the system temporary directory", () => {
+  assert.throws(
+    () => new WorktreeStore({ WORKTREE_STATE_DIR: join(tmpdir(), "unsafe") }),
+    /durable configured root/,
+  );
 });
 
 test("MCP surface exposes lifecycle tools but not gc", () => {

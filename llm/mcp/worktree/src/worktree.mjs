@@ -1,12 +1,13 @@
 import { randomBytes } from "node:crypto";
 import {
   mkdir,
+  open,
   readFile,
   readdir,
   realpath,
   rename,
-  writeFile,
 } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { execFile } from "node:child_process";
@@ -14,15 +15,35 @@ import { execFile } from "node:child_process";
 const exec = promisify(execFile);
 const now = () => new Date().toISOString();
 const id = () => randomBytes(8).toString("hex");
+const MAX_CHECKPOINTS = 100;
+const BLOCKED_STATUSES = new Set([
+  "failed",
+  "ambiguous",
+  "missing",
+  "quarantined",
+  "pinned",
+  "released",
+]);
 
 export class WorktreeError extends Error {}
 
+function isWithin(parent, child) {
+  const rel = relative(resolve(parent), resolve(child));
+  return rel === "" || (!rel.startsWith("..") && !rel.includes(".." + "/"));
+}
+
 export function paths(env = process.env) {
+  const configuredStateDir = env.WORKTREE_STATE_DIR;
+  const stateDir = resolve(
+    configuredStateDir || join(env.HOME || homedir(), ".config", "config-files-worktrees"),
+  );
+  if ([tmpdir(), "/tmp", "/private/tmp"].some((root) => isWithin(root, stateDir))) {
+    throw new WorktreeError(
+      "WORKTREE_STATE_DIR must be a durable configured root outside the system temporary directory",
+    );
+  }
   return {
-    stateDir: resolve(
-      env.WORKTREE_STATE_DIR ||
-        join(env.HOME || "/tmp", ".config", "config-files-worktrees"),
-    ),
+    stateDir,
     rootDir: resolve(env.WORKTREE_ROOT || "/tmp/config-files-worktrees"),
   };
 }
@@ -41,11 +62,28 @@ async function git(repo, args) {
   }
 }
 
+async function syncDirectory(directory) {
+  const handle = await open(directory, "r");
+  try {
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+}
+
 async function atomicWrite(file, value) {
-  await mkdir(resolve(file, ".."), { recursive: true });
-  const temp = `${file}.${process.pid}.tmp`;
-  await writeFile(temp, JSON.stringify(value, null, 2) + "\n", "utf8");
+  const directory = resolve(file, "..");
+  await mkdir(directory, { recursive: true });
+  const temp = `${file}.${process.pid}.${id()}.tmp`;
+  const handle = await open(temp, "w");
+  try {
+    await handle.writeFile(JSON.stringify(value, null, 2) + "\n", "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
   await rename(temp, file);
+  await syncDirectory(directory);
 }
 
 function manifestPath(stateDir, worktreeId) {
@@ -99,6 +137,14 @@ function ensureManagedPath(path, rootDir) {
     throw new WorktreeError("worktree path escapes managed root");
 }
 
+function lifecycleError(manifest) {
+  if (BLOCKED_STATUSES.has(manifest.status) || manifest.pinned)
+    return new WorktreeError(
+      `worktree lifecycle is restricted for ${manifest.status}${manifest.pinned ? " (pinned)" : ""}`,
+    );
+  return null;
+}
+
 export class WorktreeStore {
   constructor(env = process.env, clock = () => Date.now()) {
     this.paths = paths(env);
@@ -109,21 +155,41 @@ export class WorktreeStore {
     const manifests = await readManifests(this.paths.stateDir);
     const result = [];
     for (const manifest of manifests) {
-      let actual = null;
+      let actuals = [];
       try {
-        actual = (await worktreeEntries(manifest.repoRoot)).find(
+        actuals = (await worktreeEntries(manifest.repoRoot)).filter(
           (entry) => entry.path === manifest.path,
         );
       } catch {
-        actual = null;
+        actuals = [];
       }
-      const exists = Boolean(actual);
-      const dirty = exists
-        ? (await git(manifest.path, ["status", "--porcelain"])).length > 0
-        : false;
+      const actual = actuals[0];
+      const exists = actuals.length > 0;
+      let dirty = false;
+      if (exists) {
+        try {
+          dirty = (await git(manifest.path, ["status", "--porcelain"])).length > 0;
+        } catch {
+          dirty = true;
+        }
+      }
       const next = { ...manifest, observedAt: now(), exists, dirty };
-      if (!exists && manifest.status === "active") next.status = "missing";
-      if (dirty && next.status === "released") next.status = "quarantined";
+      if (actuals.length > 1) {
+        next.status = "ambiguous";
+        next.quarantineReason = "multiple-worktree-entries";
+      } else if (!exists && ["active", "leased", "provisioning"].includes(manifest.status)) {
+        next.status = manifest.status === "provisioning" ? "failed" : "missing";
+        next.quarantineReason = "worktree-not-found";
+      } else if (
+        exists &&
+        (actual.commit !== manifest.commit || !actual.detached)
+      ) {
+        next.status = "ambiguous";
+        next.quarantineReason = "worktree-identity-mismatch";
+      } else if (dirty && ["active", "leased", "provisioning"].includes(manifest.status)) {
+        next.status = "quarantined";
+        next.quarantineReason = "dirty-uncommitted-worktree";
+      }
       await atomicWrite(manifestPath(this.paths.stateDir, manifest.id), next);
       result.push(next);
     }
@@ -165,7 +231,7 @@ export class WorktreeStore {
         (item) =>
           item.repoCommonDir === identity.commonDir &&
           item.commit === exactCommit &&
-          ["active", "leased"].includes(item.status),
+          ["active", "leased", "provisioning"].includes(item.status),
       )
     )
       throw new WorktreeError(
@@ -176,14 +242,8 @@ export class WorktreeStore {
     const worktreeId = `${task.replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-|-$/g, "") || "task"}-${id()}`;
     const path = join(managedRoot, worktreeId);
     ensureManagedPath(path, managedRoot);
-    await git(identity.root, [
-      "worktree",
-      "add",
-      "--detach",
-      path,
-      exactCommit,
-    ]);
     const createdAt = this.clock();
+    const timestamp = new Date(createdAt).toISOString();
     const manifest = {
       id: worktreeId,
       path,
@@ -194,17 +254,53 @@ export class WorktreeStore {
       agent,
       owner,
       role,
-      status: "active",
-      createdAt: new Date(createdAt).toISOString(),
+      status: "provisioning",
+      createdAt: timestamp,
       leaseExpiresAt: new Date(createdAt + leaseSeconds * 1000).toISOString(),
-      lastHeartbeatAt: new Date(createdAt).toISOString(),
+      lastHeartbeatAt: timestamp,
+      heartbeatCadenceSeconds: Math.max(1, Math.floor(leaseSeconds / 3)),
       dirty: false,
+      checkpoints: [],
     };
     await atomicWrite(manifestPath(this.paths.stateDir, worktreeId), manifest);
+    try {
+      await git(identity.root, [
+        "worktree",
+        "add",
+        "--detach",
+        path,
+        exactCommit,
+      ]);
+      manifest.status = "active";
+      await atomicWrite(manifestPath(this.paths.stateDir, worktreeId), manifest);
+    } catch (error) {
+      manifest.status = "failed";
+      manifest.quarantineReason = "provisioning-failed";
+      try {
+        await atomicWrite(manifestPath(this.paths.stateDir, worktreeId), manifest);
+      } catch {
+        // Preserve the original failure when the manifest store is unavailable.
+      }
+      try {
+        if ((await worktreeEntries(identity.root)).some((entry) => entry.path === path))
+          await git(identity.root, ["worktree", "remove", "--force", path]);
+      } catch {
+        manifest.status = "quarantined";
+        manifest.quarantineReason = "provisioning-rollback-failed";
+        try {
+          await atomicWrite(manifestPath(this.paths.stateDir, worktreeId), manifest);
+        } catch {
+          // The durable pending manifest remains the recovery record.
+        }
+      }
+      throw error;
+    }
     return this.descriptor(manifest);
   }
 
   descriptor(manifest) {
+    const checkpoints = manifest.checkpoints || [];
+    const latest = checkpoints.at(-1) || null;
     return {
       id: manifest.id,
       path: manifest.path,
@@ -216,6 +312,18 @@ export class WorktreeStore {
       role: manifest.role,
       leaseExpiresAt: manifest.leaseExpiresAt,
       status: manifest.status,
+      checkpointHistory: checkpoints,
+      recoveryReference: latest?.recoveryReference || null,
+      lifecycleContract: {
+        owner: manifest.owner,
+        leaseExpiresAt: manifest.leaseExpiresAt,
+        heartbeatCadenceSeconds: manifest.heartbeatCadenceSeconds,
+        checkpointRecoveryReference: latest?.recoveryReference || null,
+        releaseRestrictions:
+          "Only the owner may release an active, clean, exact-commit detached worktree; quarantined, failed, ambiguous, missing, pinned, released, or dirty records are never silently released or deleted.",
+        reconciliationAndGc:
+          "Reconciliation and garbage collection are server-owned; subagents must not perform either operation.",
+      },
     };
   }
 
@@ -237,6 +345,7 @@ export class WorktreeStore {
     manifest.leaseExpiresAt = new Date(
       timestamp + leaseSeconds * 1000,
     ).toISOString();
+    manifest.heartbeatCadenceSeconds = Math.max(1, Math.floor(leaseSeconds / 3));
     await atomicWrite(manifestPath(this.paths.stateDir, worktreeId), manifest);
     return this.descriptor(manifest);
   }
@@ -244,6 +353,8 @@ export class WorktreeStore {
   async checkpoint(worktreeId, owner, commit) {
     const manifest = await this.get(worktreeId);
     if (manifest.owner !== owner) throw new WorktreeError("owner mismatch");
+    const blocked = lifecycleError(manifest);
+    if (blocked) throw blocked;
     const current = await git(manifest.path, ["rev-parse", "HEAD"]);
     const reference = await git(manifest.path, [
       "rev-parse",
@@ -252,23 +363,34 @@ export class WorktreeStore {
     ]);
     if (current !== reference)
       throw new WorktreeError("checkpoint must reference current HEAD");
+    const sequence = (manifest.checkpoints || []).length + 1;
+    const recoveryReference = `refs/worktree-lifecycle/${manifest.id}/${sequence}`;
+    await git(manifest.repoRoot, ["update-ref", recoveryReference, reference]);
     manifest.checkpoints = [
       ...(manifest.checkpoints || []),
-      { commit: reference, at: now() },
-    ];
+      { commit: reference, at: now(), recoveryReference },
+    ].slice(-MAX_CHECKPOINTS);
     await atomicWrite(manifestPath(this.paths.stateDir, worktreeId), manifest);
-    return { id: worktreeId, commit: reference, durable: true };
+    return {
+      id: worktreeId,
+      commit: reference,
+      recoveryReference,
+      checkpointHistory: manifest.checkpoints,
+      durable: true,
+    };
   }
 
   async release(worktreeId, owner) {
     const manifest = await this.get(worktreeId);
     if (manifest.owner !== owner) throw new WorktreeError("owner mismatch");
+    const blocked = lifecycleError(manifest);
+    if (blocked) throw blocked;
     const dirty =
       (await git(manifest.path, ["status", "--porcelain"])).length > 0;
     if (dirty) throw new WorktreeError("refusing to release dirty worktree");
     const entries = await worktreeEntries(manifest.repoRoot);
-    const actual = entries.find((entry) => entry.path === manifest.path);
-    if (!actual || !actual.detached || actual.commit !== manifest.commit)
+    const matching = entries.filter((entry) => entry.path === manifest.path);
+    if (matching.length !== 1 || !matching[0].detached || matching[0].commit !== manifest.commit)
       throw new WorktreeError("worktree identity no longer matches manifest");
     await git(manifest.repoRoot, ["worktree", "remove", manifest.path]);
     manifest.status = "released";
