@@ -72,6 +72,13 @@
         "$HOME/dev/config-files/llm/mcp/decision-support/supervisor.mjs"
       ],
       "env": {}
+    },
+    "worktree": {
+      "command": "node",
+      "args": [
+        "$HOME/dev/config-files/llm/mcp/worktree/server.mjs"
+      ],
+      "env": {}
     }
   }
 }
