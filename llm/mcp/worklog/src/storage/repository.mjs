@@ -43,6 +43,46 @@ export async function readRegistry(orchestrationId) {
 function peerFor(registry, peerId) {
   return peerId === undefined ? undefined : registry.peers.find((peer) => peer.id === peerId);
 }
+function timingFor(target, now = Date.now()) {
+  const timing = target?.timing || {};
+  const created = Date.parse(timing.created_at);
+  const lastActivity = Date.parse(timing.last_activity_at);
+  const closed = Date.parse(timing.closed_at);
+  const end = Number.isFinite(closed) ? closed : now;
+  return {
+    created_at: timing.created_at,
+    ...(timing.started_at === undefined ? {} : { started_at: timing.started_at }),
+    ...(timing.last_activity_at === undefined ? {} : { last_activity_at: timing.last_activity_at }),
+    ...(timing.closed_at === undefined ? {} : { closed_at: timing.closed_at }),
+    elapsed_ms: Number.isFinite(created) ? Math.max(0, end - created) : null,
+    ...(timing.closed_at === undefined && Number.isFinite(lastActivity)
+      ? { idle_ms: Math.max(0, now - lastActivity) }
+      : {}),
+  };
+}
+function nextTimestamp(previous) {
+  const now = Date.now();
+  const prior = Date.parse(previous);
+  return new Date(Math.max(now, Number.isFinite(prior) ? prior + 1 : now)).toISOString();
+}
+export function timingMetadata(registry, peerId) {
+  const target = peerId === undefined ? registry : peerFor(registry, peerId);
+  return target?.timing ? timingFor(target) : undefined;
+}
+export async function recordActivity(orchestrationId, peerId, closed = false) {
+  return withLock(registryPath(orchestrationId), async () => {
+    const registry = await readRegistry(orchestrationId);
+    const target = peerId === undefined ? registry : peerFor(registry, peerId);
+    if (!target) throw new Error('unknown peer');
+    const timing = (target.timing ||= { created_at: target.createdAt || new Date().toISOString() });
+    const activity = nextTimestamp(timing.last_activity_at || timing.created_at);
+    timing.started_at ||= activity;
+    timing.last_activity_at = activity;
+    if (closed) timing.closed_at = activity;
+    await writeFile(registryPath(orchestrationId), JSON.stringify(registry, null, 2));
+    return timingFor(target, Date.parse(activity));
+  });
+}
 const peerMutationContext = Symbol('authorized peer mutation');
 const replacementMutationContext = Symbol('authorized replacement mutation');
 const trustedPeerMutationContexts = new WeakSet();
@@ -262,6 +302,7 @@ export async function createSession(
             done,
             steps,
             createdAt,
+            timing: { created_at: createdAt },
             ...(predecessorOrchestrationId === undefined
               ? {}
               : { predecessorOrchestrationId, continuationReason }),
@@ -297,6 +338,7 @@ export async function createSession(
         if (after !== content) {
           await appendFile(path, after.slice(content.length));
           injectPublicationFailure('during-predecessor-mutation');
+          await recordActivity(predecessorOrchestrationId);
         }
       }
     } finally {
@@ -309,6 +351,7 @@ export async function createSession(
       capabilityToken,
       available_tags: [...tags],
       path: mainPath(orchestrationId),
+      timing: timingFor({ timing: { created_at: createdAt } }),
       ...(predecessorOrchestrationId === undefined
         ? {}
         : { predecessorOrchestrationId, continuationReason }),
@@ -398,6 +441,7 @@ export async function createSubagent(
       actor,
       token: peerToken,
       createdAt,
+      timing: { created_at: createdAt },
       ...(predecessorPeerId === undefined ? {} : { predecessorPeerId, continuationReason }),
     });
     await writeFile(registryPath(orchestrationId), JSON.stringify(registry, null, 2));
@@ -408,6 +452,7 @@ export async function createSubagent(
     capabilityToken: peerToken,
     path,
     actor,
+    timing: timingFor({ timing: { created_at: createdAt } }),
     ...(predecessorPeerId === undefined ? {} : { predecessorPeerId, continuationReason }),
   };
 }
@@ -473,14 +518,21 @@ export async function replaceSubagent(
       tag: 'done',
       message: `continuation moved to peer ${peerId} at ${path}; predecessor replaced by ${actor}: ${continuationReason}`,
     }));
-    if (completionEntries.length > 0)
+    if (completionEntries.length > 0) {
       await appendEntries(predecessorPath, 'orchestrator', completionEntries, replacementContext);
+      const predecessorTiming = (predecessor.timing ||= {
+        created_at: predecessor.createdAt || new Date().toISOString(),
+      });
+      predecessorTiming.started_at ||= nextTimestamp(predecessorTiming.created_at);
+      predecessorTiming.last_activity_at = nextTimestamp(predecessorTiming.last_activity_at);
+    }
 
     registry.peers.push({
       id: peerId,
       actor,
       token: peerToken,
       createdAt,
+      timing: { created_at: createdAt },
       predecessorPeerId,
       continuationReason,
     });
@@ -491,6 +543,7 @@ export async function replaceSubagent(
       capabilityToken: peerToken,
       path,
       actor,
+      timing: timingFor({ timing: { created_at: createdAt } }),
       predecessorPeerId,
       continuationReason,
     };
@@ -609,6 +662,7 @@ async function discoverSessionsInternal() {
               duration: peerComplete
                 ? durationValue(peerCreatedAt, peerEntries, completedAt)
                 : null,
+              timing: timingMetadata(registry, id),
               ...(predecessorPeerId === undefined ? {} : { predecessorPeerId, continuationReason }),
             };
           },
@@ -633,6 +687,7 @@ async function discoverSessionsInternal() {
         duration: result.complete
           ? durationValue(createdAt, mainEntries, registry.completedAt)
           : null,
+        timing: timingMetadata(registry),
         peers,
         entries: mainEntries,
         ...(registry.predecessorOrchestrationId === undefined
@@ -663,6 +718,7 @@ export async function discoverSessions(actor) {
       actor: session.actor,
       complete: session.complete,
       createdAt: session.createdAt,
+      ...(session.timing === undefined ? {} : { timing: session.timing }),
       peers: session.peers.map(
         ({
           id,
@@ -675,6 +731,7 @@ export async function discoverSessions(actor) {
           complete,
           predecessorPeerId,
           continuationReason,
+          timing,
         }) => ({
           id,
           actor: peerActor,
@@ -684,6 +741,7 @@ export async function discoverSessions(actor) {
           ...(birthtimeSource === undefined ? {} : { birthtimeSource }),
           goal,
           complete,
+          ...(timing === undefined ? {} : { timing }),
           ...(predecessorPeerId === undefined ? {} : { predecessorPeerId, continuationReason }),
         }),
       ),
@@ -732,7 +790,12 @@ export async function closeWorklog(
       const alreadyComplete = completion(before).complete;
       if (alreadyComplete) {
         const result = await sessionCompletion(orchestrationId, peerId, before);
-        return { closed: result.complete, completion: result };
+        const registry = await readRegistry(orchestrationId);
+        return {
+          closed: result.complete,
+          completion: result,
+          timing: timingMetadata(registry, peerId),
+        };
       }
       validateAppend(before, item, 'done', allowsUnreasonedDone(path, actor, context));
       const after = `${before}${new Date().toISOString()} #${item} ${actor} done ${message.trim()}\n`;
@@ -740,14 +803,25 @@ export async function closeWorklog(
       if (!result.complete) return { closed: false, completion: result };
       await appendFile(path, after.slice(before.length));
       const registry = await readRegistry(orchestrationId);
+      const closedAt = new Date().toISOString();
+      const target = peerId === undefined ? registry : peerFor(registry, peerId);
+      const timing = (target.timing ||= { created_at: target.createdAt || closedAt });
+      timing.started_at ||= closedAt;
+      timing.last_activity_at = nextTimestamp(timing.last_activity_at || timing.started_at);
+      timing.closed_at = timing.last_activity_at;
       if (peerId !== undefined) {
         const peer = peerFor(registry, peerId);
-        if (peer) peer.completedAt = new Date().toISOString();
+        if (peer) peer.completedAt = closedAt;
       } else {
-        registry.completedAt = new Date().toISOString();
+        registry.completedAt = closedAt;
       }
       await writeFile(registryPath(orchestrationId), JSON.stringify(registry, null, 2));
-      return { entry: after.slice(before.length).trim(), closed: true, completion: result };
+      return {
+        entry: after.slice(before.length).trim(),
+        closed: true,
+        completion: result,
+        timing: timingFor(target, Date.parse(timing.closed_at)),
+      };
     });
   });
 }

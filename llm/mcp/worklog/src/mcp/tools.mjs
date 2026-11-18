@@ -16,13 +16,17 @@ import {
   closeWorklog,
   sessionCompletion,
   replaceSubagent,
+  recordActivity,
+  timingMetadata,
+  readRegistry,
 } from '../storage/repository.mjs';
 
 const worklogService = new WorklogService();
-const text = (value) => ({
+const text = (value, metadata) => ({
   content: [
     { type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) },
   ],
+  ...(metadata === undefined ? {} : { _meta: metadata }),
 });
 const fail = (message) => ({ isError: true, ...text(message) });
 const id = () => randomBytes(4).toString('hex');
@@ -186,14 +190,14 @@ export function createServer() {
                 args.peerId,
                 args.actor,
               );
-        return text(
-          await appendEntries(
-            pathFor(args.orchestrationId, args.peerId),
-            args.actor,
-            args.entries,
-            context,
-          ),
+        const entries = await appendEntries(
+          pathFor(args.orchestrationId, args.peerId),
+          args.actor,
+          args.entries,
+          context,
         );
+        const timing = await recordActivity(args.orchestrationId, args.peerId);
+        return text(entries, { timing });
       } catch (e) {
         return fail(e.message);
       }
@@ -219,7 +223,12 @@ export function createServer() {
           peerId === undefined ? 'session' : 'peer-or-session',
         );
         const bytes = Buffer.from(await readFile(pathFor(orchestrationId, peerId), 'utf8'));
-        return text({ content: bytes.subarray(since).toString('utf8'), next: bytes.length });
+        const registry = await readRegistry(orchestrationId);
+        return text({
+          content: bytes.subarray(since).toString('utf8'),
+          next: bytes.length,
+          timing: timingMetadata(registry, peerId),
+        });
       } catch (e) {
         return fail(e.message);
       }
@@ -269,7 +278,8 @@ export function createServer() {
           };
           await writeFile(registryPath(args.orchestrationId), JSON.stringify(current, null, 2));
         });
-        return text({ questionId, entry });
+        const timing = await recordActivity(args.orchestrationId);
+        return text({ questionId, entry, timing });
       } catch (e) {
         return fail(e.message);
       }
@@ -313,7 +323,8 @@ export function createServer() {
           await writeFile(registryPath(args.orchestrationId), JSON.stringify(registry, null, 2));
           return { questionId: args.questionId, entry };
         });
-        return text(result);
+        const timing = await recordActivity(args.orchestrationId, args.peerId);
+        return text({ ...result, timing });
       } catch (e) {
         return fail(e.message);
       }
@@ -335,11 +346,13 @@ export function createServer() {
           peerId === undefined ? 'session' : 'peer-or-session',
         );
         const content = await readFile(pathFor(orchestrationId, peerId), 'utf8');
+        const registry = await readRegistry(orchestrationId);
         return text({
           path: pathFor(orchestrationId, peerId),
           bytes: Buffer.byteLength(content),
           content,
           completion: await sessionCompletion(orchestrationId, peerId, content),
+          timing: timingMetadata(registry, peerId),
         });
       } catch (e) {
         return fail(e.message);

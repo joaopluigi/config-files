@@ -202,6 +202,36 @@ test('MCP peer creation reports invalid actors and available actors', async () =
   }
 });
 
+test('MCP append preserves the legacy array payload and exposes timing metadata', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'worklog-mcp-'));
+  const client = await startClient(dir);
+  try {
+    const session = resultText(
+      await call(client, 'worklog_session_create', {
+        actor: 'orchestrator',
+        goal: 'test',
+        done: 'done',
+        steps: ['append'],
+      }),
+    );
+    const response = await call(client, 'worklog_append', {
+      orchestrationId: session.orchestrationId,
+      capabilityToken: session.capabilityToken,
+      item: 1,
+      actor: 'orchestrator',
+      tag: 'progress',
+      message: 'legacy shape',
+    });
+    assert.equal(response.result.isError, undefined, JSON.stringify(response));
+    const entries = JSON.parse(response.result.content[0].text);
+    assert.ok(Array.isArray(entries));
+    assert.match(entries[0], /#1 orchestrator progress legacy shape$/);
+    assert.ok(response.result._meta.timing.last_activity_at);
+  } finally {
+    client.child.kill('SIGTERM');
+  }
+});
+
 test('MCP recovers a stale file lock', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'worklog-mcp-'));
   const client = await startClient(dir);
@@ -755,6 +785,7 @@ test('MCP explicit session token reuses an incomplete session after discovery', 
       actor: 'orchestrator',
       complete: false,
       createdAt: candidate.createdAt,
+      timing: candidate.timing,
       peers: [],
     });
     assert.equal(candidate.capabilityToken, undefined);
