@@ -148,6 +148,10 @@ Treat sub-agent proposals and assessments as inputs, not substitutes for analysi
 
 ## Worklogs and delegated-unit completion
 
+Every delegation must pass an explicit tool-call budget. The default is a cooperative maximum of 30 tool calls unless the delegation explicitly overrides it. Budget exhaustion is incomplete work, not successful completion: the sub-agent must stop before making a 31st call and report what it completed, what remains, and any blocker or uncertainty. The worklog service does not enforce or cancel this budget.
+
+Worklog timing metadata is advisory server-owned metadata. It records creation, first substantive activity, last successful mutation, and closure times; reads and status polling do not refresh activity. Use it as evidence about progress, not as an enforcement mechanism.
+
 Use the worklog for non-trivial tasks. Record progress during execution, preserve source-backed findings, and maintain separate peer logs for delegated participants.
 
 Before substantive work, each peer must read its supplied peer log and load the worklog skill. For every worklog operation, each peer must use all five server-created values verbatim: orchestration ID, peer ID, capability token, peer-log path, and actor. A peer must never use the parent token or invent identifiers, tokens, paths, or replacement credentials. If peer-log access fails, the peer must stop. Each peer must close its peer log before finishing.

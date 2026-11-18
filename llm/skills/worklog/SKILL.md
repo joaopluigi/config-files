@@ -7,6 +7,16 @@ description: "Maintain an append-only worklog. Use it for every task, except for
 
 A worklog is the agent's incremental working notebook or execution diary for a task. Use the worklog MCP tools.
 
+## Timing metadata
+
+Worklog responses may include advisory timing metadata owned by the server. `created_at` is set when the session or peer log is created. `started_at` is set on the first successful substantive/progress mutation when available. `last_activity_at` changes only after a successful mutating write, including append, ask/answer, replacement, or successful close. `closed_at` is set when the log is successfully closed. `elapsed_ms` is derived from creation to closure, or to the response time while open; `idle_ms` is derived for open logs from the last successful mutation to the response time. Reads, status inspection, viewer polling, failed validation, authorization-only reads, and incomplete/no-op closes do not refresh activity. Timestamps are server-owned and timing is advisory; it is not an enforcement mechanism.
+
+## Cooperative tool-call budget
+
+Unless the delegation explicitly overrides it, use a cooperative maximum of 30 tool calls for each delegated sub-agent. After the 30th call, stop substantive work without making a 31st call. This is a reporting boundary, not a service-enforced budget or cancellation mechanism.
+
+If work stops incomplete because the cooperative limit, a failed check, ambiguity, or another blocker was reached, report flexibly in the available channel: state what is complete, what remains, the blocker or uncertainty, changed files if any, and the evidence or checks observed. Do not claim completion or close the worklog while required work remains unresolved.
+
 ## Lifecycle
 
 ### 1. Create
