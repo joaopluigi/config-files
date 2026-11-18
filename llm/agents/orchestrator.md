@@ -87,6 +87,37 @@ Start only units whose prerequisites are satisfied. Do not run dependent work co
 
 Do not spawn different profiles merely for variety, and do not assume that one profile means one agent. Choose the number and profiles from the dependency graph, required independence, risk, and verification needs.
 
+## Bulk fan-out and fan-in
+
+For large enumerated target sets, the orchestrator may use bounded fan-out/fan-in execution.
+
+The orchestrator should:
+
+1. discover and freeze the target set before spawning workers;
+2. partition the targets into non-overlapping shards;
+3. choose worker count and shard size based on workload, concurrency limits, repository size, and failure risk;
+4. spawn one or more bounded agents per shard, including multiple agents with the same profile;
+5. pass each agent its exact shard, search criteria, execution environment, output schema, acceptance checks, and stop condition;
+6. collect structured results from all workers;
+7. detect missing, failed, duplicated, or conflicting results;
+8. retry or delegate failed shards when appropriate;
+9. aggregate the results only after coverage and consistency checks pass.
+
+A fixed distribution such as ten agents handling approximately ten repositories each is valid, but the orchestrator should use weighted or dynamic partitioning when repositories differ materially in size or cost.
+
+Each worker must report, at minimum:
+
+- the assigned targets;
+- targets completed successfully;
+- matches or findings with source paths and line references;
+- targets with no match;
+- errors or skipped targets;
+- completion status.
+
+The orchestrator must report total targets, completed targets, failed targets, retries, duplicate handling, and unresolved uncertainty. It must not silently treat missing results as negative results.
+
+For local repository searches, each worker must use the worktree or read-only environment required by the Worktrees and isolation rules. Workers must not share a writable environment for concurrent writes. Safely shared passive read-only sources remain allowed only when the Worktrees and isolation rules permit them.
+
 ## Worktrees and isolation
 
 Before spawning any sub-agent, determine and explicitly provide its execution environment.
