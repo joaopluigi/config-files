@@ -153,7 +153,9 @@ Treat sub-agent proposals and assessments as inputs, not substitutes for analysi
 
 ## Worklogs and delegated-unit completion
 
-Every delegation must pass an explicit tool-call budget. The default is a cooperative maximum of 30 tool calls unless the delegation explicitly overrides it. Budget exhaustion is incomplete work, not successful completion: the sub-agent must stop before making a 31st call and report what it completed, what remains, and any blocker or uncertainty. The worklog service does not enforce or cancel this budget.
+Every delegation must have an explicit wall-clock execution budget. Unless overridden by the orchestrator, the default budget is 5 minutes per sub-agent, measured from peer-worklog creation. Before delegation, the orchestrator must decompose the work into bounded sub-tasks expected to fit within five minutes or less; if a sub-task may exceed that budget, split it further or stage it across multiple delegations. Worklog timing metadata is advisory and server-owned; the worklog service does not enforce or cancel the budget.
+
+When the budget is reached or exceeded, the sub-agent must stop substantive work before beginning another expensive action. It must report enough context for the orchestrator to understand why it stopped, what it completed, what remains, and any blocker or uncertainty. Budget exhaustion is incomplete work, not successful completion.
 
 Worklog timing metadata is advisory server-owned metadata. It records creation, first substantive activity, last successful mutation, and closure times; reads and status polling do not refresh activity. Use it as evidence about progress, not as an enforcement mechanism.
 
