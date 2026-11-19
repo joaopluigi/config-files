@@ -410,9 +410,19 @@ export class WorktreeStore {
   async checkpoint(worktreeId, owner, commit) {
     const manifest = await this.get(worktreeId);
     if (manifest.owner !== owner) throw new WorktreeError("owner mismatch");
-    const blocked = lifecycleError(manifest);
+    const adoptingIdentityDrift =
+      manifest.status === "ambiguous" &&
+      manifest.quarantineReason === "worktree-identity-mismatch";
+    const blocked = adoptingIdentityDrift ? null : lifecycleError(manifest);
     if (blocked) throw blocked;
     await this.assertLeaseActive(worktreeId, manifest);
+    const dirty =
+      (await git(manifest.path, ["status", "--porcelain"])).length > 0;
+    if (dirty) throw new WorktreeError("refusing to checkpoint dirty worktree");
+    const entries = await worktreeEntries(manifest.repoRoot);
+    const matching = entries.filter((entry) => entry.path === manifest.path);
+    if (matching.length !== 1 || !matching[0].detached)
+      throw new WorktreeError("worktree identity no longer matches manifest");
     const current = await git(manifest.path, ["rev-parse", "HEAD"]);
     const reference = await git(manifest.path, [
       "rev-parse",
@@ -421,6 +431,15 @@ export class WorktreeStore {
     ]);
     if (current !== reference)
       throw new WorktreeError("checkpoint must reference current HEAD");
+    if (
+      entries.some(
+        (entry) =>
+          entry.path !== manifest.path &&
+          entry.detached &&
+          entry.commit === reference,
+      )
+    )
+      throw new WorktreeError("another detached worktree already uses commit");
     const previousSequence = Math.max(
       manifest.checkpointSequence || 0,
       ...(manifest.checkpoints || []).map((checkpoint) => {
@@ -431,6 +450,9 @@ export class WorktreeStore {
     const sequence = previousSequence + 1;
     const recoveryReference = `refs/worktree-lifecycle/${manifest.id}/${sequence}`;
     await git(manifest.repoRoot, ["update-ref", recoveryReference, reference]);
+    manifest.commit = reference;
+    manifest.status = "active";
+    delete manifest.quarantineReason;
     manifest.checkpointSequence = sequence;
     manifest.checkpoints = [
       ...(manifest.checkpoints || []),

@@ -240,6 +240,9 @@ test("checkpoint is durable and recoverable", async () => {
     result.recoveryReference,
   );
   assert.equal((await store.status(created.id)).checkpointHistory.length, 1);
+  assert.equal((await store.status(created.id)).status, "active");
+  assert.equal(manifest.status, "active");
+  assert.equal(manifest.quarantineReason, undefined);
   const { stdout } = await run("git", [
     "-C",
     r.root,
@@ -247,6 +250,89 @@ test("checkpoint is durable and recoverable", async () => {
     result.recoveryReference,
   ]);
   assert.match(stdout, new RegExp(r.commit));
+});
+
+test("checkpoint adopts a clean identity drift and releases the accepted commit", async () => {
+  const r = await repo();
+  const state = await durableState();
+  const root = await mkdtemp(join(tmpdir(), "worktree-root-"));
+  const store = new WorktreeStore(env(state, root));
+  const created = await store.create({
+    repo: r.root,
+    commit: r.commit,
+    task: "checkpoint-adopt",
+    agent: "a",
+    owner: "o",
+  });
+  await writeFile(join(created.path, "next"), "two\\n");
+  await run("git", ["-C", created.path, "add", "next"]);
+  await run("git", ["-C", created.path, "commit", "-qm", "next"]);
+  const { stdout } = await run("git", [
+    "-C",
+    created.path,
+    "rev-parse",
+    "HEAD",
+  ]);
+  const nextCommit = stdout.trim();
+  const reconciled = await store.reconcile();
+  assert.equal(reconciled[0].status, "ambiguous");
+  assert.equal(reconciled[0].quarantineReason, "worktree-identity-mismatch");
+  const checkpoint = await store.checkpoint(created.id, "o", nextCommit);
+  assert.equal(checkpoint.commit, nextCommit);
+  const status = await store.status(created.id);
+  assert.equal(status.status, "active");
+  assert.equal(status.commit, nextCommit);
+  assert.equal(
+    await store.get(created.id).then((manifest) => manifest.quarantineReason),
+    undefined,
+  );
+  const released = await store.release(created.id, "o");
+  assert.equal(released.status, "released");
+});
+
+test("checkpoint rejects dirty identity drift", async () => {
+  const r = await repo();
+  const state = await durableState();
+  const root = await mkdtemp(join(tmpdir(), "worktree-root-"));
+  const store = new WorktreeStore(env(state, root));
+  const created = await store.create({
+    repo: r.root,
+    commit: r.commit,
+    task: "checkpoint-dirty",
+    agent: "a",
+    owner: "o",
+  });
+  await writeFile(join(created.path, "next"), "two\\n");
+  await run("git", ["-C", created.path, "add", "next"]);
+  await run("git", ["-C", created.path, "commit", "-qm", "next"]);
+  await writeFile(join(created.path, "dirty"), "x");
+  const reconciled = await store.reconcile();
+  assert.equal(reconciled[0].status, "ambiguous");
+  await assert.rejects(
+    () => store.checkpoint(created.id, "o", reconciled[0].commit),
+    /dirty/,
+  );
+});
+
+test("checkpoint rejects attached identity drift", async () => {
+  const r = await repo();
+  const state = await durableState();
+  const root = await mkdtemp(join(tmpdir(), "worktree-root-"));
+  const store = new WorktreeStore(env(state, root));
+  const created = await store.create({
+    repo: r.root,
+    commit: r.commit,
+    task: "checkpoint-attached",
+    agent: "a",
+    owner: "o",
+  });
+  await run("git", ["-C", created.path, "switch", "-c", "attached"]);
+  const reconciled = await store.reconcile();
+  assert.equal(reconciled[0].status, "ambiguous");
+  await assert.rejects(
+    () => store.checkpoint(created.id, "o", r.commit),
+    /identity no longer matches/,
+  );
 });
 
 test("checkpoint references stay unique beyond retained history", async () => {
