@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "example-local-server": {
+      "command": "/path/to/local/server",
+      "args": [],
+      "env": {}
+    }
+  }
+}
