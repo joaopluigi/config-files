@@ -83,6 +83,46 @@
 (defn model-metadata [model]
   (select-keys model ["schema_version" "assumptions" "criteria" "evidence"]))
 
+(defn score-total [scores criteria]
+  (reduce + (map #(get scores %) criteria)))
+
+(defn score-dominates? [a b criteria]
+  (let [comparisons (map #(compare (get a %) (get b %)) criteria)]
+    (and (some pos? comparisons) (every? #(not (neg? %)) comparisons))))
+
+(defn score-pareto [candidates criteria]
+  (mapv (fn [candidate]
+          (assoc candidate "pareto" (if (some #(and (not= % candidate)
+                                                      (score-dominates? (get % "scores") (get candidate "scores") criteria))
+                                           candidates)
+                                       "dominated"
+                                       "non_dominated")))
+        candidates))
+
+(defn score-options [model candidates criteria recommend]
+  (let [indexed (mapv (fn [index candidate] (assoc candidate "option_index" index)) (range) candidates)
+        feasible (vec (filter #(feasible? model (get % "option")) indexed))
+        rejected (vec (remove #(feasible? model (get % "option")) indexed))
+        scored (mapv (fn [candidate]
+                       (let [scores (get candidate "scores")]
+                         (assoc candidate "total" (score-total scores criteria)
+                                "total_max" (* 5 (count criteria))))) feasible)
+        scored (score-pareto scored criteria)
+        rejected (mapv #(assoc % "status" "rejected"
+                                 "excluded" true
+                                 "reason" "candidate violates one or more model constraints") rejected)
+        all (sort-by #(get % "option_index") (concat scored rejected))
+        result {:status "ok" :criteria criteria :total_max (* 5 (count criteria))
+                :options (vec all)}]
+    (if recommend
+      (let [max-total (when (seq scored) (apply max (map #(get % "total") scored)))
+            recommended (vec (keep (fn [candidate]
+                                    (when (= (get candidate "total") max-total) (get candidate "option_index"))) scored))]
+        (assoc result :recommendation (if (seq recommended)
+                                        {:status "conditional" :option_indices recommended :reason "highest total among feasible candidates"}
+                                        {:status "none" :reason "no feasible candidates"})))
+      result)))
+
 (defn with-metadata [model result]
   (if (seq (model-metadata model))
     (assoc result :metadata (model-metadata model))
@@ -96,8 +136,11 @@
       (> (cartesian-size model) max-cartesian)
       {:status "invalid_input" :error (str "cartesian product exceeds bound " max-cartesian)}
 
-      (and (= (get request "op") "decision_options_compare") (> (count options) max-options))
+      (and (contains? #{"decision_options_compare" "decision_options_score"} (get request "op")) (> (count options) max-options))
       {:status "invalid_input" :error (str "options exceed bound " max-options)}
+
+      (= (get request "op") "decision_options_score")
+      (score-options model options (get request "criteria") (true? (get request "recommend")))
 
       (= (get request "op") "decision_options_compare")
       (let [errors (option-errors model options)]

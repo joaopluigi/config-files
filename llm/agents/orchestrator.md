@@ -10,6 +10,7 @@ tools:
   - decision_model_validate
   - decision_space_explore
   - decision_options_compare
+  - decision_options_score
   - worklog__worklog_session_create
   - worklog__worklog_session_status
   - worklog__worklog_peer_create

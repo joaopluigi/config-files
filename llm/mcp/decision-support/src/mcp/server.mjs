@@ -5,7 +5,7 @@ import { createInterface } from 'node:readline';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const workerPath = join(root, '..', '..', 'worker.clj');
-const toolNames = ['decision_model_validate', 'decision_space_explore', 'decision_options_compare'];
+const toolNames = ['decision_model_validate', 'decision_space_explore', 'decision_options_compare', 'decision_options_score'];
 const MAX_VARIABLES = 100;
 const MAX_DOMAIN = 100;
 const MAX_LIMIT = 1000;
@@ -68,6 +68,27 @@ const toolSchemas = {
       options: { type: 'array', maxItems: MAX_OPTIONS, items: { type: 'object' } },
     },
     required: ['model', 'options'],
+    additionalProperties: false,
+  },
+  decision_options_score: {
+    type: 'object',
+    properties: {
+      model: modelSchema,
+      criteria: { type: 'array', minItems: 1, maxItems: 100, items: { type: 'string', minLength: 1 } },
+      options: {
+        type: 'array', maxItems: MAX_OPTIONS,
+        items: {
+          type: 'object', additionalProperties: false,
+          properties: {
+            option: { type: 'object' },
+            scores: { type: 'object', additionalProperties: { type: 'integer', minimum: 1, maximum: 5 } },
+          },
+          required: ['option', 'scores'],
+        },
+      },
+      recommend: { type: 'boolean' },
+    },
+    required: ['model', 'criteria', 'options'],
     additionalProperties: false,
   },
 };
@@ -199,6 +220,26 @@ function validateOptions(model, options) {
   return errors.length ? structuredError('invalid_option_fields', ['options'], 'one or more options contain invalid fields; inspect errors for each option', { errors }) : null;
 }
 
+function validateScoring(criteria, options, recommend) {
+  if (!Array.isArray(criteria) || criteria.length === 0 || criteria.length > 100) return structuredError('invalid_criteria', ['criteria'], 'criteria must be a non-empty array of at most 100 names');
+  if (criteria.some((criterion) => typeof criterion !== 'string' || criterion.length === 0)) return structuredError('invalid_criterion_name', ['criteria'], 'criterion names must be non-empty strings');
+  if (new Set(criteria).size !== criteria.length) return structuredError('duplicate_criterion', ['criteria'], 'criteria names must be unique');
+  if (!Array.isArray(options)) return structuredError('invalid_options', ['options'], 'options must be an array');
+  if (options.length > MAX_OPTIONS) return structuredError('option_bound_exceeded', ['options'], `options exceed bound ${MAX_OPTIONS}`);
+  if (recommend !== undefined && typeof recommend !== 'boolean') return structuredError('invalid_recommend', ['recommend'], 'recommend must be a boolean');
+  const errors = [];
+  options.forEach((candidate, optionIndex) => {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) { errors.push({ option_index: optionIndex, code: 'invalid_candidate', path: ['options', optionIndex], message: 'scored candidate must be an object' }); return; }
+    if (!Object.hasOwn(candidate, 'option') || !candidate.option || typeof candidate.option !== 'object' || Array.isArray(candidate.option)) errors.push({ option_index: optionIndex, code: 'invalid_option', path: ['options', optionIndex, 'option'], message: 'candidate option must be an object' });
+    if (!Object.hasOwn(candidate, 'scores') || !candidate.scores || typeof candidate.scores !== 'object' || Array.isArray(candidate.scores)) { errors.push({ option_index: optionIndex, code: 'invalid_scores', path: ['options', optionIndex, 'scores'], message: 'scores must be an object' }); return; }
+    const keys = Object.keys(candidate.scores);
+    for (const criterion of criteria) if (!Object.hasOwn(candidate.scores, criterion)) errors.push({ option_index: optionIndex, criterion, code: 'missing_score', path: ['options', optionIndex, 'scores', criterion], message: `missing score for ${criterion}` });
+    for (const criterion of keys) if (!criteria.includes(criterion)) errors.push({ option_index: optionIndex, criterion, code: 'extra_score', path: ['options', optionIndex, 'scores', criterion], message: `score supplied for unknown criterion ${criterion}` });
+    for (const criterion of criteria) if (Object.hasOwn(candidate.scores, criterion) && (!Number.isInteger(candidate.scores[criterion]) || candidate.scores[criterion] < 1 || candidate.scores[criterion] > 5)) errors.push({ option_index: optionIndex, criterion, code: 'invalid_score', path: ['options', optionIndex, 'scores', criterion], message: 'score must be an integer from 1 to 5' });
+  });
+  return errors.length ? structuredError('invalid_scored_options', ['options'], 'one or more scored candidates are invalid; inspect errors for each option', { errors }) : null;
+}
+
 class Worker {
   constructor() {
     this.closed = false;
@@ -324,11 +365,18 @@ export function createServer() {
       } else if (name === 'decision_options_compare') {
         const optionError = validateOptions(input.model, input.options);
         payload = optionError ? invalidInput(optionError.code, optionError.path, optionError.message, { errors: optionError.errors }) : undefined;
+      } else if (name === 'decision_options_score') {
+        const scoreError = validateScoring(input.criteria, input.options, input.recommend);
+        if (scoreError) payload = invalidInput(scoreError.code, scoreError.path, scoreError.message, { errors: scoreError.errors });
+        else {
+          const optionError = validateOptions(input.model, input.options.map((candidate) => candidate.option));
+          payload = optionError ? invalidInput(optionError.code, optionError.path, optionError.message, { errors: optionError.errors }) : undefined;
+        }
       }
       if (!payload && name === 'decision_space_explore' && input.cursor !== undefined) payload = invalidInput('unsupported_cursor', ['cursor'], 'cursor is not a valid continuation cursor');
       if (!payload && name === 'decision_space_explore' && (!Number.isInteger(input.limit ?? 100) || input.limit < 1 || input.limit > MAX_LIMIT)) payload = invalidInput('invalid_limit', ['limit'], `limit must be an integer from 1 to ${MAX_LIMIT}`);
       if (!payload) {
-        try { payload = await worker.request({ op: name, model: input.model, limit: input.limit ?? 100, options: input.options }); }
+        try { payload = await worker.request({ op: name, model: input.model, limit: input.limit ?? 100, options: input.options, criteria: input.criteria, recommend: input.recommend === true }); }
         catch (error) {
           payload = result(error.message.includes('timed out') ? 'timeout' : 'worker_error', error.message);
           if (worker.closed && !closed) worker = new Worker();

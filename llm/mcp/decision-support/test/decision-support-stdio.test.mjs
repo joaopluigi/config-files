@@ -13,6 +13,7 @@ const expectedTools = [
   'decision_model_validate',
   'decision_space_explore',
   'decision_options_compare',
+  'decision_options_score',
 ];
 
 const finiteModel = {
@@ -57,6 +58,7 @@ function requestLine(child, request) {
       try {
         const response = JSON.parse(line);
         resolve({ line, response });
+
       } catch (error) {
         reject(new Error(`stdout was not one JSON object per line: ${line}`, { cause: error }));
       }
@@ -387,4 +389,30 @@ test('invalid or oversized models and truncated exploration return machine-reada
   } finally {
     await stopServer(server);
   }
+});
+
+test('scoring validates schema, sums five scores, separates Pareto, recommends ties, and preserves ordering', async () => {
+  const server = await startServer();
+  try {
+    await initialize(server);
+    const model = { variables: [{ name: 'capacity', domain: [1, 2, 3] }], constraints: [{ op: 'gte', left: { var: 'capacity' }, right: { const: 2 } }] };
+    const result = toolText((await requestLine(server.child, { jsonrpc: '2.0', id: 'score', method: 'tools/call', params: { name: 'decision_options_score', arguments: {
+      model, criteria: ['cost', 'speed', 'risk', 'fit', 'proof'], recommend: true,
+      options: [
+        { option: { capacity: 1 }, scores: { cost: 5, speed: 5, risk: 5, fit: 5, proof: 5 } },
+        { option: { capacity: 2 }, scores: { cost: 4, speed: 4, risk: 4, fit: 4, proof: 4 } },
+        { option: { capacity: 3 }, scores: { cost: 4, speed: 4, risk: 4, fit: 4, proof: 4 } },
+      ],
+    } } })).response);
+    assert.equal(result.status, 'ok');
+    assert.equal(result.total_max, 25);
+    assert.deepEqual(result.options.map(({ option_index }) => option_index), [0, 1, 2]);
+    assert.equal(result.options[0].excluded, true);
+    assert.equal(result.options[1].total, 20);
+    assert.equal(result.options[1].pareto, 'non_dominated');
+    assert.equal(result.options[2].pareto, 'non_dominated');
+    assert.deepEqual(result.recommendation.option_indices, [1, 2]);
+    const malformed = toolText((await requestLine(server.child, { jsonrpc: '2.0', id: 'bad', method: 'tools/call', params: { name: 'decision_options_score', arguments: { model, criteria: ['x', 'x'], options: [] } } })).response);
+    assert.equal(malformed.status, 'invalid_input');
+  } finally { await stopServer(server); }
 });

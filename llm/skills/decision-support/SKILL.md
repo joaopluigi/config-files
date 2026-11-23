@@ -46,6 +46,25 @@ status quo or defer option where relevant. Show the trade-offs rather than
 hiding them in a single score. A recommendation, if requested, must remain
 conditional on the stated assumptions, constraints, and preferences.
 
+## Explicit scoring operation
+
+When the caller provides scored candidate options, use the separate
+`decision_options_score` operation. It requires non-empty unique criterion names
+and one integer score from 1 through 5 for every criterion on every candidate.
+Scores are equal-weight and higher-is-better: the total is the sum of scores and
+`total_max` is five times the number of criteria (for example, five criteria
+have a maximum total of 25). Hard model constraints are applied before scoring;
+violating candidates are returned as rejected or excluded and are never
+recommended.
+
+The score total and the strict Pareto status are separate results. Pareto status
+is computed from score vectors among feasible candidates and does not replace
+the objective-based frontier from `decision_options_compare`. A recommendation
+is returned only when `recommend: true`; it is conditional on the model and
+scores, selects the highest total among feasible candidates, and preserves all
+option indices tied for the highest total. When recommendation is omitted or
+false, no recommendation is returned.
+
 ## Workflow
 
 Follow this sequence:
