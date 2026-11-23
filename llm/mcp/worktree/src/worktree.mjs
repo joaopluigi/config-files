@@ -237,30 +237,6 @@ export class WorktreeStore {
       "--verify",
       `${commit}^{commit}`,
     ]);
-    const entries = await worktreeEntries(identity.root);
-    if (
-      entries.some(
-        (entry) =>
-          entry.commit === exactCommit &&
-          entry.detached &&
-          entry.path !== identity.root,
-      )
-    )
-      throw new WorktreeError(
-        "an exact detached worktree already exists for this commit",
-      );
-    const manifests = await readManifests(this.paths.stateDir);
-    if (
-      manifests.some(
-        (item) =>
-          item.repoCommonDir === identity.commonDir &&
-          item.commit === exactCommit &&
-          ["active", "leased", "provisioning"].includes(item.status),
-      )
-    )
-      throw new WorktreeError(
-        "an active worktree already exists for this repository and commit",
-      );
     await mkdir(this.paths.rootDir, { recursive: true });
     const managedRoot = await realpath(this.paths.rootDir);
     const worktreeId = `${task.replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-|-$/g, "") || "task"}-${id()}`;
@@ -360,7 +336,7 @@ export class WorktreeStore {
         releaseRestrictions:
           "Only the owner may release an active, clean, exact-commit detached worktree; quarantined, failed, ambiguous, missing, pinned, released, or dirty records are never silently released or deleted.",
         reconciliationAndGc:
-          "Reconciliation and garbage collection are server-owned; subagents must not perform either operation.",
+          "Reconciliation and garbage collection are server-owned; clean exact-commit detached worktrees may be removed after lease expiry and the five-minute grace period, while dirty, ambiguous, missing, pinned, failed, or mismatched records are preserved or quarantined; subagents must not perform either operation.",
       },
     };
   }
@@ -431,15 +407,6 @@ export class WorktreeStore {
     ]);
     if (current !== reference)
       throw new WorktreeError("checkpoint must reference current HEAD");
-    if (
-      entries.some(
-        (entry) =>
-          entry.path !== manifest.path &&
-          entry.detached &&
-          entry.commit === reference,
-      )
-    )
-      throw new WorktreeError("another detached worktree already uses commit");
     const previousSequence = Math.max(
       manifest.checkpointSequence || 0,
       ...(manifest.checkpoints || []).map((checkpoint) => {
@@ -504,9 +471,58 @@ export class WorktreeStore {
       const expired =
         manifest.leaseExpiresAt &&
         Date.parse(manifest.leaseExpiresAt) + LEASE_GRACE_MS <= timestamp;
-      if (manifest.status === "active" && expired) {
-        manifest.status = "quarantined";
-        manifest.quarantineReason = "lease-expired";
+      const eligible = ["active", "leased", "provisioning"].includes(
+        manifest.status,
+      );
+      if (expired && eligible && !manifest.pinned) {
+        let entries = [];
+        try {
+          entries = (await worktreeEntries(manifest.repoRoot)).filter(
+            (entry) => entry.path === manifest.path,
+          );
+        } catch {
+          entries = [];
+        }
+        let dirty = false;
+        if (entries.length === 1) {
+          try {
+            dirty =
+              (await git(manifest.path, ["status", "--porcelain"])).length > 0;
+          } catch {
+            dirty = true;
+          }
+        }
+        const exactCleanDetached =
+          entries.length === 1 &&
+          entries[0].detached &&
+          entries[0].commit === manifest.commit &&
+          !dirty;
+        if (exactCleanDetached) {
+          try {
+            await git(manifest.repoRoot, ["worktree", "remove", manifest.path]);
+            manifest.status = "released";
+            manifest.releasedAt = new Date(timestamp).toISOString();
+            manifest.gcReason = "expired-clean-worktree";
+            manifest.gcAt = manifest.releasedAt;
+            delete manifest.quarantineReason;
+          } catch {
+            manifest.status = "quarantined";
+            manifest.quarantineReason = "gc-removal-failed";
+          }
+        } else {
+          manifest.status = "quarantined";
+          manifest.quarantineReason = manifest.pinned
+            ? "pinned"
+            : entries.length !== 1
+              ? entries.length === 0
+                ? "worktree-not-found"
+                : "multiple-worktree-entries"
+              : !entries[0].detached
+                ? "worktree-identity-mismatch"
+                : entries[0].commit !== manifest.commit
+                  ? "worktree-identity-mismatch"
+                  : "dirty-uncommitted-worktree";
+        }
         await atomicWrite(
           manifestPath(this.paths.stateDir, manifest.id),
           manifest,

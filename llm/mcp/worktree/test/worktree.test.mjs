@@ -60,17 +60,15 @@ test("create validates repository identity, detached exact commit, and uniquenes
   });
   assert.equal(descriptor.commit, r.commit);
   assert.equal(descriptor.repo, await realpath(r.root));
-  await assert.rejects(
-    () =>
-      store.create({
-        repo: r.root,
-        commit: r.commit,
-        task: "again",
-        agent: "a",
-        owner: "o",
-      }),
-    /exact detached|active worktree/,
-  );
+  const duplicate = await store.create({
+    repo: r.root,
+    commit: r.commit,
+    task: "again",
+    agent: "a",
+    owner: "o",
+  });
+  assert.notEqual(duplicate.id, descriptor.id);
+  assert.notEqual(duplicate.path, descriptor.path);
   await assert.rejects(
     () =>
       store.create({
@@ -252,6 +250,30 @@ test("checkpoint is durable and recoverable", async () => {
   assert.match(stdout, new RegExp(r.commit));
 });
 
+test("checkpoint succeeds when another detached worktree has the same base commit", async () => {
+  const r = await repo();
+  const state = await durableState();
+  const root = await mkdtemp(join(tmpdir(), "worktree-root-"));
+  const store = new WorktreeStore(env(state, root));
+  const first = await store.create({
+    repo: r.root,
+    commit: r.commit,
+    task: "checkpoint-duplicate-first",
+    agent: "a",
+    owner: "o",
+  });
+  await store.create({
+    repo: r.root,
+    commit: r.commit,
+    task: "checkpoint-duplicate-second",
+    agent: "a",
+    owner: "o",
+  });
+  const checkpoint = await store.checkpoint(first.id, "o", r.commit);
+  assert.equal(checkpoint.commit, r.commit);
+  assert.equal((await store.status(first.id)).status, "active");
+});
+
 test("checkpoint adopts a clean identity drift and releases the accepted commit", async () => {
   const r = await repo();
   const state = await durableState();
@@ -389,7 +411,7 @@ test("release refuses dirty worktrees and safely releases clean exact commits", 
   );
 });
 
-test("startup reconciliation and internal gc quarantine, never delete, expired active worktrees", async () => {
+test("gc removes clean expired worktrees after the grace period", async () => {
   const r = await repo();
   const state = await durableState();
   const root = await mkdtemp(join(tmpdir(), "worktree-root-"));
@@ -405,9 +427,53 @@ test("startup reconciliation and internal gc quarantine, never delete, expired a
   });
   time += 302000;
   const result = await store.gc();
-  assert.equal(result[0].status, "quarantined");
-  assert.equal((await store.reconcile())[0].status, "quarantined");
-  assert.equal((await store.status(created.id)).id, created.id);
+  assert.equal(result[0].status, "released");
+  const manifest = JSON.parse(
+    await readFile(join(state, "manifests", `${created.id}.json`), "utf8"),
+  );
+  assert.equal(manifest.status, "released");
+  assert.equal(manifest.gcReason, "expired-clean-worktree");
+  await assert.rejects(() => realpath(created.path));
+});
+
+test("gc quarantines dirty and ambiguous expired candidates", async () => {
+  for (const mode of ["dirty", "ambiguous"]) {
+    const r = await repo();
+    const state = await durableState();
+    const root = await mkdtemp(join(tmpdir(), "worktree-root-"));
+    let time = Date.parse("2026-01-01T00:00:00Z");
+    const store = new WorktreeStore(env(state, root), () => time);
+    const created = await store.create({
+      repo: r.root,
+      commit: r.commit,
+      task: `gc-${mode}`,
+      agent: "a",
+      owner: "o",
+      leaseSeconds: 1,
+    });
+    if (mode === "dirty") {
+      await writeFile(join(created.path, "dirty"), "x");
+    } else {
+      await run("git", ["-C", created.path, "switch", "-c", "attached"]);
+      assert.equal((await store.reconcile())[0].status, "ambiguous");
+    }
+    time += 302000;
+    const result = await store.gc();
+    assert.equal(
+      result[0].status,
+      mode === "dirty" ? "quarantined" : "ambiguous",
+    );
+    const manifest = JSON.parse(
+      await readFile(join(state, "manifests", `${created.id}.json`), "utf8"),
+    );
+    assert.equal(
+      manifest.quarantineReason,
+      mode === "dirty"
+        ? "dirty-uncommitted-worktree"
+        : "worktree-identity-mismatch",
+    );
+    assert.equal(await realpath(created.path), created.path);
+  }
 });
 
 test("reconciliation quarantines dirty active worktrees and release stays blocked", async () => {
