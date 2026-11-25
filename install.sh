@@ -48,13 +48,26 @@ def read_object(path):
 config = read_object(baseline)
 if profile == "professional" and os.path.lexists(overlay):
     local = read_object(overlay)
-    if set(local) != {"mcpServers"} or not isinstance(local["mcpServers"], dict):
-        raise SystemExit("invalid professional.local.json: only an mcpServers object is allowed")
+    if set(local) - {"mcpServers", "disabledTools"}:
+        raise SystemExit("invalid professional.local.json: only mcpServers and disabledTools are allowed")
+    if "mcpServers" in local and not isinstance(local["mcpServers"], dict):
+        raise SystemExit("invalid professional.local.json: mcpServers must be an object")
+    if "disabledTools" in local:
+        if not isinstance(local["disabledTools"], list) or not all(isinstance(item, str) for item in local["disabledTools"]):
+            raise SystemExit("invalid professional.local.json: disabledTools must be a list of strings")
     if not isinstance(config.get("mcpServers"), dict):
         raise SystemExit("invalid professional baseline: mcpServers must be an object")
+    baseline_disabled = config.get("disabledTools", [])
+    if not isinstance(baseline_disabled, list) or not all(isinstance(item, str) for item in baseline_disabled):
+        raise SystemExit("invalid professional baseline: disabledTools must be a list of strings")
     config = dict(config)
     config["mcpServers"] = dict(config["mcpServers"])
-    config["mcpServers"].update(local["mcpServers"])
+    config["mcpServers"].update(local.get("mcpServers", {}))
+    merged_disabled = list(baseline_disabled)
+    for item in local.get("disabledTools", []):
+        if item not in merged_disabled:
+            merged_disabled.append(item)
+    config["disabledTools"] = merged_disabled
 
 fd, temporary = tempfile.mkstemp(prefix="config.json.", dir=os.path.dirname(destination), text=True)
 os.close(fd)
