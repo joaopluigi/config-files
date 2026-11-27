@@ -175,29 +175,33 @@ export function createServer() {
     },
     async (args) => {
       try {
-        const context =
-          args.peerId === undefined
-            ? await authorized(
-                args.orchestrationId,
-                args.capabilityToken,
-                undefined,
-                'session',
-                args.actor,
-              )
-            : await authorizedPeerMutation(
-                args.orchestrationId,
-                args.capabilityToken,
-                args.peerId,
-                args.actor,
-              );
-        const entries = await appendEntries(
-          pathFor(args.orchestrationId, args.peerId),
-          args.actor,
-          args.entries,
-          context,
-        );
-        const timing = await recordActivity(args.orchestrationId, args.peerId);
-        return text(entries, { timing });
+        const result = await withLock(registryPath(args.orchestrationId), async () => {
+          const context =
+            args.peerId === undefined
+              ? await authorized(
+                  args.orchestrationId,
+                  args.capabilityToken,
+                  undefined,
+                  'session',
+                  args.actor,
+                )
+              : await authorizedPeerMutation(
+                  args.orchestrationId,
+                  args.capabilityToken,
+                  args.peerId,
+                  args.actor,
+                );
+          if (context.forceClosed) throw new Error('worklog is force-closed');
+          const entries = await appendEntries(
+            pathFor(args.orchestrationId, args.peerId),
+            args.actor,
+            args.entries,
+            context,
+          );
+          const timing = await recordActivity(args.orchestrationId, args.peerId, false, true);
+          return { entries, timing };
+        });
+        return text(result.entries, { timing: result.timing });
       } catch (e) {
         return fail(e.message);
       }
@@ -250,36 +254,37 @@ export function createServer() {
     },
     async (args) => {
       try {
-        const registry = await authorized(
-          args.orchestrationId,
-          args.capabilityToken,
-          undefined,
-          'session',
-          args.actor,
-        );
-        if (args.sourcePeerId && !registry.peers.find((peer) => peer.id === args.sourcePeerId))
-          throw new Error('unknown peer');
-        if (!registry.peers.find((peer) => peer.id === args.targetPeerId))
-          throw new Error('unknown peer');
-        const questionId = id();
-        const entry = await appendEntry(
-          pathFor(args.orchestrationId),
-          args.item,
-          args.actor,
-          'question',
-          `[question:${questionId} source=${args.sourcePeerId ?? 'main'} target=${args.targetPeerId}] ${args.question}`,
-        );
-        await withLock(registryPath(args.orchestrationId), async () => {
-          const current = await authorized(args.orchestrationId, args.capabilityToken);
-          current.questions[questionId] = {
+        const result = await withLock(registryPath(args.orchestrationId), async () => {
+          const registry = await authorized(
+            args.orchestrationId,
+            args.capabilityToken,
+            undefined,
+            'session',
+            args.actor,
+          );
+          if (registry.forceClosed) throw new Error('worklog is force-closed');
+          if (args.sourcePeerId && !registry.peers.find((peer) => peer.id === args.sourcePeerId))
+            throw new Error('unknown peer');
+          if (!registry.peers.find((peer) => peer.id === args.targetPeerId))
+            throw new Error('unknown peer');
+          const questionId = id();
+          const entry = await appendEntry(
+            pathFor(args.orchestrationId),
+            args.item,
+            args.actor,
+            'question',
+            `[question:${questionId} source=${args.sourcePeerId ?? 'main'} target=${args.targetPeerId}] ${args.question}`,
+          );
+          registry.questions[questionId] = {
             sourcePeerId: args.sourcePeerId ?? null,
             targetPeerId: args.targetPeerId,
             answered: false,
           };
-          await writeFile(registryPath(args.orchestrationId), JSON.stringify(current, null, 2));
+          await writeFile(registryPath(args.orchestrationId), JSON.stringify(registry, null, 2));
+          return { questionId, entry };
         });
         const timing = await recordActivity(args.orchestrationId);
-        return text({ questionId, entry, timing });
+        return text({ ...result, timing });
       } catch (e) {
         return fail(e.message);
       }
@@ -308,6 +313,7 @@ export function createServer() {
             'peer',
             args.actor,
           );
+          if (registry.forceClosed) throw new Error('worklog is force-closed');
           const question = registry.questions[args.questionId];
           if (!question) throw new Error('unknown question id');
           if (question.answered) throw new Error('question already answered');

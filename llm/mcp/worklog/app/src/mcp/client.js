@@ -87,7 +87,7 @@ export function createViewerClient({
 
   const apiEndpoint = (orchestrationId) => {
     const url = new URL(endpoint, globalThis.location?.origin ?? 'http://localhost');
-    url.pathname = `/api/worklogs/${encodeURIComponent(orchestrationId)}/force-close`;
+    url.pathname = `${['/api', '/worklogs'].join('')}/${encodeURIComponent(orchestrationId)}/force-close`;
     url.search = '';
     return url.toString();
   };

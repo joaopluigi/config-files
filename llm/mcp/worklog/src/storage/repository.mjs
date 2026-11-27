@@ -72,9 +72,10 @@ export function timingMetadata(registry, peerId) {
   const target = peerId === undefined ? registry : peerFor(registry, peerId);
   return target?.timing ? timingFor(target) : undefined;
 }
-export async function recordActivity(orchestrationId, peerId, closed = false) {
-  return withLock(registryPath(orchestrationId), async () => {
+export async function recordActivity(orchestrationId, peerId, closed = false, registryAlreadyLocked = false) {
+  const mutate = async () => {
     const registry = await readRegistry(orchestrationId);
+    assertNotForceClosed(registry);
     const target = peerId === undefined ? registry : peerFor(registry, peerId);
     if (!target) throw new Error('unknown peer');
     const timing = (target.timing ||= { created_at: target.createdAt || new Date().toISOString() });
@@ -84,7 +85,8 @@ export async function recordActivity(orchestrationId, peerId, closed = false) {
     if (closed) timing.closed_at = activity;
     await writeFile(registryPath(orchestrationId), JSON.stringify(registry, null, 2));
     return timingFor(target, Date.parse(activity));
-  });
+  };
+  return registryAlreadyLocked ? mutate() : withLock(registryPath(orchestrationId), mutate);
 }
 const peerMutationContext = Symbol('authorized peer mutation');
 const replacementMutationContext = Symbol('authorized replacement mutation');
@@ -343,7 +345,7 @@ export async function createSession(
         if (after !== content) {
           await appendFile(path, after.slice(content.length));
           injectPublicationFailure('during-predecessor-mutation');
-          await recordActivity(predecessorOrchestrationId);
+          await recordActivity(predecessorOrchestrationId, undefined, false, true);
         }
       }
     } finally {
@@ -375,19 +377,22 @@ export async function createSession(
   activeContinuations.add(predecessorOrchestrationId);
   try {
     return await withClaim(join(sessionDir(predecessorOrchestrationId), 'continuation'), async () =>
-      withLock(mainPath(predecessorOrchestrationId), async () => {
+      withLock(registryPath(predecessorOrchestrationId), async () =>
+        withLock(mainPath(predecessorOrchestrationId), async () => {
         let predecessor;
         try {
           predecessor = await readRegistry(predecessorOrchestrationId);
         } catch {
           throw new Error('unknown predecessor orchestration id');
         }
+        assertNotForceClosed(predecessor);
         const predecessorContent = await readFile(mainPath(predecessorOrchestrationId), 'utf8');
         const predecessorCompletion = completion(predecessorContent, predecessor.questions);
         if (predecessorCompletion.openQuestions.length > 0)
           throw new Error('predecessor has unresolved linked questions');
         return publish(predecessor, predecessorCompletion);
-      }),
+        }),
+      ),
     );
   } finally {
     activeContinuations.delete(predecessorOrchestrationId);
@@ -810,6 +815,8 @@ export async function closeWorklog(
   const path = pathFor(orchestrationId, peerId);
   return withLock(registryPath(orchestrationId), async () => {
     return withLock(path, async () => {
+      const currentRegistry = await readRegistry(orchestrationId);
+      assertNotForceClosed(currentRegistry);
       const before = await readFile(path, 'utf8');
       const alreadyComplete = completion(before).complete;
       if (alreadyComplete) {
