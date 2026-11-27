@@ -281,10 +281,10 @@ export function createServer() {
             answered: false,
           };
           await writeFile(registryPath(args.orchestrationId), JSON.stringify(registry, null, 2));
-          return { questionId, entry };
+          const timing = await recordActivity(args.orchestrationId, undefined, false, true);
+          return { questionId, entry, timing };
         });
-        const timing = await recordActivity(args.orchestrationId);
-        return text({ ...result, timing });
+        return text(result);
       } catch (e) {
         return fail(e.message);
       }
@@ -327,10 +327,10 @@ export function createServer() {
           );
           question.answered = true;
           await writeFile(registryPath(args.orchestrationId), JSON.stringify(registry, null, 2));
-          return { questionId: args.questionId, entry };
+          const timing = await recordActivity(args.orchestrationId, args.peerId, false, true);
+          return { questionId: args.questionId, entry, timing };
         });
-        const timing = await recordActivity(args.orchestrationId, args.peerId);
-        return text({ ...result, timing });
+        return text(result);
       } catch (e) {
         return fail(e.message);
       }
