@@ -49,4 +49,11 @@ export class WorklogService {
       entries: parseEntries(content),
     };
   }
+
+  async forceClose(orchestrationId) {
+    validateId(orchestrationId, 'orchestration id');
+    if (typeof this.storage.forceClose !== 'function')
+      throw new Error('force close is not supported by this storage');
+    return this.storage.forceClose(orchestrationId, 'viewer');
+  }
 }

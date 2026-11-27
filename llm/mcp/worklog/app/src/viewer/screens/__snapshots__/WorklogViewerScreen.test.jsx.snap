@@ -75,6 +75,12 @@ exports[`WorklogViewerScreen > matches the open session view snapshot 1`] = `
           </div>
         </div>
       </div>
+      <button
+        class="rounded bg-red-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+        type="button"
+      >
+        Force close
+      </button>
     </header>
     <div
       class="grid gap-8 md:grid-cols-[20rem_1fr]"

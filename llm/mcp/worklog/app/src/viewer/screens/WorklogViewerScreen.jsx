@@ -104,6 +104,7 @@ export function WorklogViewerScreen({ client, refreshInterval = 3000 }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortFilter, setSortFilter] = useState('created');
   const [details, setDetails] = useState({});
+  const [forceClosing, setForceClosing] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const inFlight = useRef(false);
   const queuedRefresh = useRef(false);
@@ -207,6 +208,19 @@ export function WorklogViewerScreen({ client, refreshInterval = 3000 }) {
   const selected =
     details[state.selectedId] ??
     visibleSessions.find((session) => session.orchestrationId === state.selectedId);
+  const forceClose = async () => {
+    if (!selected || typeof client.forceClose !== 'function') return;
+    if (!window.confirm('Force-close this worklog? Unresolved work will remain visible.')) return;
+    setForceClosing(true);
+    try {
+      await client.forceClose(selected.orchestrationId);
+      await refresh();
+    } catch (error) {
+      setState((current) => ({ ...current, error: error.message }));
+    } finally {
+      setForceClosing(false);
+    }
+  };
   return (
     <main className="mx-auto max-w-6xl p-8">
       <header className="flex items-center justify-between">
@@ -240,6 +254,14 @@ export function WorklogViewerScreen({ client, refreshInterval = 3000 }) {
             />
           </div>
         </div>
+        <button
+          type="button"
+          onClick={forceClose}
+          disabled={!selected || selected.forceClosed || forceClosing}
+          className="rounded bg-red-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+        >
+          {forceClosing ? 'Force-closing…' : 'Force close'}
+        </button>
       </header>
       {state.loading && <p role="status">Loading…</p>}
       {state.error && <p role="alert">{state.error}</p>}

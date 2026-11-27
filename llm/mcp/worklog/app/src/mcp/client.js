@@ -85,6 +85,13 @@ export function createViewerClient({
     return parseToolResult(await response.json());
   }
 
+  const apiEndpoint = (orchestrationId) => {
+    const url = new URL(endpoint, globalThis.location?.origin ?? 'http://localhost');
+    url.pathname = `/api/worklogs/${encodeURIComponent(orchestrationId)}/force-close`;
+    url.search = '';
+    return url.toString();
+  };
+
   return {
     listSessions() {
       return callTool('worklog_session_status', { actor });
@@ -94,6 +101,18 @@ export function createViewerClient({
         orchestrationId,
         ...(capabilityToken ? { token: capabilityToken } : {}),
       });
+    },
+    async forceClose(orchestrationId) {
+      const response = await fetchImpl(apiEndpoint(orchestrationId), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ confirm: true }),
+      });
+      if (!response.ok) throw new Error(`Force close failed (${response.status})`);
+      return response.json();
     },
   };
 }

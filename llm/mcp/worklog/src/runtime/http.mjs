@@ -2,8 +2,10 @@ import { randomBytes } from 'node:crypto';
 import { createServer as createNodeServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/server';
+import { WorklogService } from '../service/worklog.mjs';
 
 export const MAX_BODY_SIZE = 1024 * 1024;
+const worklogService = new WorklogService();
 
 function readBody(request, maxBodySize) {
   return new Promise((resolve, reject) => {
@@ -96,11 +98,51 @@ function validateProtocolVersion(body, protocolHeader) {
   }
 }
 
+async function handleUiRequest(request, reply, { expectedHost, token, maxBodySize }) {
+  const url = new URL(request.url, `http://${expectedHost}`);
+  const match = url.pathname.match(/^\/api\/worklogs\/([^/]+)\/force-close$/);
+  if (!match) return false;
+  if (request.headers.host !== expectedHost) {
+    await writeResponse(rejected(403, 'disallowed host'), reply);
+    return true;
+  }
+  if (request.headers.origin && request.headers.origin !== `http://${expectedHost}`) {
+    await writeResponse(rejected(403, 'disallowed origin'), reply);
+    return true;
+  }
+  if (token && request.headers.authorization !== `Bearer ${token}`) {
+    await writeResponse(rejected(401, 'authorization required'), reply);
+    return true;
+  }
+  if (request.method !== 'POST') {
+    await writeResponse(rejected(405, 'method not allowed', { allow: 'POST' }), reply);
+    return true;
+  }
+  try {
+    const body = await readBody(request, maxBodySize);
+    const payload = body.length ? JSON.parse(body.toString('utf8')) : {};
+    if (payload.confirm !== true)
+      throw Object.assign(new Error('confirmation required'), { statusCode: 400 });
+    const result = await worklogService.forceClose(decodeURIComponent(match[1]));
+    await writeResponse(
+      new globalThis.Response(JSON.stringify(result), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+      reply,
+    );
+  } catch (error) {
+    await writeResponse(rejected(error.statusCode ?? 400, error.message), reply);
+  }
+  return true;
+}
+
 export async function handleMcpRequest(
   request,
   reply,
   { expectedHost, token, maxBodySize = MAX_BODY_SIZE } = {},
 ) {
+  if (await handleUiRequest(request, reply, { expectedHost, token, maxBodySize })) return;
   const requestHost = request.headers.host;
   const requestOrigin = request.headers.origin;
   if (requestHost !== expectedHost) {

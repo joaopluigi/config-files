@@ -40,6 +40,9 @@ export function pathFor(orchestrationId, peerId) {
 export async function readRegistry(orchestrationId) {
   return JSON.parse(await readFile(registryPath(orchestrationId), 'utf8'));
 }
+function assertNotForceClosed(registry) {
+  if (registry.forceClosed) throw new Error('worklog is force-closed');
+}
 function peerFor(registry, peerId) {
   return peerId === undefined ? undefined : registry.peers.find((peer) => peer.id === peerId);
 }
@@ -188,6 +191,7 @@ function renderEntry(item, actor, tag, message) {
 
 export async function appendEntry(path, item, actor, tag, message, context) {
   validateEntryInput(item, actor, tag, message);
+  if (context?.registry) assertNotForceClosed(context.registry);
   const line = renderEntry(item, actor, tag, message);
   return withLock(path, async () => {
     const content = await readFile(path, 'utf8');
@@ -199,6 +203,7 @@ export async function appendEntry(path, item, actor, tag, message, context) {
 
 export async function appendEntries(path, actor, entries, context) {
   validateActor(actor);
+  if (context?.registry) assertNotForceClosed(context.registry);
   if (!Array.isArray(entries) || entries.length === 0) throw new Error('entries must not be empty');
   entries.forEach(({ item, tag, message }) => validateEntryInput(item, actor, tag, message));
   return withLock(path, async () => {
@@ -435,6 +440,7 @@ export async function createSubagent(
   ].join('\n');
   await withLock(registryPath(orchestrationId), async () => {
     const registry = await authorized(orchestrationId, capabilityToken);
+    assertNotForceClosed(registry);
     await writeFile(path, header, { flag: 'wx' });
     registry.peers.push({
       id: peerId,
@@ -473,6 +479,7 @@ export async function replaceSubagent(
   steps.forEach((step) => validateFreeForm(step, 'plan step'));
   return withLock(registryPath(orchestrationId), async () => {
     const registry = await authorized(orchestrationId, capabilityToken);
+    assertNotForceClosed(registry);
     const predecessor = peerFor(registry, predecessorPeerId);
     if (!predecessor) throw new Error('unknown predecessor peer');
     const predecessorPath = subagentPath(orchestrationId, predecessorPeerId);
@@ -684,6 +691,7 @@ async function discoverSessionsInternal() {
           ? { updatedAt: registry.updatedAt }
           : { updatedAt: directoryStat.mtime.toISOString() }),
         ...(registry.completedAt ? { completedAt: registry.completedAt } : {}),
+        ...(registry.forceClosed ? { forceClosed: registry.forceClosed } : {}),
         duration: result.complete
           ? durationValue(createdAt, mainEntries, registry.completedAt)
           : null,
@@ -765,6 +773,21 @@ export async function readViewerWorklog(orchestrationId) {
   if (!session) throw new Error('unknown orchestration id');
   return session;
 }
+export async function forceClose(orchestrationId, actor = 'viewer') {
+  validateId(orchestrationId, 'orchestration id');
+  validateFreeForm(actor, 'actor');
+  return withLock(registryPath(orchestrationId), async () => {
+    const registry = await readRegistry(orchestrationId);
+    if (registry.forceClosed) {
+      return { orchestrationId, forcedClosed: registry.forceClosed, idempotent: true };
+    }
+    const forcedClosed = { at: new Date().toISOString(), actor };
+    registry.forceClosed = forcedClosed;
+    await writeFile(registryPath(orchestrationId), JSON.stringify(registry, null, 2));
+    return { orchestrationId, forcedClosed, idempotent: false };
+  });
+}
+
 export async function closeWorklog(
   orchestrationId,
   capabilityToken,
@@ -776,13 +799,14 @@ export async function closeWorklog(
 ) {
   validateFreeForm(message, 'message');
   if (!message.trim()) throw new Error('message must not be empty');
-  await authorized(
+  const registry = await authorized(
     orchestrationId,
     capabilityToken,
     peerId,
     peerId === undefined ? 'session' : 'peer',
     actor,
   );
+  assertNotForceClosed(registry);
   const path = pathFor(orchestrationId, peerId);
   return withLock(registryPath(orchestrationId), async () => {
     return withLock(path, async () => {

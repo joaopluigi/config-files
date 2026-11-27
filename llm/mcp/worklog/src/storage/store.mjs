@@ -16,4 +16,8 @@ export class WorklogStore {
   readWorklog(orchestrationId) {
     return this.backend.readViewerWorklog(orchestrationId);
   }
+
+  forceClose(orchestrationId, actor = 'viewer') {
+    return this.backend.forceClose(orchestrationId, actor);
+  }
 }
